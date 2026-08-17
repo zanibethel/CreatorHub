@@ -18,21 +18,28 @@ const providers = [
     name: "CreatorHub AI",
     detail: "AI is managed by CreatorHub. Creators do not need an OpenAI password or API key.",
     managed: true,
+    oauthReady: false,
   },
   {
     id: "instagram",
     name: "Instagram",
     detail: "One-tap authorization for professional creator/business accounts. Return to CreatorHub automatically.",
+    managed: false,
+    oauthReady: false,
   },
   {
     id: "tiktok",
     name: "TikTok",
     detail: "Connect with TikTok Login Kit. No auth-code copying; tokens refresh server-side.",
+    managed: false,
+    oauthReady: false,
   },
   {
     id: "fanvue",
     name: "Fanvue",
     detail: "Connect the creator account once with Fanvue OAuth and keep it refreshed in the background.",
+    managed: false,
+    oauthReady: false,
   },
 ] as const;
 
@@ -57,12 +64,16 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
     return connections.find((item) => item.provider === provider);
   }
 
-  function connect(provider: string) {
-    if (provider === "openai") {
-      setMessage("CreatorHub AI will be configured once at the server level; creators will not have to sign into OpenAI.");
+  function connect(provider: typeof providers[number]) {
+    if (provider.managed) {
+      setMessage("CreatorHub AI is a platform-level connection. Once our server AI key is configured, every creator can use it without signing into OpenAI.");
       return;
     }
-    window.location.href = `/api/oauth/${provider}/start?creator_id=${encodeURIComponent(creatorId)}`;
+    if (!provider.oauthReady) {
+      setMessage(`${provider.name} is waiting on one-time CreatorHub developer-app credentials. When those are configured, this same button will open ${provider.name}'s trusted authorization screen and return here automatically.`);
+      return;
+    }
+    window.location.href = `/api/oauth/${provider.id}/start?creator_id=${encodeURIComponent(creatorId)}`;
   }
 
   return (
@@ -72,7 +83,7 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
           <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "#6b7280" }}>Connections</div>
           <h2 style={{ margin: "6px 0" }}>Connect once. Stay connected.</h2>
           <p style={{ marginTop: 0, color: "#59606b", maxWidth: 680 }}>
-            CreatorHub should handle redirects, authorization codes, token exchange and refresh behind the scenes. You only approve access with the provider.
+            CreatorHub handles redirects, authorization codes, token exchange and refresh behind the scenes. Creators only approve access with the provider.
           </p>
         </div>
       </div>
@@ -81,22 +92,23 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
         {providers.map((provider) => {
           const connection = getConnection(provider.id);
           const connected = connection?.status === "connected";
+          const needsSetup = !provider.managed && !provider.oauthReady && !connected;
           return (
             <div key={provider.id} style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 14, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ minWidth: 220, flex: 1 }}>
                 <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
                   <strong>{provider.name}</strong>
                   <span style={{ fontSize: 12, padding: "4px 8px", borderRadius: 999, background: connected || provider.managed ? "#eef8f0" : "#f3f4f6" }}>
-                    {provider.managed ? "CreatorHub managed" : connected ? "Connected" : connection?.status === "needs_setup" ? "Setup needed" : "Not connected"}
+                    {provider.managed ? "CreatorHub managed" : connected ? "Connected" : needsSetup ? "Developer setup pending" : "Not connected"}
                   </span>
                 </div>
                 <div style={{ color: "#6b7280", marginTop: 5 }}>{connected && connection?.external_account_name ? `${connection.external_account_name} · ` : ""}{provider.detail}</div>
               </div>
               <button
                 style={connected ? secondaryButton : primaryButton}
-                onClick={() => connect(provider.id)}
+                onClick={() => connect(provider)}
               >
-                {provider.managed ? "AI setup" : connected ? "Reconnect" : `Connect ${provider.name}`}
+                {provider.managed ? "AI setup" : connected ? "Reconnect" : needsSetup ? "See connection status" : `Connect ${provider.name}`}
               </button>
             </div>
           );
