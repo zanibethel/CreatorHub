@@ -2,20 +2,24 @@
 
 import { FormEvent, useState } from "react";
 import { createClient } from "@/lib/supabase";
-import { card, input, primaryButton } from "@/lib/ui";
+import { card, input, primaryButton, secondaryButton } from "@/lib/ui";
 
 export default function AuthPanel() {
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
 
-  async function submit(event: FormEvent) {
+  async function signIn(event: FormEvent) {
     event.preventDefault();
     const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email,
-      options: { emailRedirectTo: window.location.origin },
-    });
-    setMessage(error?.message ?? "Check your email for your sign-in link.");
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
+    setMessage(error?.message ?? "Signed in.");
+  }
+
+  async function signUp() {
+    const supabase = createClient();
+    const { error } = await supabase.auth.signUp({ email, password });
+    setMessage(error?.message ?? "Account created. If email confirmation is enabled, confirm it before signing in.");
   }
 
   return (
@@ -29,17 +33,14 @@ export default function AuthPanel() {
           Learn what works, find growth and monetization opportunities, and turn them into simple actions.
         </p>
       </div>
-      <form onSubmit={submit} style={{ ...card, maxWidth: 500 }}>
+      <form onSubmit={signIn} style={{ ...card, maxWidth: 500 }}>
         <h2>Start testing</h2>
-        <input
-          style={input}
-          type="email"
-          required
-          placeholder="Email"
-          value={email}
-          onChange={(event) => setEmail(event.target.value)}
-        />
-        <button style={{ ...primaryButton, marginTop: 12 }}>Email sign-in link</button>
+        <input style={input} type="email" required placeholder="Email" value={email} onChange={(event) => setEmail(event.target.value)} />
+        <input style={input} type="password" minLength={6} required placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
+        <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
+          <button style={primaryButton}>Sign in</button>
+          <button type="button" style={secondaryButton} onClick={signUp}>Create account</button>
+        </div>
         {message && <p>{message}</p>}
       </form>
     </main>
