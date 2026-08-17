@@ -16,30 +16,26 @@ const providers = [
   {
     id: "openai",
     name: "CreatorHub AI",
-    detail: "AI is managed by CreatorHub. Creators do not need an OpenAI password or API key.",
+    detail: "AI is built into CreatorHub. Creators do not need an OpenAI password or API key.",
     managed: true,
-    oauthReady: false,
   },
   {
     id: "instagram",
     name: "Instagram",
-    detail: "One-tap authorization for professional creator/business accounts. Return to CreatorHub automatically.",
+    detail: "Connect a professional creator or business account, then return to CreatorHub automatically.",
     managed: false,
-    oauthReady: false,
   },
   {
     id: "tiktok",
     name: "TikTok",
-    detail: "Connect with TikTok Login Kit. No auth-code copying; tokens refresh server-side.",
+    detail: "Authorize with TikTok Login Kit. CreatorHub handles the authorization code and token refresh server-side.",
     managed: false,
-    oauthReady: false,
   },
   {
     id: "fanvue",
     name: "Fanvue",
-    detail: "Connect the creator account once with Fanvue OAuth and keep it refreshed in the background.",
+    detail: "Authorize the creator once with Fanvue OAuth and keep the connection available for CreatorHub workflows.",
     managed: false,
-    oauthReady: false,
   },
 ] as const;
 
@@ -66,11 +62,7 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
 
   function connect(provider: typeof providers[number]) {
     if (provider.managed) {
-      setMessage("CreatorHub AI is a platform-level connection. Once our server AI key is configured, every creator can use it without signing into OpenAI.");
-      return;
-    }
-    if (!provider.oauthReady) {
-      setMessage(`${provider.name} is waiting on one-time CreatorHub developer-app credentials. When those are configured, this same button will open ${provider.name}'s trusted authorization screen and return here automatically.`);
+      setMessage("CreatorHub AI is managed at the platform level. You do not need to connect or share an OpenAI account.");
       return;
     }
     window.location.href = `/api/oauth/${provider.id}/start?creator_id=${encodeURIComponent(creatorId)}`;
@@ -80,41 +72,74 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
     <section style={{ ...card, marginTop: 22 }}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
         <div>
-          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "#6b7280" }}>Connections</div>
-          <h2 style={{ margin: "6px 0" }}>Connect once. Stay connected.</h2>
-          <p style={{ marginTop: 0, color: "#59606b", maxWidth: 680 }}>
-            CreatorHub handles redirects, authorization codes, token exchange and refresh behind the scenes. Creators only approve access with the provider.
+          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "#c4a7ef" }}>Connections</div>
+          <h2 style={{ margin: "6px 0", color: "#ffffff" }}>Connect once. Stay connected.</h2>
+          <p style={{ marginTop: 0, color: "#cfc7da", maxWidth: 680, lineHeight: 1.5 }}>
+            Tap Connect, approve access on the provider&apos;s trusted screen, and CreatorHub brings you back automatically. No auth-code or URL copying.
           </p>
         </div>
       </div>
 
-      <div style={{ display: "grid", gap: 10 }}>
+      <div style={{ display: "grid", gap: 12 }}>
         {providers.map((provider) => {
           const connection = getConnection(provider.id);
           const connected = connection?.status === "connected";
-          const needsSetup = !provider.managed && !provider.oauthReady && !connected;
+          const statusText = provider.managed
+            ? "Built in"
+            : connected
+              ? "Connected"
+              : connection?.status === "error"
+                ? "Needs attention"
+                : "Not connected";
           return (
-            <div key={provider.id} style={{ border: "1px solid #e5e7eb", borderRadius: 16, padding: 14, display: "flex", justifyContent: "space-between", gap: 14, alignItems: "center", flexWrap: "wrap" }}>
+            <div
+              key={provider.id}
+              style={{
+                border: "1px solid #4a3565",
+                background: "rgba(13, 10, 21, 0.52)",
+                borderRadius: 18,
+                padding: 16,
+                display: "flex",
+                justifyContent: "space-between",
+                gap: 14,
+                alignItems: "center",
+                flexWrap: "wrap",
+              }}
+            >
               <div style={{ minWidth: 220, flex: 1 }}>
-                <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                  <strong>{provider.name}</strong>
-                  <span style={{ fontSize: 12, padding: "4px 8px", borderRadius: 999, background: connected || provider.managed ? "#eef8f0" : "#f3f4f6" }}>
-                    {provider.managed ? "CreatorHub managed" : connected ? "Connected" : needsSetup ? "Developer setup pending" : "Not connected"}
+                <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
+                  <strong style={{ color: "#ffffff", fontSize: 18 }}>{provider.name}</strong>
+                  <span
+                    style={{
+                      fontSize: 12,
+                      fontWeight: 800,
+                      padding: "5px 9px",
+                      borderRadius: 999,
+                      color: connected || provider.managed ? "#f3e8ff" : "#ddd6e8",
+                      background: connected || provider.managed ? "#53317c" : "#2a2235",
+                      border: `1px solid ${connected || provider.managed ? "#8b5cf6" : "#4a4057"}`,
+                    }}
+                  >
+                    {statusText}
                   </span>
                 </div>
-                <div style={{ color: "#6b7280", marginTop: 5 }}>{connected && connection?.external_account_name ? `${connection.external_account_name} · ` : ""}{provider.detail}</div>
+                <div style={{ color: "#bbb2c8", marginTop: 7, lineHeight: 1.45 }}>
+                  {connected && connection?.external_account_name ? <><span style={{ color: "#d8b4fe", fontWeight: 700 }}>{connection.external_account_name}</span><span> · </span></> : null}
+                  {provider.detail}
+                </div>
               </div>
-              <button
-                style={connected ? secondaryButton : primaryButton}
-                onClick={() => connect(provider)}
-              >
-                {provider.managed ? "AI setup" : connected ? "Reconnect" : needsSetup ? "See connection status" : `Connect ${provider.name}`}
+              <button style={connected ? secondaryButton : primaryButton} onClick={() => connect(provider)}>
+                {provider.managed ? "AI status" : connected ? `Reconnect ${provider.name}` : `Connect ${provider.name}`}
               </button>
             </div>
           );
         })}
       </div>
-      {message && <p style={{ color: "#59606b", marginBottom: 0 }}>{message}</p>}
+      {message && (
+        <p style={{ color: "#d8c8eb", background: "#21172f", border: "1px solid #4d3769", borderRadius: 12, padding: 12, marginBottom: 0 }}>
+          {message}
+        </p>
+      )}
     </section>
   );
 }
