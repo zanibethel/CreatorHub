@@ -1,10 +1,12 @@
 import { createClient } from "@supabase/supabase-js";
 
+const FALLBACK_URL = "https://yufptpfiwdbzzrvhkvux.supabase.co";
+const FALLBACK_PUBLISHABLE_KEY = "sb_publishable_JpayDIqb8Gy-hnGSL99fdg_jmKQQNJh";
+
 export default async function SmartLinkPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
-  if (!url || !key) return <main style={{ padding: 24 }}>CreatorHub is not configured.</main>;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || FALLBACK_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || FALLBACK_PUBLISHABLE_KEY;
 
   const supabase = createClient(url, key);
   const { data } = await supabase.rpc("get_public_smartlink", { p_slug: slug });
