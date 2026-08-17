@@ -5,7 +5,7 @@ import AIRecommendationsButton from "@/components/AIRecommendationsButton";
 import ConnectionsPanel from "@/components/ConnectionsPanel";
 import CreatorForm from "@/components/CreatorForm";
 import { createClient } from "@/lib/supabase";
-import { card, input, primaryButton, secondaryButton } from "@/lib/ui";
+import { card, colors, input, primaryButton, secondaryButton } from "@/lib/ui";
 import type { ContentItem, Creator, Recommendation } from "@/lib/types";
 
 function slugify(value: string) {
@@ -140,53 +140,61 @@ export default function Dashboard({ userId }: { userId: string }) {
   const totalRevenue = content.reduce((sum, item) => sum + Number(item.revenue || 0), 0);
 
   return (
-    <main style={{ maxWidth: 1100, margin: "0 auto", padding: 24 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 20 }}>
+    <main style={{ maxWidth: 1120, margin: "0 auto", padding: 24 }}>
+      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, marginBottom: 22 }}>
         <div>
-          <strong style={{ fontSize: 22 }}>CreatorHub</strong>
-          <div style={{ color: "#6b7280" }}>Track → understand → suggest → approve → learn</div>
+          <div style={{ display: "inline-flex", alignItems: "center", gap: 8, color: colors.purpleBright, fontWeight: 900, letterSpacing: ".02em", fontSize: 22 }}>CreatorHub</div>
+          <div style={{ color: colors.muted, marginTop: 4 }}>Track → understand → suggest → approve → learn</div>
         </div>
         <button style={secondaryButton} onClick={() => supabase.auth.signOut()}>Sign out</button>
       </header>
 
       <section style={{ ...card, marginBottom: 16 }}>
+        <div style={{ fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em", color: colors.muted, fontWeight: 800, marginBottom: 8 }}>Active workspace</div>
         <select style={{ ...input, margin: 0 }} value={creatorId} onChange={(event) => setCreatorId(event.target.value)}>
           <option value="">Choose creator</option>
           {creators.map((creator) => <option key={creator.id} value={creator.id}>{creator.name} · {creator.creator_type}</option>)}
         </select>
-        {activeCreator && <p><a href={`/s/${activeCreator.slug}`} target="_blank">Open {activeCreator.name}&apos;s SmartLink →</a></p>}
+        {activeCreator && <p style={{ marginBottom: 0 }}><a style={{ color: colors.purpleBright, fontWeight: 700 }} href={`/s/${activeCreator.slug}`} target="_blank">Open {activeCreator.name}&apos;s SmartLink →</a></p>}
       </section>
 
       {!activeCreator ? (
         <section style={card}>
+          <div style={{ color: colors.purpleBright, fontWeight: 800, fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>Start here</div>
           <h2>Create your first workspace</h2>
           <CreatorForm onSubmit={createCreator} />
         </section>
       ) : (
         <>
           <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}>
-            <div style={card}><small>Content tracked</small><h2>{content.length}</h2></div>
-            <div style={card}><small>Views</small><h2>{totalViews.toLocaleString()}</h2></div>
-            <div style={card}><small>Revenue</small><h2>${totalRevenue.toFixed(2)}</h2></div>
+            <div style={card}><small style={{ color: colors.muted }}>Content tracked</small><h2 style={{ marginBottom: 0 }}>{content.length}</h2></div>
+            <div style={card}><small style={{ color: colors.muted }}>Views</small><h2 style={{ marginBottom: 0 }}>{totalViews.toLocaleString()}</h2></div>
+            <div style={{ ...card, borderColor: "#5b3a86" }}><small style={{ color: colors.muted }}>Revenue</small><h2 style={{ marginBottom: 0, color: colors.purpleBright }}>${totalRevenue.toFixed(2)}</h2></div>
           </section>
 
           <ConnectionsPanel userId={userId} creatorId={creatorId} />
 
-          <h2>Today</h2>
-          <AIRecommendationsButton creator={activeCreator} creatorId={creatorId} content={content} onDone={() => loadWorkspace(creatorId)} />
+          <section style={{ marginTop: 26 }}>
+            <div style={{ color: colors.purpleBright, fontWeight: 800, fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>Creator operator</div>
+            <h2 style={{ marginTop: 6 }}>Today</h2>
+            <AIRecommendationsButton creator={activeCreator} creatorId={creatorId} content={content} onDone={() => loadWorkspace(creatorId)} />
+          </section>
 
           <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
             {recommendations.filter((item) => item.status === "pending").slice(0, 3).map((item) => (
-              <article key={item.id} style={{ ...card, borderLeft: "5px solid #111" }}>
-                <strong>{item.title}</strong>
+              <article key={item.id} style={{ ...card, borderLeft: `5px solid ${colors.purple}` }}>
+                <strong style={{ fontSize: 18 }}>{item.title}</strong>
                 <p>{item.summary}</p>
-                <p style={{ color: "#6b7280" }}><strong>Why:</strong> {item.reason}</p>
+                <p style={{ color: colors.muted }}><strong style={{ color: colors.text }}>Why:</strong> {item.reason}</p>
                 <button style={primaryButton} onClick={() => approveRecommendation(item)}>Approve & build campaign</button>
               </article>
             ))}
           </div>
 
-          <h2>Teach CreatorHub what works</h2>
+          <section style={{ marginTop: 26 }}>
+            <div style={{ color: colors.muted, fontWeight: 800, fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>Learning</div>
+            <h2 style={{ marginTop: 6 }}>Teach CreatorHub what works</h2>
+          </section>
           <form onSubmit={addContent} style={card}>
             <select name="platform" style={input}>
               <option>TikTok</option><option>Instagram</option><option>Facebook</option><option>YouTube</option><option>X</option><option>Other</option>
@@ -201,7 +209,10 @@ export default function Dashboard({ userId }: { userId: string }) {
             <button style={{ ...primaryButton, marginTop: 12 }}>Add content</button>
           </form>
 
-          <h2>Add another creator</h2>
+          <section style={{ marginTop: 26 }}>
+            <div style={{ color: colors.muted, fontWeight: 800, fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>Workspaces</div>
+            <h2 style={{ marginTop: 6 }}>Add another creator</h2>
+          </section>
           <section style={card}><CreatorForm onSubmit={createCreator} /></section>
         </>
       )}
