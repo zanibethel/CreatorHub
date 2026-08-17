@@ -2,6 +2,7 @@
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import CreatorForm from "@/components/CreatorForm";
+import ConnectionsPanel from "@/components/ConnectionsPanel";
 import { createClient } from "@/lib/supabase";
 import { card, input, primaryButton, secondaryButton } from "@/lib/ui";
 import type { ContentItem, Creator, Recommendation } from "@/lib/types";
@@ -147,7 +148,8 @@ export default function Dashboard({ userId }: { userId: string }) {
       {activeCreator && <p><a href={`/s/${activeCreator.slug}`} target="_blank">Open {activeCreator.name}&apos;s SmartLink →</a></p>}
     </section>
     {!activeCreator ? <section style={card}><h2>Create your first workspace</h2><CreatorForm onSubmit={createCreator} /></section> : <>
-      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12 }}><div style={card}><small>Content tracked</small><h2>{content.length}</h2></div><div style={card}><small>Views</small><h2>{totalViews.toLocaleString()}</h2></div><div style={card}><small>Revenue</small><h2>${totalRevenue.toFixed(2)}</h2></div></section>
+      <ConnectionsPanel userId={userId} creatorId={creatorId} />
+      <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 12, marginTop: 22 }}><div style={card}><small>Content tracked</small><h2>{content.length}</h2></div><div style={card}><small>Views</small><h2>{totalViews.toLocaleString()}</h2></div><div style={card}><small>Revenue</small><h2>${totalRevenue.toFixed(2)}</h2></div></section>
       <h2>Today</h2><button style={primaryButton} onClick={generateRecommendations}>Generate recommendations</button>
       <div style={{ display: "grid", gap: 12, marginTop: 12 }}>{recommendations.filter((r) => r.status === "pending").slice(0, 3).map((r) => <article key={r.id} style={{ ...card, borderLeft: "5px solid #111" }}><strong>{r.title}</strong><p>{r.summary}</p><p style={{ color: "#6b7280" }}><strong>Why:</strong> {r.reason}</p><button style={primaryButton} onClick={() => approveRecommendation(r)}>Approve & build campaign</button></article>)}</div>
       <h2>Teach CreatorHub what works</h2><form onSubmit={addContent} style={card}><select name="platform" style={input}><option>TikTok</option><option>Instagram</option><option>Facebook</option><option>YouTube</option><option>X</option><option>Other</option></select><input name="title" style={input} placeholder="Post title / idea"/><textarea name="caption" style={{ ...input, minHeight: 80 }} placeholder="Caption, hook, product, or what happened"/><div style={{ display: "grid", gridTemplateColumns: "repeat(3,minmax(0,1fr))", gap: 8 }}><input name="views" type="number" min="0" style={input} placeholder="Views"/><input name="clicks" type="number" min="0" style={input} placeholder="Link clicks"/><input name="revenue" type="number" min="0" step="0.01" style={input} placeholder="Revenue"/></div><button style={{ ...primaryButton, marginTop: 12 }}>Add content</button></form>
