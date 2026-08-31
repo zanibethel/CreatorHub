@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import ProductManager from "@/components/ProductManager";
 import { createClient } from "@/lib/supabase";
 import { card, primaryButton, secondaryButton } from "@/lib/ui";
 
@@ -15,8 +16,8 @@ type Connection = {
 const providers = [
   {
     id: "openai",
-    name: "CreatorHub AI",
-    detail: "AI is built into CreatorHub. Creators do not need an OpenAI password or API key.",
+    name: "CreatorHub AI · Claude",
+    detail: "Claude runs through CreatorHub's Vercel AI Gateway. Creators do not need a Claude password or Anthropic API key.",
     managed: true,
   },
   {
@@ -62,84 +63,87 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
 
   function connect(provider: typeof providers[number]) {
     if (provider.managed) {
-      setMessage("CreatorHub AI is managed at the platform level. You do not need to connect or share an OpenAI account.");
+      setMessage("Claude is managed inside CreatorHub through Vercel AI Gateway. No separate Claude login is required.");
       return;
     }
     window.location.href = `/api/oauth/${provider.id}/start?creator_id=${encodeURIComponent(creatorId)}`;
   }
 
   return (
-    <section style={{ ...card, marginTop: 22 }}>
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
-        <div>
-          <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "#c4a7ef" }}>Connections</div>
-          <h2 style={{ margin: "6px 0", color: "#ffffff" }}>Connect once. Stay connected.</h2>
-          <p style={{ marginTop: 0, color: "#cfc7da", maxWidth: 680, lineHeight: 1.5 }}>
-            Tap Connect, approve access on the provider&apos;s trusted screen, and CreatorHub brings you back automatically. No auth-code or URL copying.
-          </p>
+    <>
+      <section style={{ ...card, marginTop: 22 }}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+          <div>
+            <div style={{ fontSize: 13, fontWeight: 800, letterSpacing: ".08em", textTransform: "uppercase", color: "#c4a7ef" }}>Connections</div>
+            <h2 style={{ margin: "6px 0", color: "#ffffff" }}>Connect once. Stay connected.</h2>
+            <p style={{ marginTop: 0, color: "#cfc7da", maxWidth: 680, lineHeight: 1.5 }}>
+              Tap Connect, approve access on the provider&apos;s trusted screen, and CreatorHub brings you back automatically. No auth-code or URL copying.
+            </p>
+          </div>
         </div>
-      </div>
 
-      <div style={{ display: "grid", gap: 12 }}>
-        {providers.map((provider) => {
-          const connection = getConnection(provider.id);
-          const connected = connection?.status === "connected";
-          const statusText = provider.managed
-            ? "Built in"
-            : connected
-              ? "Connected"
-              : connection?.status === "error"
-                ? "Needs attention"
-                : "Not connected";
-          return (
-            <div
-              key={provider.id}
-              style={{
-                border: "1px solid #4a3565",
-                background: "rgba(13, 10, 21, 0.52)",
-                borderRadius: 18,
-                padding: 16,
-                display: "flex",
-                justifyContent: "space-between",
-                gap: 14,
-                alignItems: "center",
-                flexWrap: "wrap",
-              }}
-            >
-              <div style={{ minWidth: 220, flex: 1 }}>
-                <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
-                  <strong style={{ color: "#ffffff", fontSize: 18 }}>{provider.name}</strong>
-                  <span
-                    style={{
-                      fontSize: 12,
-                      fontWeight: 800,
-                      padding: "5px 9px",
-                      borderRadius: 999,
-                      color: connected || provider.managed ? "#f3e8ff" : "#ddd6e8",
-                      background: connected || provider.managed ? "#53317c" : "#2a2235",
-                      border: `1px solid ${connected || provider.managed ? "#8b5cf6" : "#4a4057"}`,
-                    }}
-                  >
-                    {statusText}
-                  </span>
+        <div style={{ display: "grid", gap: 12 }}>
+          {providers.map((provider) => {
+            const connection = getConnection(provider.id);
+            const connected = connection?.status === "connected";
+            const statusText = provider.managed
+              ? "Built in"
+              : connected
+                ? "Connected"
+                : connection?.status === "error"
+                  ? "Needs attention"
+                  : "Not connected";
+            return (
+              <div
+                key={provider.id}
+                style={{
+                  border: "1px solid #4a3565",
+                  background: "rgba(13, 10, 21, 0.52)",
+                  borderRadius: 18,
+                  padding: 16,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 14,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <div style={{ minWidth: 220, flex: 1 }}>
+                  <div style={{ display: "flex", gap: 9, alignItems: "center", flexWrap: "wrap" }}>
+                    <strong style={{ color: "#ffffff", fontSize: 18 }}>{provider.name}</strong>
+                    <span
+                      style={{
+                        fontSize: 12,
+                        fontWeight: 800,
+                        padding: "5px 9px",
+                        borderRadius: 999,
+                        color: connected || provider.managed ? "#f3e8ff" : "#ddd6e8",
+                        background: connected || provider.managed ? "#53317c" : "#2a2235",
+                        border: `1px solid ${connected || provider.managed ? "#8b5cf6" : "#4a4057"}`,
+                      }}
+                    >
+                      {statusText}
+                    </span>
+                  </div>
+                  <div style={{ color: "#bbb2c8", marginTop: 7, lineHeight: 1.45 }}>
+                    {connected && connection?.external_account_name ? <><span style={{ color: "#d8b4fe", fontWeight: 700 }}>{connection.external_account_name}</span><span> · </span></> : null}
+                    {provider.detail}
+                  </div>
                 </div>
-                <div style={{ color: "#bbb2c8", marginTop: 7, lineHeight: 1.45 }}>
-                  {connected && connection?.external_account_name ? <><span style={{ color: "#d8b4fe", fontWeight: 700 }}>{connection.external_account_name}</span><span> · </span></> : null}
-                  {provider.detail}
-                </div>
+                <button style={connected ? secondaryButton : primaryButton} onClick={() => connect(provider)}>
+                  {provider.managed ? "AI status" : connected ? `Reconnect ${provider.name}` : `Connect ${provider.name}`}
+                </button>
               </div>
-              <button style={connected ? secondaryButton : primaryButton} onClick={() => connect(provider)}>
-                {provider.managed ? "AI status" : connected ? `Reconnect ${provider.name}` : `Connect ${provider.name}`}
-              </button>
-            </div>
-          );
-        })}
-      </div>
-      {message && (
-        <p style={{ color: "#d8c8eb", background: "#21172f", border: "1px solid #4d3769", borderRadius: 12, padding: 12, marginBottom: 0 }}>
-          {message}
-        </p>
-      )}
-    </section>
+            );
+          })}
+        </div>
+        {message && (
+          <p style={{ color: "#d8c8eb", background: "#21172f", border: "1px solid #4d3769", borderRadius: 12, padding: 12, marginBottom: 0 }}>
+            {message}
+          </p>
+        )}
+      </section>
+      <ProductManager userId={userId} creatorId={creatorId} />
+    </>
   );
 }
