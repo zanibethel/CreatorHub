@@ -1,0 +1,75 @@
+export const dynamic = "force-dynamic";
+
+async function checkClaude() {
+  const gatewayToken = process.env.AI_GATEWAY_API_KEY || process.env.VERCEL_OIDC_TOKEN;
+  if (!gatewayToken) {
+    return { configured: false, reachable: false, detail: "No AI Gateway credential is available." };
+  }
+
+  try {
+    const response = await fetch("https://ai-gateway.vercel.sh/v1/models", {
+      headers: { Authorization: `Bearer ${gatewayToken}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return { configured: true, reachable: false, detail: `AI Gateway returned ${response.status}.` };
+    }
+
+    const data = await response.json();
+    const models = Array.isArray(data?.data) ? data.data : [];
+    const claudeAvailable = models.some((model: { id?: string }) => String(model?.id ?? "").startsWith("anthropic/claude"));
+
+    return {
+      configured: true,
+      reachable: true,
+      claudeAvailable,
+      detail: claudeAvailable ? "Claude models are available through Vercel AI Gateway." : "AI Gateway is reachable, but no Claude model was found.",
+    };
+  } catch {
+    return { configured: true, reachable: false, detail: "Could not reach Vercel AI Gateway." };
+  }
+}
+
+async function checkStripe() {
+  const stripeSecret = process.env.STRIPE_SECRET_KEY;
+  if (!stripeSecret) {
+    return { configured: false, reachable: false, detail: "STRIPE_SECRET_KEY is not configured." };
+  }
+
+  try {
+    const response = await fetch("https://api.stripe.com/v1/account", {
+      headers: { Authorization: `Bearer ${stripeSecret}` },
+      cache: "no-store",
+    });
+
+    if (!response.ok) {
+      return { configured: true, reachable: false, detail: `Stripe returned ${response.status}.` };
+    }
+
+    const account = await response.json();
+    return {
+      configured: true,
+      reachable: true,
+      chargesEnabled: Boolean(account?.charges_enabled),
+      payoutsEnabled: Boolean(account?.payouts_enabled),
+      detail: "Stripe credentials are valid.",
+    };
+  } catch {
+    return { configured: true, reachable: false, detail: "Could not reach Stripe." };
+  }
+}
+
+export async function GET() {
+  const [claude, stripe] = await Promise.all([checkClaude(), checkStripe()]);
+
+  return Response.json(
+    {
+      ok: Boolean(claude.reachable && stripe.reachable),
+      claude,
+      stripe,
+      checkedAt: new Date().toISOString(),
+    },
+    { headers: { "Cache-Control": "no-store" } },
+  );
+}
