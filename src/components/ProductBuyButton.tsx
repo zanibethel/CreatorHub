@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { primaryButton } from "@/lib/ui";
 
-export default function ProductBuyButton({ slug, label }: { slug: string; label: string }) {
+export default function ProductBuyButton({ slug, label, referralCode }: { slug: string; label: string; referralCode?: string }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
 
@@ -13,7 +13,7 @@ export default function ProductBuyButton({ slug, label }: { slug: string; label:
     const response = await fetch("/api/checkout/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ slug }),
+      body: JSON.stringify({ slug, ref: referralCode || undefined }),
     });
     const data = await response.json();
     if (!response.ok || !data.url) {
