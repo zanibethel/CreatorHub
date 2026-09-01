@@ -11,8 +11,22 @@ type SalesCopy = {
   cta?: string;
 };
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+function normalizeReferralCode(value?: string) {
+  const ref = String(value || "").trim().toLowerCase();
+  return /^[a-z0-9_-]{1,64}$/.test(ref) ? ref : "";
+}
+
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ ref?: string }>;
+}) {
   const { slug } = await params;
+  const { ref } = await searchParams;
+  const referralCode = normalizeReferralCode(ref);
+
   const response = await fetch(`${SUPABASE_URL}/rest/v1/products?slug=eq.${encodeURIComponent(slug)}&status=eq.published&select=id,title,slug,description,price_cents,currency,cover_url,ai_sales_copy`, {
     headers: { apikey: SUPABASE_KEY },
     cache: "no-store",
@@ -41,7 +55,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
         )}
         <div style={{ marginTop: 26, display: "grid", gap: 12 }}>
           <div style={{ fontSize: 28, fontWeight: 900 }}>{price}</div>
-          <ProductBuyButton slug={product.slug} label={copy.cta || `Get ${product.title}`} />
+          <ProductBuyButton slug={product.slug} label={copy.cta || `Get ${product.title}`} referralCode={referralCode || undefined} />
           <div style={{ color: colors.muted, fontSize: 13 }}>Secure checkout powered by Stripe. Your ebook download is unlocked after successful payment.</div>
         </div>
       </section>
