@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callbackUrl, isOAuthProvider } from "@/lib/oauth";
+import { callbackUrl, isOAuthProvider, providerScopes } from "@/lib/oauth";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_JpayDIqb8Gy-hnGSL99fdg_jmKQQNJh";
+const FANVUE_API_VERSION = "2025-06-26";
 
 function appRedirect(request: NextRequest, provider: string, status: string) {
   const url = new URL("/", request.nextUrl.origin);
@@ -55,9 +56,24 @@ async function exchangeInstagram(code: string, redirectUri: string) {
   form.set("redirect_uri", redirectUri);
   form.set("code", code);
   const response = await fetch("https://api.instagram.com/oauth/access_token", { method: "POST", body: form });
-  const data = await response.json();
-  if (!response.ok) throw new Error(data?.error_message || data?.error?.message || "Instagram token exchange failed");
-  return data;
+  const shortLived = await response.json();
+  if (!response.ok) throw new Error(shortLived?.error_message || shortLived?.error?.message || "Instagram token exchange failed");
+
+  const exchangeUrl = new URL("https://graph.instagram.com/access_token");
+  exchangeUrl.searchParams.set("grant_type", "ig_exchange_token");
+  exchangeUrl.searchParams.set("client_secret", process.env.INSTAGRAM_APP_SECRET!);
+  exchangeUrl.searchParams.set("access_token", shortLived.access_token);
+  const longResponse = await fetch(exchangeUrl, { cache: "no-store" });
+  const longLived = await longResponse.json();
+  if (!longResponse.ok) throw new Error(longLived?.error?.message || "Instagram long-lived token exchange failed");
+
+  return {
+    ...shortLived,
+    access_token: longLived.access_token,
+    token_type: longLived.token_type || "Bearer",
+    expires_in: longLived.expires_in,
+    scope: providerScopes("instagram"),
+  };
 }
 
 async function getInstagramProfile(accessToken: string) {
@@ -76,6 +92,18 @@ async function getTikTokProfile(accessToken: string) {
   if (!response.ok) return null;
   const body = await response.json();
   return body?.data?.user ?? null;
+}
+
+async function getFanvueProfile(accessToken: string) {
+  const response = await fetch("https://api.fanvue.com/users/me", {
+    headers: {
+      Authorization: `Bearer ${accessToken}`,
+      "X-Fanvue-API-Version": FANVUE_API_VERSION,
+    },
+    cache: "no-store",
+  });
+  if (!response.ok) return null;
+  return response.json();
 }
 
 function fanvueSubject(idToken?: string) {
@@ -131,8 +159,9 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
     } else if (provider === "fanvue") {
       if (!verifier) throw new Error("Missing Fanvue PKCE verifier");
       tokens = await exchangeFanvue(code, redirectUri, verifier);
-      externalId = fanvueSubject(tokens.id_token);
-      externalName = "Fanvue account";
+      const profile = await getFanvueProfile(tokens.access_token);
+      externalId = String(profile?.id ?? profile?.uuid ?? fanvueSubject(tokens.id_token) ?? "") || null;
+      externalName = profile?.username ? `@${profile.username}` : profile?.displayName || profile?.display_name || "Fanvue account";
       scopes = String(tokens.scope ?? "").split(/\s+/).filter(Boolean);
     } else {
       tokens = await exchangeInstagram(code, redirectUri);
@@ -140,7 +169,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       const profile = await getInstagramProfile(tokens.access_token);
       externalName = profile?.username ? `@${profile.username}` : "Instagram account";
       externalId = profile?.id ?? externalId;
-      scopes = (process.env.INSTAGRAM_SCOPES || "instagram_business_basic,instagram_business_content_publish,instagram_business_manage_insights").split(",");
+      scopes = String(tokens.scope ?? providerScopes("instagram")).split(",").filter(Boolean);
     }
 
     const existing = await supabase
@@ -160,7 +189,11 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
       external_account_id: externalId,
       external_account_name: externalName,
       scopes,
-      metadata: { token_type: tokens.token_type ?? "Bearer" },
+      metadata: {
+        token_type: tokens.token_type ?? "Bearer",
+        oauth_version: provider === "tiktok" ? "v2" : "oauth2",
+        fanvue_api_version: provider === "fanvue" ? FANVUE_API_VERSION : undefined,
+      },
       connected_at: new Date().toISOString(),
       last_refreshed_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
