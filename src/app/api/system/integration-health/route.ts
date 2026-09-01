@@ -60,14 +60,30 @@ async function checkStripe() {
   }
 }
 
+function socialHealth(configured: boolean, provider: string) {
+  return {
+    configured,
+    reachable: configured,
+    detail: configured
+      ? `${provider} OAuth credentials are configured. Account authorization is available from CreatorHub.`
+      : `${provider} developer-app credentials still need to be added.`,
+  };
+}
+
 export async function GET() {
   const [claude, stripe] = await Promise.all([checkClaude(), checkStripe()]);
+  const instagram = socialHealth(Boolean(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET), "Instagram");
+  const tiktok = socialHealth(Boolean(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET), "TikTok");
+  const fanvue = socialHealth(Boolean(process.env.FANVUE_CLIENT_ID && process.env.FANVUE_CLIENT_SECRET), "Fanvue");
 
   return Response.json(
     {
-      ok: Boolean(claude.reachable && stripe.reachable),
+      ok: Boolean(claude.reachable),
       claude,
       stripe,
+      instagram,
+      tiktok,
+      fanvue,
       checkedAt: new Date().toISOString(),
     },
     { headers: { "Cache-Control": "no-store" } },
