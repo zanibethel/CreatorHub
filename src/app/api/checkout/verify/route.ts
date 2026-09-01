@@ -31,18 +31,31 @@ export async function GET(request: NextRequest) {
   const product = products?.[0];
   if (!product?.file_path) return Response.json({ error: "The ebook file is unavailable." }, { status: 404 });
 
+  const amountTotal = Number(session.amount_total ?? 0);
+  const referralCode = String(session.metadata?.referral_code ?? "").trim() || null;
+  const referringCreatorId = String(session.metadata?.referring_creator_id ?? "").trim() || null;
+  const commissionBpsRaw = Number(session.metadata?.promoter_commission_bps ?? 0);
+  const commissionBps = referralCode && referringCreatorId && Number.isFinite(commissionBpsRaw)
+    ? Math.max(0, Math.min(10000, Math.round(commissionBpsRaw)))
+    : null;
+  const commissionCents = commissionBps === null ? null : Math.round((amountTotal * commissionBps) / 10000);
+
   const purchase = {
     product_id: product.id,
     stripe_checkout_session_id: session.id,
     stripe_payment_intent_id: typeof session.payment_intent === "string" ? session.payment_intent : null,
     buyer_email: session.customer_details?.email ?? session.customer_email ?? null,
-    amount_total: session.amount_total ?? 0,
+    amount_total: amountTotal,
     currency: session.currency ?? "usd",
     payment_status: session.payment_status,
+    referral_code: referralCode,
+    referring_creator_id: referringCreatorId,
+    promoter_commission_bps: commissionBps,
+    promoter_commission_cents: commissionCents,
     fulfilled_at: new Date().toISOString(),
   };
 
-  await fetch(`${SUPABASE_URL}/rest/v1/purchases?on_conflict=stripe_checkout_session_id`, {
+  const purchaseResponse = await fetch(`${SUPABASE_URL}/rest/v1/purchases?on_conflict=stripe_checkout_session_id`, {
     method: "POST",
     headers: {
       apikey: supabaseSecret,
@@ -52,6 +65,10 @@ export async function GET(request: NextRequest) {
     },
     body: JSON.stringify(purchase),
   });
+  if (!purchaseResponse.ok) {
+    console.error("Purchase record error", purchaseResponse.status, await purchaseResponse.text());
+    return Response.json({ error: "Payment was verified, but the purchase record could not be saved." }, { status: 502 });
+  }
 
   const signResponse = await fetch(`${SUPABASE_URL}/storage/v1/object/sign/creatorhub-products/${product.file_path.split("/").map(encodeURIComponent).join("/")}`, {
     method: "POST",
