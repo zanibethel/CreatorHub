@@ -14,6 +14,16 @@ type Product = {
   status: "draft" | "published" | "archived";
   file_path: string | null;
   ai_sales_copy: Record<string, unknown>;
+  metadata: {
+    packaging?: {
+      source_urls?: string[];
+      format?: string;
+      engine?: string;
+      page_count?: number;
+      byte_size?: number;
+      packaged_at?: string;
+    };
+  } | null;
 };
 
 function slugify(value: string) {
@@ -28,7 +38,7 @@ export default function ProductManager({ userId, creatorId }: { userId: string; 
 
   async function loadProducts() {
     const { data, error } = await supabase.from("products")
-      .select("id,title,slug,description,price_cents,currency,status,file_path,ai_sales_copy")
+      .select("id,title,slug,description,price_cents,currency,status,file_path,ai_sales_copy,metadata")
       .eq("creator_id", creatorId)
       .order("created_at", { ascending: false });
     if (error) return setMessage(error.message);
@@ -87,6 +97,24 @@ export default function ProductManager({ userId, creatorId }: { userId: string; 
     await loadProducts();
   }
 
+  async function packageEbook(productId: string) {
+    if (busy) return;
+    setBusy(true);
+    setMessage("CreatorHub is packaging the ebook PDF…");
+
+    const { data, error } = await supabase.functions.invoke("package-ebook", {
+      body: { product_id: productId },
+    });
+
+    setBusy(false);
+    if (error) return setMessage(error.message || "CreatorHub could not package the ebook.");
+    if (data?.error) return setMessage(data.error);
+
+    const pages = Number(data?.page_count || 0);
+    setMessage(pages ? `Ebook packaged successfully — ${pages} pages ready for secure delivery.` : "Ebook packaged successfully and is ready for secure delivery.");
+    await loadProducts();
+  }
+
   async function generateSalesCopy(productId: string) {
     setBusy(true);
     setMessage("Claude is building the sales page copy…");
@@ -113,7 +141,7 @@ export default function ProductManager({ userId, creatorId }: { userId: string; 
 
   async function setStatus(productId: string, status: "draft" | "published") {
     const product = products.find((item) => item.id === productId);
-    if (status === "published" && !product?.file_path) return setMessage("Upload the ebook file before publishing.");
+    if (status === "published" && !product?.file_path) return setMessage("Package or upload the ebook file before publishing.");
     const { error } = await supabase.from("products").update({ status }).eq("id", productId);
     if (error) return setMessage(error.message);
     setMessage(status === "published" ? "Product published." : "Product returned to draft.");
@@ -135,20 +163,24 @@ export default function ProductManager({ userId, creatorId }: { userId: string; 
       <div style={{ display: "grid", gap: 12, marginTop: 12 }}>
         {products.map((product) => {
           const copy = product.ai_sales_copy as { headline?: string; subheadline?: string };
+          const packageInfo = product.metadata?.packaging;
+          const canPackage = product.slug === "master-yourself-first" || Boolean(packageInfo?.source_urls?.length);
           return (
             <article key={product.id} style={card}>
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start" }}>
                 <div>
                   <strong style={{ fontSize: 18 }}>{product.title}</strong>
                   <div style={{ color: colors.muted, marginTop: 4 }}>${((product.price_cents ?? 0) / 100).toFixed(2)} · {product.status}</div>
+                  {packageInfo?.page_count ? <div style={{ color: colors.muted, marginTop: 4, fontSize: 12 }}>{packageInfo.page_count} page PDF · {packageInfo.engine || "CreatorHub packager"}</div> : null}
                 </div>
                 <span style={{ color: product.file_path ? colors.purpleBright : colors.muted }}>{product.file_path ? "File ready" : "No file"}</span>
               </div>
               {copy.headline && <p style={{ marginBottom: 4 }}><strong>{copy.headline}</strong></p>}
               {copy.subheadline && <p style={{ color: colors.muted, marginTop: 0 }}>{copy.subheadline}</p>}
               <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 12 }}>
-                <button type="button" style={secondaryButton} onClick={() => generateSalesCopy(product.id)}>Generate with Claude</button>
-                <button type="button" style={primaryButton} onClick={() => setStatus(product.id, product.status === "published" ? "draft" : "published")}>
+                {canPackage && <button type="button" disabled={busy} style={secondaryButton} onClick={() => packageEbook(product.id)}>{product.file_path ? "Repackage PDF" : "Package PDF"}</button>}
+                <button type="button" disabled={busy} style={secondaryButton} onClick={() => generateSalesCopy(product.id)}>Generate with Claude</button>
+                <button type="button" disabled={busy} style={primaryButton} onClick={() => setStatus(product.id, product.status === "published" ? "draft" : "published")}>
                   {product.status === "published" ? "Unpublish" : "Publish"}
                 </button>
                 {product.status === "published" && <a style={{ ...secondaryButton, textDecoration: "none" }} href={`/p/${product.slug}`} target="_blank">Open sales page</a>}
