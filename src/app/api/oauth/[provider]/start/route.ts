@@ -5,6 +5,7 @@ import {
   providerConfigured,
   randomToken,
 } from "@/lib/oauth";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 const providerNames: Record<string, string> = {
   instagram: "Instagram",
@@ -12,8 +13,8 @@ const providerNames: Record<string, string> = {
   fanvue: "Fanvue",
 };
 
-function setupPage(name: string, creatorId: string) {
-  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name} setup</title></head><body style="font-family:Arial,sans-serif;background:#08070d;margin:0;padding:28px;color:#f7f4ff"><main style="max-width:560px;margin:60px auto;background:#15111f;border:1px solid #3c2a55;border-radius:22px;padding:24px;box-shadow:0 24px 80px rgba(95,43,160,.18)"><div style="font-size:13px;font-weight:800;text-transform:uppercase;color:#b59ad8;letter-spacing:.08em">CreatorHub connection</div><h1>${name}</h1><p style="color:#d2c9df;line-height:1.55">The CreatorHub side of this one-tap connection is ready. We still need the one-time ${name} developer-app credentials before users can authorize their accounts.</p><p style="color:#d2c9df;line-height:1.55">Once those credentials are configured, this same button opens ${name}'s official login/consent screen and returns directly to CreatorHub. Users never copy an authorization code or enter their ${name} password into CreatorHub.</p><button onclick="history.back()" style="border:0;border-radius:999px;padding:12px 18px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;font-weight:800">Back to CreatorHub</button><p style="color:#8f84a0;font-size:12px;margin-top:24px">Creator workspace: ${creatorId.replace(/[<>&\"]/g, "")}</p></main></body></html>`;
+function setupPage(name: string) {
+  return `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>${name} setup</title></head><body style="font-family:Arial,sans-serif;background:#08070d;margin:0;padding:28px;color:#f7f4ff"><main style="max-width:560px;margin:60px auto;background:#15111f;border:1px solid #3c2a55;border-radius:22px;padding:24px;box-shadow:0 24px 80px rgba(95,43,160,.18)"><div style="font-size:13px;font-weight:800;text-transform:uppercase;color:#b59ad8;letter-spacing:.08em">CreatorHub connection</div><h1>${name}</h1><p style="color:#d2c9df;line-height:1.55">CreatorHub's OAuth flow is ready. The one-time ${name} developer-app credentials still need to be configured before account authorization can begin.</p><p style="color:#d2c9df;line-height:1.55">After setup, this button opens ${name}'s official consent screen and returns directly to CreatorHub. Creator passwords and authorization codes are never entered into CreatorHub manually.</p><button onclick="history.back()" style="border:0;border-radius:999px;padding:12px 18px;background:linear-gradient(135deg,#7c3aed,#a855f7);color:white;font-weight:800">Back to CreatorHub</button></main></body></html>`;
 }
 
 export async function GET(request: NextRequest, { params }: { params: Promise<{ provider: string }> }) {
@@ -25,10 +26,22 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const creatorId = request.nextUrl.searchParams.get("creator_id") ?? "";
   if (!creatorId) return new Response("Missing creator workspace", { status: 400 });
 
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.redirect(new URL("/?connection_status=signin_required", request.nextUrl.origin));
+
+  const { data: creator } = await supabase
+    .from("creators")
+    .select("id")
+    .eq("id", creatorId)
+    .eq("user_id", user.id)
+    .maybeSingle();
+  if (!creator) return new Response("Creator workspace not found", { status: 403 });
+
   if (!providerConfigured(provider)) {
-    return new Response(setupPage(name, creatorId), {
+    return new Response(setupPage(name), {
       status: 503,
-      headers: { "Content-Type": "text/html; charset=utf-8" },
+      headers: { "Content-Type": "text/html; charset=utf-8", "Cache-Control": "no-store" },
     });
   }
 
