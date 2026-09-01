@@ -13,6 +13,13 @@ type Connection = {
   connected_at: string | null;
 };
 
+type ProviderHealth = { configured?: boolean; detail?: string };
+type HealthResponse = {
+  instagram?: ProviderHealth;
+  tiktok?: ProviderHealth;
+  fanvue?: ProviderHealth;
+};
+
 const providers = [
   {
     id: "openai",
@@ -23,19 +30,19 @@ const providers = [
   {
     id: "instagram",
     name: "Instagram",
-    detail: "Connect a professional creator or business account, then return to CreatorHub automatically.",
+    detail: "Connect an Instagram professional creator or business account and return to CreatorHub automatically.",
     managed: false,
   },
   {
     id: "tiktok",
     name: "TikTok",
-    detail: "Authorize with TikTok Login Kit. CreatorHub handles the authorization code and token refresh server-side.",
+    detail: "Authorize with TikTok Login Kit. CreatorHub stores tokens server-side and can refresh access without asking for the password again.",
     managed: false,
   },
   {
     id: "fanvue",
     name: "Fanvue",
-    detail: "Authorize the creator once with Fanvue OAuth and keep the connection available for CreatorHub workflows.",
+    detail: "Authorize a verified Fanvue creator through OAuth with PKCE and keep the connection available for CreatorHub workflows.",
     managed: false,
   },
 ] as const;
@@ -43,16 +50,21 @@ const providers = [
 export default function ConnectionsPanel({ userId, creatorId }: { userId: string; creatorId: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [connections, setConnections] = useState<Connection[]>([]);
+  const [health, setHealth] = useState<HealthResponse>({});
   const [message, setMessage] = useState("");
 
   async function loadConnections() {
-    const { data, error } = await supabase
-      .from("integration_connections")
-      .select("id,provider,status,external_account_name,connected_at")
-      .eq("user_id", userId)
-      .or(`creator_id.eq.${creatorId},creator_id.is.null`);
+    const [{ data, error }, healthResponse] = await Promise.all([
+      supabase
+        .from("integration_connections")
+        .select("id,provider,status,external_account_name,connected_at")
+        .eq("user_id", userId)
+        .or(`creator_id.eq.${creatorId},creator_id.is.null`),
+      fetch("/api/system/integration-health", { cache: "no-store" }).catch(() => null),
+    ]);
     if (error) return setMessage(error.message);
     setConnections((data ?? []) as Connection[]);
+    if (healthResponse?.ok) setHealth((await healthResponse.json()) as HealthResponse);
   }
 
   useEffect(() => { void loadConnections(); }, [creatorId]);
@@ -61,9 +73,17 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
     return connections.find((item) => item.provider === provider);
   }
 
+  function configured(providerId: "instagram" | "tiktok" | "fanvue") {
+    return health[providerId]?.configured === true;
+  }
+
   function connect(provider: typeof providers[number]) {
     if (provider.managed) {
       setMessage("Claude is managed inside CreatorHub through Vercel AI Gateway. No separate Claude login is required.");
+      return;
+    }
+    if (!configured(provider.id)) {
+      setMessage(`${provider.name} OAuth is built, but the CreatorHub developer-app credentials still need to be added before accounts can connect.`);
       return;
     }
     window.location.href = `/api/oauth/${provider.id}/start?creator_id=${encodeURIComponent(creatorId)}`;
@@ -86,13 +106,16 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
           {providers.map((provider) => {
             const connection = getConnection(provider.id);
             const connected = connection?.status === "connected";
+            const ready = provider.managed || configured(provider.id);
             const statusText = provider.managed
               ? "Built in"
               : connected
                 ? "Connected"
-                : connection?.status === "error"
-                  ? "Needs attention"
-                  : "Not connected";
+                : !ready
+                  ? "Setup required"
+                  : connection?.status === "error"
+                    ? "Needs attention"
+                    : "Ready to connect";
             return (
               <div
                 key={provider.id}
@@ -131,7 +154,7 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
                   </div>
                 </div>
                 <button style={connected ? secondaryButton : primaryButton} onClick={() => connect(provider)}>
-                  {provider.managed ? "AI status" : connected ? `Reconnect ${provider.name}` : `Connect ${provider.name}`}
+                  {provider.managed ? "AI status" : connected ? `Reconnect ${provider.name}` : ready ? `Connect ${provider.name}` : `Set up ${provider.name}`}
                 </button>
               </div>
             );
