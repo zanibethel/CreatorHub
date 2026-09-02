@@ -1,0 +1,1 @@
+drop index if exists public.integration_connections_one_per_workspace_provider_idx;
