@@ -1,11 +1,12 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { card, colors, input, primaryButton, secondaryButton } from "@/lib/ui";
 
 type EbookProject = {
   id: string;
+  product_id: string | null;
   title: string;
   topic: string;
   target_audience: string;
@@ -44,19 +45,19 @@ export default function EbookStudio({ userId, creatorId }: { userId: string; cre
   const activeProject = projects.find((project) => project.id === projectId) ?? null;
   const activeChapter = chapters.find((chapter) => chapter.id === chapterId) ?? null;
 
-  async function loadProjects(preferredId?: string) {
+  const loadProjects = useCallback(async (preferredId?: string) => {
     const { data, error } = await supabase.from("ebook_projects")
-      .select("id,title,topic,target_audience,core_promise,tone,target_word_count,price_cents,distribution_mode,promoter_commission_bps,status,metadata")
+      .select("id,product_id,title,topic,target_audience,core_promise,tone,target_word_count,price_cents,distribution_mode,promoter_commission_bps,status,metadata")
       .eq("creator_id", creatorId)
       .order("updated_at", { ascending: false });
     if (error) return setMessage(error.message);
     const rows = (data ?? []) as EbookProject[];
     setProjects(rows);
     if (preferredId) setProjectId(preferredId);
-    else if (!projectId && rows.length) setProjectId(rows[0].id);
-  }
+    else if (rows.length) setProjectId((current) => current || rows[0].id);
+  }, [creatorId, supabase]);
 
-  async function loadChapters(id: string, preferredId?: string) {
+  const loadChapters = useCallback(async (id: string, preferredId?: string) => {
     const { data, error } = await supabase.from("ebook_chapters")
       .select("id,project_id,position,title,summary,content,status")
       .eq("project_id", id)
@@ -70,18 +71,18 @@ export default function EbookStudio({ userId, creatorId }: { userId: string; cre
     setDraftTitle(next?.title ?? "");
     setDraftSummary(next?.summary ?? "");
     setDraftContent(next?.content ?? "");
-  }
+  }, [supabase]);
 
-  useEffect(() => { void loadProjects(); }, [creatorId]);
+  useEffect(() => { void loadProjects(); }, [loadProjects]);
   useEffect(() => {
     if (projectId) void loadChapters(projectId);
     else {
       setChapters([]);
       setChapterId("");
     }
-  }, [projectId]);
+  }, [loadChapters, projectId]);
 
-  async function saveActiveChapter() {
+  const saveActiveChapter = useCallback(async () => {
     if (!chapterId || !activeChapter) return;
     if (draftTitle === activeChapter.title && draftSummary === activeChapter.summary && draftContent === activeChapter.content) return;
     const nextTitle = draftTitle.trim() || activeChapter.title;
@@ -103,7 +104,7 @@ export default function EbookStudio({ userId, creatorId }: { userId: string; cre
       status: nextStatus,
     } : chapter));
     setSaveState("Saved");
-  }
+  }, [activeChapter, chapterId, draftContent, draftSummary, draftTitle, supabase]);
 
   useEffect(() => {
     if (!chapterId || !activeChapter) return;
@@ -111,7 +112,7 @@ export default function EbookStudio({ userId, creatorId }: { userId: string; cre
     setSaveState("Unsaved changes");
     const timer = window.setTimeout(() => { void saveActiveChapter(); }, 900);
     return () => window.clearTimeout(timer);
-  }, [chapterId, draftTitle, draftSummary, draftContent]);
+  }, [activeChapter, chapterId, draftContent, draftSummary, draftTitle, saveActiveChapter]);
 
   function selectChapter(id: string) {
     const chapter = chapters.find((item) => item.id === id);
@@ -218,6 +219,119 @@ export default function EbookStudio({ userId, creatorId }: { userId: string; cre
     setMessage("Chapter drafted. It remains fully editable and is not published.");
   }
 
+  function productSlug(title: string) {
+    const base = title.toLowerCase().trim().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, "") || "ebook";
+    return `${base}-${crypto.randomUUID().slice(0, 8)}`;
+  }
+
+  async function createSellableProduct() {
+    if (!activeProject || busy) return;
+
+    const manuscriptChapters = chapters.map((chapter) => chapter.id === chapterId ? {
+      ...chapter,
+      title: draftTitle.trim() || chapter.title,
+      summary: draftSummary,
+      content: draftContent,
+    } : chapter);
+    const unfinished = manuscriptChapters.filter((chapter) => !chapter.content.trim());
+    if (!manuscriptChapters.length || unfinished.length) {
+      return setMessage(`Finish every chapter before packaging. ${unfinished.length || 1} chapter${unfinished.length === 1 ? " is" : "s are"} still empty.`);
+    }
+    if (activeProject.price_cents < 50) {
+      return setMessage("Set a price of at least $0.50 before creating a sellable product. Free delivery will be a separate publishing option.");
+    }
+
+    setBusy(true);
+    setMessage("Saving the manuscript and creating the sellable PDF product…");
+    await saveActiveChapter();
+
+    const description = activeProject.metadata?.subtitle || activeProject.core_promise;
+    const productValues = {
+      creator_id: creatorId,
+      owner_user_id: userId,
+      product_type: "ebook",
+      title: activeProject.title,
+      description,
+      price_cents: activeProject.price_cents,
+      currency: "usd",
+      status: "draft",
+      metadata: {
+        ebook_project_id: activeProject.id,
+        distribution_mode: activeProject.distribution_mode,
+        promoter_commission_bps: activeProject.promoter_commission_bps,
+        packaging: { source: "ebook_studio" },
+      },
+    };
+
+    let productId = activeProject.product_id;
+    if (productId) {
+      const { error } = await supabase.from("products").update(productValues).eq("id", productId);
+      if (error) {
+        setBusy(false);
+        return setMessage(error.message);
+      }
+    } else {
+      const { data, error } = await supabase.from("products").insert({
+        ...productValues,
+        slug: productSlug(activeProject.title),
+      }).select("id").single();
+      if (error || !data) {
+        setBusy(false);
+        return setMessage(error?.message ?? "Could not create the product.");
+      }
+      productId = data.id;
+      const { error: linkError } = await supabase.from("ebook_projects").update({
+        product_id: productId,
+        status: "ready",
+        updated_at: new Date().toISOString(),
+      }).eq("id", activeProject.id);
+      if (linkError) {
+        setBusy(false);
+        return setMessage(`Product created, but the Studio link failed: ${linkError.message}`);
+      }
+    }
+
+    const manuscript = [
+      `# ${activeProject.title}`,
+      description,
+      ...manuscriptChapters.map((chapter) => `# Chapter ${chapter.position}: ${chapter.title}\n\n${chapter.content.trim()}`),
+    ].join("\n\n---\n\n");
+
+    const { data: packaged, error: packageError } = await supabase.functions.invoke("package-ebook", {
+      body: { product_id: productId, source_markdown: manuscript },
+    });
+    if (packageError || packaged?.error) {
+      setBusy(false);
+      await loadProjects(activeProject.id);
+      window.dispatchEvent(new Event("creatorhub:products-changed"));
+      return setMessage(`Product draft created, but PDF packaging failed: ${packaged?.error || packageError?.message || "Unknown error"}`);
+    }
+
+    const { data: { session } } = await supabase.auth.getSession();
+    const copyResponse = await fetch("/api/ai/product-sales-copy", {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${session?.access_token ?? ""}` },
+      body: JSON.stringify({ productId }),
+    });
+    if (copyResponse.ok) {
+      const salesCopy = await copyResponse.json();
+      await supabase.from("products").update({ ai_sales_copy: salesCopy }).eq("id", productId);
+    }
+
+    await supabase.from("ebook_projects").update({
+      product_id: productId,
+      status: "converted",
+      updated_at: new Date().toISOString(),
+    }).eq("id", activeProject.id);
+
+    setBusy(false);
+    await loadProjects(activeProject.id);
+    window.dispatchEvent(new Event("creatorhub:products-changed"));
+    setMessage(copyResponse.ok
+      ? `Sellable PDF created (${Number(packaged.page_count || 0)} pages) with Claude sales copy. Review it under Products, then publish.`
+      : `Sellable PDF created (${Number(packaged.page_count || 0)} pages). Review it under Products; sales copy can be generated there.`);
+  }
+
   const wordCount = draftContent.trim() ? draftContent.trim().split(/\s+/).length : 0;
 
   return (
@@ -235,7 +349,7 @@ export default function EbookStudio({ userId, creatorId }: { userId: string; cre
         <input name="tone" required style={input} defaultValue="clear, practical, direct, and encouraging" placeholder="Tone" />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(150px,1fr))", gap: 8 }}>
           <input name="wordCount" required type="number" min="1000" max="100000" step="500" defaultValue="12000" style={input} aria-label="Target word count" />
-          <input name="price" required type="number" min="0" step="0.01" defaultValue="9" style={input} aria-label="Price in US dollars" />
+          <input name="price" required type="number" min="0.5" step="0.01" defaultValue="9" style={input} aria-label="Price in US dollars" />
           <select name="distribution" style={input} aria-label="Distribution mode">
             <option value="private">My store only</option>
             <option value="affiliate">Affiliate enabled</option>
@@ -260,6 +374,11 @@ export default function EbookStudio({ userId, creatorId }: { userId: string; cre
             </div>
           ) : null}
           {!chapters.length ? <button type="button" disabled={busy} style={{ ...primaryButton, marginTop: 12 }} onClick={generateOutline}>Generate outline with Claude</button> : null}
+          {chapters.length ? (
+            <button type="button" disabled={busy} style={{ ...primaryButton, marginTop: 12 }} onClick={createSellableProduct}>
+              {busy ? "Working…" : activeProject?.product_id ? "Rebuild sellable PDF" : "Create sellable PDF product"}
+            </button>
+          ) : null}
         </div>
       ) : null}
 

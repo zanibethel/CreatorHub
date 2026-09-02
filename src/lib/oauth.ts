@@ -18,6 +18,18 @@ export function callbackUrl(origin: string, provider: OAuthProvider) {
   return `${origin}/api/oauth/${provider}/callback`;
 }
 
+export function oauthOrigin(requestOrigin: string) {
+  const configured = (process.env.OAUTH_REDIRECT_ORIGIN || process.env.NEXT_PUBLIC_APP_URL || "").trim();
+  if (!configured) return requestOrigin.replace(/\/$/, "");
+  try {
+    const url = new URL(configured);
+    if (url.protocol !== "https:" && url.hostname !== "localhost") throw new Error("OAuth origin must use HTTPS.");
+    return url.origin;
+  } catch {
+    throw new Error("OAUTH_REDIRECT_ORIGIN or NEXT_PUBLIC_APP_URL is invalid.");
+  }
+}
+
 export function providerConfigured(provider: OAuthProvider) {
   if (provider === "instagram") return Boolean(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET);
   if (provider === "tiktok") return Boolean(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET);

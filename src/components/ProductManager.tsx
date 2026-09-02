@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, useEffect, useMemo, useState } from "react";
+import { FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import { card, colors, input, primaryButton, secondaryButton } from "@/lib/ui";
 
@@ -36,16 +36,21 @@ export default function ProductManager({ userId, creatorId }: { userId: string; 
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
-  async function loadProducts() {
+  const loadProducts = useCallback(async () => {
     const { data, error } = await supabase.from("products")
       .select("id,title,slug,description,price_cents,currency,status,file_path,ai_sales_copy,metadata")
       .eq("creator_id", creatorId)
       .order("created_at", { ascending: false });
     if (error) return setMessage(error.message);
     setProducts((data ?? []) as Product[]);
-  }
+  }, [creatorId, supabase]);
 
-  useEffect(() => { void loadProducts(); }, [creatorId]);
+  useEffect(() => {
+    void loadProducts();
+    const refresh = () => { void loadProducts(); };
+    window.addEventListener("creatorhub:products-changed", refresh);
+    return () => window.removeEventListener("creatorhub:products-changed", refresh);
+  }, [loadProducts]);
 
   async function createProduct(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();

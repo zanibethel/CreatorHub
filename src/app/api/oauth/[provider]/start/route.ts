@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import {
   buildAuthorizationUrl,
   isOAuthProvider,
+  oauthOrigin,
   providerConfigured,
   randomToken,
 } from "@/lib/oauth";
@@ -29,6 +30,7 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const supabase = await createServerSupabaseClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.redirect(new URL("/?connection_status=signin_required", request.nextUrl.origin));
+  if (user.is_anonymous) return NextResponse.redirect(new URL(`/?connection=${provider}&connection_status=signin_required`, request.nextUrl.origin));
 
   const { data: creator } = await supabase
     .from("creators")
@@ -47,11 +49,12 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
 
   const state = randomToken();
   const verifier = provider === "fanvue" ? randomToken(48) : "";
-  const response = NextResponse.redirect(buildAuthorizationUrl(provider, request.nextUrl.origin, state, verifier));
+  const origin = oauthOrigin(request.nextUrl.origin);
+  const response = NextResponse.redirect(buildAuthorizationUrl(provider, origin, state, verifier));
 
   const cookieOptions = {
     httpOnly: true,
-    secure: true,
+    secure: origin.startsWith("https://"),
     sameSite: "lax" as const,
     path: `/api/oauth/${provider}`,
     maxAge: 10 * 60,

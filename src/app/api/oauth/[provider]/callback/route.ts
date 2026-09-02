@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { callbackUrl, isOAuthProvider, providerScopes } from "@/lib/oauth";
+import { callbackUrl, isOAuthProvider, oauthOrigin, providerScopes } from "@/lib/oauth";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
@@ -31,13 +31,15 @@ async function exchangeTikTok(code: string, redirectUri: string) {
 }
 
 async function exchangeFanvue(code: string, redirectUri: string, verifier: string) {
+  const basicAuth = Buffer.from(`${process.env.FANVUE_CLIENT_ID!}:${process.env.FANVUE_CLIENT_SECRET!}`).toString("base64");
   const response = await fetch("https://auth.fanvue.com/oauth2/token", {
     method: "POST",
-    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    headers: {
+      "Authorization": `Basic ${basicAuth}`,
+      "Content-Type": "application/x-www-form-urlencoded",
+    },
     body: new URLSearchParams({
       grant_type: "authorization_code",
-      client_id: process.env.FANVUE_CLIENT_ID!,
-      client_secret: process.env.FANVUE_CLIENT_SECRET!,
       code,
       redirect_uri: redirectUri,
       code_verifier: verifier,
@@ -137,13 +139,13 @@ export async function GET(request: NextRequest, { params }: { params: Promise<{ 
   const supabase = await createServerSupabaseClient();
   const { data: { user }, error: userError } = await supabase.auth.getUser();
   const { data: { session } } = await supabase.auth.getSession();
-  if (userError || !user || !session?.access_token) return appRedirect(request, provider, "signin_required");
+  if (userError || !user || user.is_anonymous || !session?.access_token) return appRedirect(request, provider, "signin_required");
 
   const { data: creator } = await supabase.from("creators").select("id").eq("id", creatorId).eq("user_id", user.id).single();
   if (!creator) return appRedirect(request, provider, "invalid_creator");
 
   try {
-    const redirectUri = callbackUrl(request.nextUrl.origin, provider);
+    const redirectUri = callbackUrl(oauthOrigin(request.nextUrl.origin), provider);
     let tokens: any;
     let externalId: string | null = null;
     let externalName: string | null = null;
