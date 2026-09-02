@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import AIRecommendationsButton from "@/components/AIRecommendationsButton";
 import ConnectionsPanel from "@/components/ConnectionsPanel";
 import CreatorForm from "@/components/CreatorForm";
+import PartnerBank from "@/components/PartnerBank";
 import { createClient } from "@/lib/supabase";
 import { card, colors, input, primaryButton, secondaryButton } from "@/lib/ui";
 import type { ContentItem, Creator, Recommendation } from "@/lib/types";
@@ -173,6 +174,8 @@ export default function Dashboard({ userId }: { userId: string }) {
           </section>
 
           <ConnectionsPanel userId={userId} creatorId={creatorId} />
+
+          <PartnerBank />
 
           <section style={{ marginTop: 26 }}>
             <div style={{ color: colors.purpleBright, fontWeight: 800, fontSize: 12, textTransform: "uppercase", letterSpacing: ".08em" }}>Creator operator</div>
