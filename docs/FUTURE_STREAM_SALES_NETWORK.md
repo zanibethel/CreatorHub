@@ -166,6 +166,8 @@ Track:
 
 ## Travel Affiliate Extension
 
+Implementation-ready partner research, contract checks, data-model guidance, and phased travel integration priorities are maintained in [Affiliate & Commerce Partner Bank](./AFFILIATE_PARTNER_BANK.md).
+
 This stream should connect with the existing travel-affiliate concept rather than being limited to one travel company.
 
 CreatorHub should eventually support multiple travel affiliate programs and compare:
