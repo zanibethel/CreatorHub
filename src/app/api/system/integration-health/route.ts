@@ -1,3 +1,5 @@
+import { checkEromifyMcp } from "@/lib/eromify-mcp";
+
 export const dynamic = "force-dynamic";
 
 async function checkClaude() {
@@ -71,7 +73,7 @@ function socialHealth(configured: boolean, provider: string) {
 }
 
 export async function GET() {
-  const [claude, stripe] = await Promise.all([checkClaude(), checkStripe()]);
+  const [claude, stripe, eromify] = await Promise.all([checkClaude(), checkStripe(), checkEromifyMcp()]);
   const instagram = socialHealth(Boolean(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET), "Instagram");
   const tiktok = socialHealth(Boolean(process.env.TIKTOK_CLIENT_KEY && process.env.TIKTOK_CLIENT_SECRET), "TikTok");
   const fanvue = socialHealth(Boolean(process.env.FANVUE_CLIENT_ID && process.env.FANVUE_CLIENT_SECRET), "Fanvue");
@@ -84,6 +86,7 @@ export async function GET() {
       instagram,
       tiktok,
       fanvue,
+      eromify,
       checkedAt: new Date().toISOString(),
     },
     { headers: { "Cache-Control": "no-store" } },
