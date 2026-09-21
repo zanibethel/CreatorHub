@@ -23,27 +23,6 @@ export default function AuthPanel() {
     setMessage(error?.message ?? "Account created. If email confirmation is enabled, confirm it before signing in.");
   }
 
-  async function sendMagicLink() {
-    if (!email.trim()) {
-      setMessage("Enter your email first.");
-      return;
-    }
-
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithOtp({
-      email: email.trim(),
-      options: {
-        emailRedirectTo: window.location.origin,
-        shouldCreateUser: false,
-      },
-    });
-
-    setMessage(
-      error?.message ??
-        "Sign-in link sent. Open the email on this device, then return here.",
-    );
-  }
-
   async function continueAsGuest() {
     setGuestLoading(true);
     setMessage("");
@@ -77,7 +56,9 @@ export default function AuthPanel() {
           <h2 style={{ marginBottom: 8 }}>Skip account setup</h2>
           <p style={{ color: colors.muted, marginTop: 0, lineHeight: 1.5 }}>Create a temporary guest session and start testing CreatorHub immediately. No email required.</p>
           <button type="button" style={primaryButton} onClick={continueAsGuest} disabled={guestLoading}>{guestLoading ? "Starting guest session…" : "Continue as guest"}</button>
-          <p style={{ color: colors.muted, fontSize: 13, marginBottom: 0 }}>Guest data stays tied to this browser session. Signing out or clearing browser data can make it inaccessible.</p>
+          <p style={{ color: colors.muted, fontSize: 13, marginBottom: 0 }}>
+            Guest data stays tied to this browser session. On Vercel previews, guest sessions can also test the guarded Eromify Studio without changing production auth.
+          </p>
         </section>
 
         <form onSubmit={signIn} style={{ ...card }}>
@@ -88,7 +69,6 @@ export default function AuthPanel() {
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
             <button style={primaryButton}>Sign in</button>
             <button type="button" style={secondaryButton} onClick={signUp}>Create account</button>
-            <button type="button" style={secondaryButton} onClick={sendMagicLink}>Email me a sign-in link</button>
           </div>
           {message && <p style={{ color: colors.muted }}>{message}</p>}
         </form>
