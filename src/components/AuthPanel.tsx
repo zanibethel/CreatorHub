@@ -23,6 +23,27 @@ export default function AuthPanel() {
     setMessage(error?.message ?? "Account created. If email confirmation is enabled, confirm it before signing in.");
   }
 
+  async function sendMagicLink() {
+    if (!email.trim()) {
+      setMessage("Enter your email first.");
+      return;
+    }
+
+    const supabase = createClient();
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: {
+        emailRedirectTo: window.location.origin,
+        shouldCreateUser: false,
+      },
+    });
+
+    setMessage(
+      error?.message ??
+        "Sign-in link sent. Open the email on this device, then return here.",
+    );
+  }
+
   async function continueAsGuest() {
     setGuestLoading(true);
     setMessage("");
@@ -67,6 +88,7 @@ export default function AuthPanel() {
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
             <button style={primaryButton}>Sign in</button>
             <button type="button" style={secondaryButton} onClick={signUp}>Create account</button>
+            <button type="button" style={secondaryButton} onClick={sendMagicLink}>Email me a sign-in link</button>
           </div>
           {message && <p style={{ color: colors.muted }}>{message}</p>}
         </form>
