@@ -206,13 +206,23 @@ async function authenticatedUser() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  return user && !user.is_anonymous ? user : null;
+  if (!user) return null;
+
+  // Production keeps the permanent-account requirement. Vercel previews may
+  // use CreatorHub's anonymous guest session so provider connectivity can be
+  // exercised without depending on another app's shared Supabase Site URL.
+  if (user.is_anonymous && process.env.VERCEL_ENV !== "preview") return null;
+
+  return user;
 }
 
 export async function GET() {
   const user = await authenticatedUser();
   if (!user) {
-    return Response.json({ error: "Sign in with a permanent account first." }, { status: 401 });
+    return Response.json(
+      { error: "Sign in with a permanent account, or use guest mode on a Vercel preview." },
+      { status: 401 },
+    );
   }
 
   if (!eromifyMcpConfigured()) {
