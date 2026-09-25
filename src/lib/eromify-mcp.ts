@@ -29,6 +29,23 @@ export type EromifyMcpToolResult = {
   [key: string]: unknown;
 };
 
+function networkFailureDetail(error: unknown) {
+  if (!(error instanceof Error)) return "unknown network failure";
+
+  const cause =
+    "cause" in error && error.cause && typeof error.cause === "object"
+      ? (error.cause as { code?: unknown; message?: unknown; errno?: unknown; syscall?: unknown; hostname?: unknown })
+      : null;
+
+  const parts = [error.message];
+  if (typeof cause?.code === "string") parts.push(cause.code);
+  if (typeof cause?.message === "string" && cause.message !== error.message) parts.push(cause.message);
+  if (typeof cause?.syscall === "string") parts.push(cause.syscall);
+  if (typeof cause?.hostname === "string") parts.push(cause.hostname);
+
+  return Array.from(new Set(parts.filter(Boolean))).join(" · ");
+}
+
 type ProtocolEra = "modern" | "legacy";
 
 function clientMeta() {
@@ -236,9 +253,7 @@ export class EromifyMcpClient {
       }
 
       throw new EromifyError(
-        error instanceof Error
-          ? `Could not reach Eromify MCP: ${error.message}`
-          : "Could not reach Eromify MCP.",
+        `Could not reach Eromify MCP: ${networkFailureDetail(error)}`,
         "NETWORK_ERROR",
         error,
       );
