@@ -29,10 +29,29 @@ export type EromifyMcpToolResult = {
   [key: string]: unknown;
 };
 
+function networkFailureDetail(error: unknown) {
+  if (!(error instanceof Error)) return "unknown network failure";
+
+  const cause =
+    "cause" in error && error.cause && typeof error.cause === "object"
+      ? (error.cause as { code?: unknown; message?: unknown; errno?: unknown; syscall?: unknown; hostname?: unknown })
+      : null;
+
+  const parts = [error.message];
+  if (typeof cause?.code === "string") parts.push(cause.code);
+  if (typeof cause?.message === "string" && cause.message !== error.message) parts.push(cause.message);
+  if (typeof cause?.syscall === "string") parts.push(cause.syscall);
+  if (typeof cause?.hostname === "string") parts.push(cause.hostname);
+
+  return Array.from(new Set(parts.filter(Boolean))).join(" · ");
+}
+
 type ProtocolEra = "modern" | "legacy";
 
 function clientMeta() {
   return {
+    "io.modelcontextprotocol/protocolVersion": MODERN_PROTOCOL_VERSION,
+    "io.modelcontextprotocol/clientCapabilities": {},
     "io.modelcontextprotocol/clientInfo": {
       name: "creatorhub",
       version: "0.1.0",
@@ -87,16 +106,46 @@ function parseEventStream(text: string): JsonRpcEnvelope | null {
   return null;
 }
 
+async function readEventStreamEnvelope(response: Response): Promise<JsonRpcEnvelope | null> {
+  if (!response.body) return null;
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+
+  try {
+    while (true) {
+      const { value, done } = await reader.read();
+      if (value) buffer += decoder.decode(value, { stream: !done });
+
+      const boundary = buffer.search(/\r?\n\r?\n/);
+      if (boundary >= 0) {
+        const event = buffer.slice(0, boundary);
+        const envelope = parseEventStream(event + "\n\n");
+        if (envelope) return envelope;
+        buffer = buffer.slice(boundary).replace(/^\r?\n\r?\n/, "");
+      }
+
+      if (done) {
+        buffer += decoder.decode();
+        return buffer ? parseEventStream(buffer) : null;
+      }
+    }
+  } finally {
+    await reader.cancel().catch(() => undefined);
+  }
+}
+
 async function readEnvelope(response: Response): Promise<JsonRpcEnvelope | null> {
   if (response.status === 202 || response.status === 204) return null;
 
   const contentType = response.headers.get("content-type") || "";
+  if (contentType.includes("text/event-stream")) {
+    return readEventStreamEnvelope(response);
+  }
+
   const text = await response.text();
   if (!text) return null;
-
-  if (contentType.includes("text/event-stream")) {
-    return parseEventStream(text);
-  }
 
   try {
     return JSON.parse(text) as JsonRpcEnvelope;
@@ -184,18 +233,58 @@ export class EromifyMcpClient {
       headers.set("Mcp-Session-Id", this.sessionId);
     }
 
-    const response = await fetch(this.endpoint, {
-      method: "POST",
-      headers,
-      body: JSON.stringify(body),
-      cache: "no-store",
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-    });
+    let response: Response;
+    try {
+      response = await fetch(this.endpoint, {
+        method: "POST",
+        headers,
+        body: JSON.stringify(body),
+        cache: "no-store",
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
+    } catch (error) {
+      const errorName = error instanceof Error ? error.name : "";
+      if (errorName === "TimeoutError" || errorName === "AbortError") {
+        throw new EromifyError(
+          "Eromify MCP request timed out before a response was received.",
+          "NETWORK_ERROR",
+          error,
+        );
+      }
+
+      throw new EromifyError(
+        `Could not reach Eromify MCP: ${networkFailureDetail(error)}`,
+        "NETWORK_ERROR",
+        error,
+      );
+    }
 
     const returnedSessionId = response.headers.get("mcp-session-id");
     if (returnedSessionId) this.sessionId = returnedSessionId;
 
-    const envelope = await readEnvelope(response);
+    let envelope: JsonRpcEnvelope | null;
+    try {
+      envelope = await readEnvelope(response);
+    } catch (error) {
+      if (error instanceof EromifyError) throw error;
+
+      const errorName = error instanceof Error ? error.name : "";
+      if (errorName === "TimeoutError" || errorName === "AbortError") {
+        throw new EromifyError(
+          "Eromify MCP response stream timed out.",
+          "NETWORK_ERROR",
+          error,
+        );
+      }
+
+      throw new EromifyError(
+        error instanceof Error
+          ? `Could not read Eromify MCP response: ${error.message}`
+          : "Could not read Eromify MCP response.",
+        "NETWORK_ERROR",
+        error,
+      );
+    }
 
     if (!response.ok || envelope?.error) {
       throw errorFromResponse(response, envelope);

@@ -56,7 +56,9 @@ export default function AuthPanel() {
           <h2 style={{ marginBottom: 8 }}>Skip account setup</h2>
           <p style={{ color: colors.muted, marginTop: 0, lineHeight: 1.5 }}>Create a temporary guest session and start testing CreatorHub immediately. No email required.</p>
           <button type="button" style={primaryButton} onClick={continueAsGuest} disabled={guestLoading}>{guestLoading ? "Starting guest session…" : "Continue as guest"}</button>
-          <p style={{ color: colors.muted, fontSize: 13, marginBottom: 0 }}>Guest data stays tied to this browser session. Signing out or clearing browser data can make it inaccessible.</p>
+          <p style={{ color: colors.muted, fontSize: 13, marginBottom: 0 }}>
+            Guest data stays tied to this browser session. On Vercel previews, guest sessions can also test the guarded Eromify Studio without changing production auth.
+          </p>
         </section>
 
         <form onSubmit={signIn} style={{ ...card }}>
