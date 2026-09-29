@@ -20,10 +20,10 @@ const MODEL_CHOICES = {
   },
   reference: {
     mode: "reference" as const,
-    model: "spacexai/grok-imagine-image",
-    label: "Grok Imagine Image",
-    costHint: "about $0.02/image",
-    reason: "Low-cost reference-aware generation so CreatorHub can preserve a saved character identity.",
+    model: "openai/gpt-image-2.5-flare",
+    label: "GPT Image 2.5 Flare",
+    costHint: "AI Gateway token pricing",
+    reason: "Verified reference-image generation for preserving a saved character identity.",
     supportsReferences: true,
   },
   balanced: {
@@ -62,7 +62,7 @@ export function imageModeOptions() {
     {
       value: "auto" as const,
       label: "Auto",
-      detail: "Uses the lowest-cost reference-aware option when approved character references exist.",
+      detail: "Uses a verified reference-aware model when approved character references exist.",
     },
     {
       value: "economy" as const,
