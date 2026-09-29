@@ -168,13 +168,32 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Image generation failed.";
-    const freeTierBlocked = /free tier users do not have access|upgrade to paid credits/i.test(message);
+    const cause =
+      error && typeof error === "object" && "cause" in error
+        ? (error as { cause?: unknown }).cause
+        : null;
+    const causeMessage =
+      cause instanceof Error
+        ? cause.message
+        : cause && typeof cause === "object" && "message" in cause
+          ? String((cause as { message?: unknown }).message ?? "")
+          : "";
+    const detailText = [message, causeMessage].filter(Boolean).join(" · ");
+    const freeTierBlocked = /free tier users do not have access|upgrade to paid credits/i.test(detailText);
+
+    console.error("CreatorHub image generation failed", {
+      model: selected.model,
+      referenceCount: referenceImages.length,
+      message: message.slice(0, 500),
+      cause: causeMessage.slice(0, 500),
+    });
+
     return Response.json(
       {
         error: freeTierBlocked ? "This image model requires paid AI Gateway credits." : "CreatorHub could not generate this image.",
         detail: freeTierBlocked
           ? "No charge was made. Add AI Gateway credits in Vercel or choose another eligible model, then retry."
-          : message.slice(0, 500),
+          : (causeMessage || message).slice(0, 500),
         model: selected.model,
         referenceCount: referenceImages.length,
       },
