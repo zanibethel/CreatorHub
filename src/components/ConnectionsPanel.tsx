@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import EbookStudio from "@/components/EbookStudio";
+import InstagramPublisher from "@/components/InstagramPublisher";
 import ProductManager from "@/components/ProductManager";
 import { createClient } from "@/lib/supabase";
 import { card, primaryButton, secondaryButton } from "@/lib/ui";
@@ -58,6 +59,7 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
   const [health, setHealth] = useState<HealthResponse>({});
   const [message, setMessage] = useState("");
   const [providerMessage, setProviderMessage] = useState<{ provider: string; text: string } | null>(null);
+  const [publisherConnection, setPublisherConnection] = useState<Connection | null>(null);
   const [busyProvider, setBusyProvider] = useState("");
 
   const loadConnections = useCallback(async () => {
@@ -148,6 +150,7 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
     const result = await response.json();
     setBusyProvider("");
     if (!response.ok) return setMessage(result.error ?? "Could not disconnect the account.");
+    if (publisherConnection?.provider === provider) setPublisherConnection(null);
     await loadConnections();
     setMessage(`${provider.charAt(0).toUpperCase() + provider.slice(1)} disconnected. Stored CreatorHub tokens were deleted.`);
   }
@@ -223,6 +226,15 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
                   ) : null}
                 </div>
                 <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  {provider.id === "instagram" && connected && connection ? (
+                    <button
+                      disabled={busyProvider === provider.id}
+                      style={primaryButton}
+                      onClick={() => setPublisherConnection(connection)}
+                    >
+                      Create post
+                    </button>
+                  ) : null}
                   {connected && connection ? (
                     <button disabled={busyProvider === provider.id} style={secondaryButton} onClick={() => void testConnection(connection)}>
                       {busyProvider === provider.id ? "Testing…" : "Test"}
@@ -265,6 +277,15 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
           </p>
         )}
       </section>
+      {publisherConnection?.provider === "instagram" ? (
+        <InstagramPublisher
+          userId={userId}
+          creatorId={creatorId}
+          connectionId={publisherConnection.id}
+          accountName={publisherConnection.external_account_name || "Instagram"}
+          onClose={() => setPublisherConnection(null)}
+        />
+      ) : null}
       <EbookStudio userId={userId} creatorId={creatorId} />
       <ProductManager userId={userId} creatorId={creatorId} />
     </>
