@@ -4,6 +4,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import AIRecommendationsButton from "@/components/AIRecommendationsButton";
 import ConnectionsPanel from "@/components/ConnectionsPanel";
 import CreatorForm from "@/components/CreatorForm";
+import CreatorImageStudio from "@/components/CreatorImageStudio";
 import CreatorReferenceLibrary from "@/components/CreatorReferenceLibrary";
 import PartnerBank from "@/components/PartnerBank";
 import { createClient } from "@/lib/supabase";
@@ -180,6 +181,11 @@ export default function Dashboard({ userId }: { userId: string }) {
             userId={userId}
             creatorId={creatorId}
             creatorName={activeCreator.name}
+          />
+
+          <CreatorImageStudio
+            creator={activeCreator}
+            userId={userId}
           />
 
           <PartnerBank />
