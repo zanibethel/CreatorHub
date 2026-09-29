@@ -116,10 +116,15 @@ export async function POST(request: Request) {
     );
   } catch (error) {
     const message = error instanceof Error ? error.message : "Image generation failed.";
+    const freeTierBlocked = /free tier users do not have access|upgrade to paid credits/i.test(message);
     return Response.json(
       {
-        error: "CreatorHub could not generate this image.",
-        detail: message.slice(0, 500),
+        error: freeTierBlocked
+          ? "This image model requires paid AI Gateway credits."
+          : "CreatorHub could not generate this image.",
+        detail: freeTierBlocked
+          ? "No charge was made. Add AI Gateway credits in Vercel, or choose another eligible model, then retry."
+          : message.slice(0, 500),
         model: selected.model,
       },
       { status: 502, headers: { "Cache-Control": "no-store" } },
