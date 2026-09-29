@@ -1,6 +1,6 @@
 import { EromifyError } from "@/lib/eromify";
 
-const DEFAULT_EROMIFY_MCP_URL = "https://api.eromify.in/mcp";
+const DEFAULT_EROMIFY_MCP_URL = "https://www.eromify.in/api/mcp";
 const MODERN_PROTOCOL_VERSION = "2026-07-28";
 const LEGACY_PROTOCOL_VERSION = "2025-11-25";
 const REQUEST_TIMEOUT_MS = 12_000;
