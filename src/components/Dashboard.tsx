@@ -25,7 +25,7 @@ export default function Dashboard({ userId }: { userId: string }) {
 
   async function loadCreators(preferredId?: string) {
     const { data, error } = await supabase.from("creators")
-      .select("id,name,slug,creator_type,primary_goal,niche,tone")
+      .select("id,name,slug,creator_type,primary_goal,description,niche,target_audience,tone,visual_description,persona_lore,boundaries,content_pillars,preferred_platforms")
       .eq("user_id", userId).order("created_at");
     if (error) return setMessage(error.message);
     const rows = (data ?? []) as Creator[];
