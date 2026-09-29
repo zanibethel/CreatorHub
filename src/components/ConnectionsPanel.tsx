@@ -57,6 +57,7 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
   const [connections, setConnections] = useState<Connection[]>([]);
   const [health, setHealth] = useState<HealthResponse>({});
   const [message, setMessage] = useState("");
+  const [providerMessage, setProviderMessage] = useState<{ provider: string; text: string } | null>(null);
   const [busyProvider, setBusyProvider] = useState("");
 
   const loadConnections = useCallback(async () => {
@@ -118,14 +119,22 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
 
   async function testConnection(connection: Connection) {
     setBusyProvider(connection.provider);
-    setMessage(`Testing ${connection.provider} with the stored token…`);
+    setProviderMessage({ provider: connection.provider, text: `Testing ${connection.provider} with the stored token…` });
     const { data, error } = await supabase.functions.invoke("test-integration-connection", {
       body: { connection_id: connection.id },
     });
     setBusyProvider("");
-    if (error || data?.error) return setMessage(data?.error || error?.message || "Connection test failed.");
+    if (error || data?.error) {
+      return setProviderMessage({
+        provider: connection.provider,
+        text: data?.error || error?.message || "Connection test failed.",
+      });
+    }
     await loadConnections();
-    setMessage(`${data.account_name || connection.external_account_name || connection.provider} is connected and responding.`);
+    setProviderMessage({
+      provider: connection.provider,
+      text: `${data.account_name || connection.external_account_name || connection.provider} is connected and responding.`,
+    });
   }
 
   async function disconnect(provider: "instagram" | "tiktok" | "fanvue") {
@@ -226,6 +235,24 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
                     <button disabled={busyProvider === provider.id} style={secondaryButton} onClick={() => void disconnect(provider.id)}>
                       Disconnect
                     </button>
+                  ) : null}
+                  {providerMessage?.provider === provider.id ? (
+                    <div
+                      role="status"
+                      aria-live="polite"
+                      style={{
+                        flexBasis: "100%",
+                        color: "#d8c8eb",
+                        background: "#21172f",
+                        border: "1px solid #4d3769",
+                        borderRadius: 10,
+                        padding: "9px 11px",
+                        fontSize: 13,
+                        lineHeight: 1.4,
+                      }}
+                    >
+                      {providerMessage.text}
+                    </div>
                   ) : null}
                 </div>
               </div>
