@@ -32,32 +32,6 @@ const MODEL_CHOICES: Record<Exclude<ImageGenerationMode, "auto">, ImageModelChoi
   },
 };
 
-const PREMIUM_CUES = [
-  "photoreal",
-  "photorealistic",
-  "cinematic",
-  "portrait",
-  "skin",
-  "fashion",
-  "editorial",
-  "luxury",
-  "consistent character",
-  "high fidelity",
-  "detailed",
-];
-
-const BALANCED_CUES = [
-  "logo",
-  "poster",
-  "typography",
-  "text",
-  "product",
-  "mockup",
-  "branding",
-  "illustration",
-  "social ad",
-];
-
 export function chooseImageModel(
   requestedMode: ImageGenerationMode,
   prompt: string,
@@ -66,14 +40,10 @@ export function chooseImageModel(
     return { ...MODEL_CHOICES[requestedMode], routedBy: "manual" };
   }
 
-  const normalized = prompt.toLowerCase();
-  if (PREMIUM_CUES.some((cue) => normalized.includes(cue))) {
-    return { ...MODEL_CHOICES.premium, routedBy: "deterministic-auto-v1" };
-  }
-  if (BALANCED_CUES.some((cue) => normalized.includes(cue))) {
-    return { ...MODEL_CHOICES.balanced, routedBy: "deterministic-auto-v1" };
-  }
-
+  // Cost-first v1: Auto never silently escalates spend. CoOperative/Hermes can
+  // recommend a higher tier later, but Balanced/Premium require an explicit
+  // owner selection until cost-aware routing and budgets are wired end-to-end.
+  void prompt;
   return { ...MODEL_CHOICES.economy, routedBy: "deterministic-auto-v1" };
 }
 
@@ -82,7 +52,7 @@ export function imageModeOptions() {
     {
       value: "auto" as const,
       label: "Auto",
-      detail: "CreatorHub picks a cost/quality tier from the prompt. CoOperative/Hermes scoring plugs into this router next.",
+      detail: "Cost-first: uses Economy unless you explicitly select a higher tier. CoOperative/Hermes scoring plugs into this router next.",
     },
     {
       value: "economy" as const,
