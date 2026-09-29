@@ -104,6 +104,7 @@ export async function POST(request: Request) {
 
   const referenceImages: Uint8Array[] = [];
   const referenceTitles: string[] = [];
+  const referenceRemoteUrls: Array<{ url: string; title: string }> = [];
 
   if (selected.supportsReferences && references.length > 0) {
     for (const reference of references) {
@@ -124,6 +125,7 @@ export async function POST(request: Request) {
 
       referenceImages.push(bytes);
       referenceTitles.push(reference.title);
+      referenceRemoteUrls.push({ url: signed.signedUrl, title: reference.title });
     }
   }
 
@@ -147,10 +149,7 @@ export async function POST(request: Request) {
         body: JSON.stringify({
           prompt: finalPrompt,
           aspectRatio,
-          references: referenceImages.map((bytes, index) => ({
-            dataUrl: `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`,
-            title: referenceTitles[index],
-          })),
+          referenceUrls: referenceRemoteUrls,
         }),
         cache: "no-store",
       });
