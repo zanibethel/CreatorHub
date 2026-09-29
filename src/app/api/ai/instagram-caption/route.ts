@@ -36,7 +36,7 @@ export async function POST(request: NextRequest) {
   }
 
   const response = await fetch(
-    `${SUPABASE_URL}/rest/v1/creators?id=eq.${encodeURIComponent(creatorId)}&user_id=eq.${encodeURIComponent(userId)}&select=id,name,niche,tone`,
+    `${SUPABASE_URL}/rest/v1/creators?id=eq.${encodeURIComponent(creatorId)}&user_id=eq.${encodeURIComponent(userId)}&select=id,name,description,niche,target_audience,tone,visual_description,persona_lore,boundaries,content_pillars,preferred_platforms`,
     {
       headers: { apikey: SUPABASE_KEY, Authorization: `Bearer ${token}` },
       cache: "no-store",
