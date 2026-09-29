@@ -3,7 +3,7 @@ import { chooseImageModel, type ImageGenerationMode } from "@/lib/generation-rou
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type GenerateBody = {
   prompt?: unknown;
@@ -132,6 +132,73 @@ export async function POST(request: Request) {
     referenceImages.length > 0
       ? { text: finalPrompt, images: referenceImages }
       : finalPrompt;
+
+  const cooperativeUrl = process.env.COOPERATIVE_INFERENCE_URL?.replace(/\\\/+$/, "");
+  const cooperativeSecret = process.env.COOPERATIVE_INFERENCE_SECRET;
+
+  if (cooperativeUrl && cooperativeSecret) {
+    try {
+      const response = await fetch(`${cooperativeUrl}/api/inference/image`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${cooperativeSecret}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          prompt: finalPrompt,
+          aspectRatio,
+          references: referenceImages.map((bytes, index) => ({
+            dataUrl: `data:image/jpeg;base64,${Buffer.from(bytes).toString("base64")}`,
+            title: referenceTitles[index],
+          })),
+        }),
+        cache: "no-store",
+      });
+
+      const payload = (await response.json().catch(() => null)) as
+        | {
+            dataUrl?: string;
+            model?: string;
+            provider?: string;
+            worker?: string;
+            referencesUsed?: number;
+            detail?: string;
+          }
+        | null;
+
+      if (response.ok && payload?.dataUrl) {
+        return Response.json(
+          {
+            ok: true,
+            image: payload.dataUrl,
+            model: payload.model || "cooperative-worker",
+            modelLabel: payload.model || "CoOperative inference worker",
+            mode: selected.mode,
+            routedBy: `cooperative-${payload.worker || payload.provider || "worker"}`,
+            costHint:
+              payload.worker === "local"
+                ? "local inference · no per-image API charge"
+                : "CoOperative-managed inference",
+            aspectRatio,
+            referenceCount: payload.referencesUsed ?? referenceImages.length,
+            referenceTitles,
+            referenceFallback: null,
+            createdAt: new Date().toISOString(),
+          },
+          { headers: { "Cache-Control": "no-store" } },
+        );
+      }
+
+      console.warn("CoOperative inference unavailable; falling back to AI Gateway", {
+        status: response.status,
+        detail: payload?.detail?.slice(0, 500),
+      });
+    } catch (cooperativeError) {
+      console.warn("CoOperative inference request failed; falling back to AI Gateway", {
+        detail: cooperativeError instanceof Error ? cooperativeError.message.slice(0, 500) : "unknown error",
+      });
+    }
+  }
 
   try {
     const result = await generateImage({
