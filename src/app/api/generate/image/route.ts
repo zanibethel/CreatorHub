@@ -102,20 +102,35 @@ export async function POST(request: Request) {
   const aspectRatio = RATIOS.has(rawRatio) ? rawRatio : "4:5";
   const selected = chooseImageModel(mode, prompt, references.length > 0);
 
-  const referenceUrls: string[] = [];
+  const referenceImages: Uint8Array[] = [];
+  const referenceTitles: string[] = [];
+
   if (selected.supportsReferences && references.length > 0) {
     for (const reference of references) {
       const { data: signed, error } = await supabase.storage
         .from("creator-reference-assets")
         .createSignedUrl(reference.storage_path, 15 * 60);
-      if (!error && signed?.signedUrl) referenceUrls.push(signed.signedUrl);
+
+      if (error || !signed?.signedUrl) continue;
+
+      const imageResponse = await fetch(signed.signedUrl, { cache: "no-store" });
+      if (!imageResponse.ok) continue;
+
+      const contentType = imageResponse.headers.get("content-type") || "";
+      if (!contentType.startsWith("image/")) continue;
+
+      const bytes = new Uint8Array(await imageResponse.arrayBuffer());
+      if (!bytes.length || bytes.byteLength > 20 * 1024 * 1024) continue;
+
+      referenceImages.push(bytes);
+      referenceTitles.push(reference.title);
     }
   }
 
-  const finalPrompt = creatorPrompt(creator as Record<string, unknown>, prompt, referenceUrls.length > 0);
+  const finalPrompt = creatorPrompt(creator as Record<string, unknown>, prompt, referenceImages.length > 0);
   const promptInput =
-    referenceUrls.length > 0
-      ? { text: finalPrompt, images: referenceUrls }
+    referenceImages.length > 0
+      ? { text: finalPrompt, images: referenceImages }
       : finalPrompt;
 
   try {
@@ -141,8 +156,8 @@ export async function POST(request: Request) {
         routedBy: selected.routedBy,
         costHint: selected.costHint,
         aspectRatio,
-        referenceCount: referenceUrls.length,
-        referenceTitles: referenceUrls.length ? references.slice(0, referenceUrls.length).map((item) => item.title) : [],
+        referenceCount: referenceImages.length,
+        referenceTitles,
         referenceFallback:
           wantsReferences && references.length > 0 && !selected.supportsReferences
             ? "The selected Economy model does not accept reference images, so CreatorHub used the saved visual profile as a text fallback."
@@ -161,7 +176,7 @@ export async function POST(request: Request) {
           ? "No charge was made. Add AI Gateway credits in Vercel or choose another eligible model, then retry."
           : message.slice(0, 500),
         model: selected.model,
-        referenceCount: referenceUrls.length,
+        referenceCount: referenceImages.length,
       },
       { status: 502, headers: { "Cache-Control": "no-store" } },
     );
