@@ -76,5 +76,10 @@ export function buildAuthorizationUrl(provider: OAuthProvider, origin: string, s
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", providerScopes(provider));
   url.searchParams.set("state", state);
+  // Instagram Login added explicit Facebook-login control in 2026.
+  // Keep CreatorHub on the Instagram-professional authorization flow and
+  // force a fresh account prompt so users can choose the intended profile.
+  url.searchParams.set("enable_fb_login", "0");
+  url.searchParams.set("force_authentication", "1");
   return url;
 }
