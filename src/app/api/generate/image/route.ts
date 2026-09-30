@@ -17,6 +17,7 @@ type GenerateBody = {
   confirmedSpend?: unknown;
   creatorId?: unknown;
   useReferences?: unknown;
+  variationMode?: unknown;
 };
 
 const MODES = new Set<ImageGenerationMode>(["auto", "economy", "balanced", "premium"]);
@@ -30,6 +31,7 @@ const MODEL_OVERRIDES = new Set<ImageModelOverride>([
   "gpt-image-2.5-sunburst",
 ]);
 const RATIOS = new Set(["1:1", "4:5", "9:16", "16:9"]);
+const VARIATION_MODES = new Set(["preserve", "balanced", "new-scene"]);
 
 function cleanString(value: unknown, max = 2_000) {
   return typeof value === "string" ? value.trim().slice(0, max) : "";
@@ -39,7 +41,12 @@ function safeList(value: unknown) {
   return Array.isArray(value) ? value.map((item) => cleanString(item, 300)).filter(Boolean).slice(0, 12) : [];
 }
 
-function creatorPrompt(creator: Record<string, unknown>, prompt: string, usingReferences: boolean) {
+function creatorPrompt(
+  creator: Record<string, unknown>,
+  prompt: string,
+  usingReferences: boolean,
+  variationMode: "preserve" | "balanced" | "new-scene",
+) {
   const sections = [
     creator.name ? `Creator: ${cleanString(creator.name, 120)}.` : "",
     creator.visual_description ? `Visual identity: ${cleanString(creator.visual_description, 2_000)}` : "",
@@ -47,8 +54,15 @@ function creatorPrompt(creator: Record<string, unknown>, prompt: string, usingRe
     creator.persona_lore ? `Persona continuity: ${cleanString(creator.persona_lore, 1_500)}` : "",
     safeList(creator.boundaries).length ? `Boundaries: ${safeList(creator.boundaries).join("; ")}` : "",
     usingReferences
-      ? "Reference-image instruction: preserve the same adult character identity, facial structure, hair color, eye color, and overall body proportions from the supplied approved CreatorHub references. Treat the primary reference as the strongest identity anchor. The requested scene, expression, clothing, pose, and lighting may change unless the prompt says otherwise."
+      ? "Reference-image instruction: preserve the same adult character identity, facial structure, hair color, eye color, and overall body proportions from the supplied approved CreatorHub references. Treat the primary reference as the strongest identity anchor."
       : "Identity instruction: use the saved visual description consistently. No pixel-level reference image is available for this generation.",
+    usingReferences && variationMode === "preserve"
+      ? "Variation instruction: stay close to the primary reference composition and pose while applying the requested changes."
+      : usingReferences && variationMode === "new-scene"
+        ? "Variation instruction: preserve identity, but do not preserve the reference pose, framing, background, or composition. Create a genuinely new scene that follows the generation request."
+        : usingReferences
+          ? "Variation instruction: preserve identity while allowing meaningful changes to pose, framing, expression, clothing, lighting, and setting when requested."
+          : "",
   ].filter(Boolean);
 
   return `${sections.join("\n")}\n\nGeneration request:\n${prompt}`;
@@ -116,6 +130,10 @@ export async function POST(request: Request) {
   const modelOverride = MODEL_OVERRIDES.has(requestedModelOverride) ? requestedModelOverride : "auto";
   const rawRatio = cleanString(body.aspectRatio, 10);
   const aspectRatio = RATIOS.has(rawRatio) ? rawRatio : "4:5";
+  const requestedVariationMode = cleanString(body.variationMode, 20);
+  const variationMode = VARIATION_MODES.has(requestedVariationMode)
+    ? (requestedVariationMode as "preserve" | "balanced" | "new-scene")
+    : "balanced";
   const selected = chooseImageModel(mode, prompt, references.length > 0, modelOverride);
 
   const referenceImages: Uint8Array[] = [];
@@ -145,7 +163,12 @@ export async function POST(request: Request) {
     }
   }
 
-  const finalPrompt = creatorPrompt(creator as Record<string, unknown>, prompt, referenceImages.length > 0);
+  const finalPrompt = creatorPrompt(
+    creator as Record<string, unknown>,
+    prompt,
+    referenceImages.length > 0,
+    variationMode,
+  );
   const promptInput =
     referenceImages.length > 0
       ? { text: finalPrompt, images: referenceImages }
@@ -179,12 +202,20 @@ export async function POST(request: Request) {
           aspectRatio,
           profile: selected.localProfile || "fast",
           referenceUrls: referenceRemoteUrls,
+          variationMode,
         }),
         cache: "no-store",
       });
 
       const payload = (await response.json().catch(() => null)) as
-        | { jobId?: string; status?: string; detail?: string; error?: string }
+        | {
+            jobId?: string;
+            status?: string;
+            detail?: string;
+            error?: string;
+            seed?: number;
+            variationMode?: "preserve" | "balanced" | "new-scene";
+          }
         | null;
 
       if (!response.ok || !payload?.jobId) {
@@ -207,6 +238,8 @@ export async function POST(request: Request) {
         local_profile: selected.localProfile || "fast",
         aspect_ratio: aspectRatio,
         use_references: wantsReferences,
+        variation_mode: variationMode,
+        seed: typeof payload.seed === "number" ? payload.seed : null,
       });
 
       if (jobError) {
@@ -230,7 +263,11 @@ export async function POST(request: Request) {
           aspectRatio,
           referenceCount: Math.min(referenceRemoteUrls.length, 1),
           referenceTitles: referenceTitles.slice(0, 1),
-          createdAt: new Date().toISOString(),
+          seed: payload.seed ?? null,
+          variationMode: payload.variationMode || variationMode,
+          seed: null,
+        variationMode,
+        createdAt: new Date().toISOString(),
         },
         { status: 202, headers: { "Cache-Control": "no-store" } },
       );
@@ -257,6 +294,7 @@ export async function POST(request: Request) {
             aspectRatio,
             profile: selected.localProfile || "fast",
             referenceUrls: referenceRemoteUrls,
+            variationMode,
           }),
           cache: "no-store",
         });
@@ -270,6 +308,8 @@ export async function POST(request: Request) {
               referencesUsed?: number;
               profile?: "fast" | "quality";
               detail?: string;
+              seed?: number;
+              variationMode?: "preserve" | "balanced" | "new-scene";
             }
           | null;
 
@@ -292,6 +332,8 @@ export async function POST(request: Request) {
               referenceCount: payload.referencesUsed ?? referenceImages.length,
               referenceTitles: referenceTitles.slice(0, payload.referencesUsed ?? referenceImages.length),
               referenceFallback: null,
+              seed: payload.seed ?? null,
+              variationMode: payload.variationMode || variationMode,
               createdAt: new Date().toISOString(),
             },
             { headers: { "Cache-Control": "no-store" } },
