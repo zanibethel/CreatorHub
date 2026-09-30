@@ -517,12 +517,16 @@ export default function CreatorHubAiBubble({
   async function send(event?: FormEvent) {
     event?.preventDefault();
     const message = input.trim();
-    if (!message || busy) return;
+    const attachment = pendingAttachment;
+    if ((!message && !attachment) || busy || uploading) return;
+    const attachmentIds = attachment ? [attachment.id] : [];
+    const hadAttachment = attachmentIds.length > 0;
 
     const userMessage: ChatMessage = {
       id: newId(),
       role: "user",
-      text: message,
+      text: message || "Image attached",
+      attachmentNames: attachment ? [attachment.fileName] : undefined,
     };
     const assistantId = newId();
     const assistantMessage: ChatMessage = {
@@ -535,7 +539,7 @@ export default function CreatorHubAiBubble({
     persistMessages([...messages, userMessage, assistantMessage]);
     setInput("");
     setBusy(true);
-    setRouteLabel("Checking code/data first…");
+    setRouteLabel(hadAttachment ? "Routing image to Local Vision…" : "Checking code/data first…");
 
     try {
       const response = await fetch("/api/cooperative/chat", {
@@ -545,6 +549,7 @@ export default function CreatorHubAiBubble({
           creatorId,
           message,
           conversationId,
+          attachmentIds,
           pageContext: "CreatorHub creator command center",
         }),
       });
@@ -554,8 +559,11 @@ export default function CreatorHubAiBubble({
       }
 
       const mode = result.mode || "local-fast";
+      if (hadAttachment) clearPendingAttachment();
       setRouteLabel(
-        mode === "code"
+        hadAttachment
+          ? "Local Vision"
+          : mode === "code"
           ? "Answered from CreatorHub code/data"
           : mode === "agent"
             ? "Repo Engineer · Local Quality as needed"
@@ -602,9 +610,11 @@ export default function CreatorHubAiBubble({
       if (result.jobId) {
         replaceAssistant(assistantId, {
           text:
-            mode === "local-quality"
-              ? "Local Quality is working on that…"
-              : "Local Fast is working on that…",
+            hadAttachment
+              ? "Local Vision is analyzing the attached image…"
+              : mode === "local-quality"
+                ? "Local Quality is working on that…"
+                : "Local Fast is working on that…",
           mode,
         });
         window.localStorage.setItem(
