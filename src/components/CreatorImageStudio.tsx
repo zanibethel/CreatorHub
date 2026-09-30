@@ -89,8 +89,11 @@ export default function CreatorImageStudio({
   );
 
   const previewReferenceCount =
-    requestRoute.target === "cooperative"
-      ? Math.min(activeReferenceCount, 1)
+    routePreview.target === "cooperative"
+      ? Math.min(
+          activeReferenceCount,
+          routePreview.localProfile === "quality" && variationMode !== "preserve" ? 2 : 1,
+        )
       : Math.min(activeReferenceCount, 3);
   const generating = busy || Boolean(activeJobId);
 
