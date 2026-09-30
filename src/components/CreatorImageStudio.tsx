@@ -20,6 +20,8 @@ type ImageContext = {
   references?: Reference[];
 };
 
+type VariationMode = "preserve" | "balanced" | "new-scene";
+
 type GenerationResult = {
   image: string;
   jobId?: string;
@@ -34,6 +36,8 @@ type GenerationResult = {
   referenceCount: number;
   referenceTitles: string[];
   referenceFallback?: string | null;
+  seed?: number | null;
+  variationMode?: VariationMode;
   createdAt: string;
 };
 
@@ -68,6 +72,7 @@ export default function CreatorImageStudio({
   const [modelOverride, setModelOverride] = useState<ImageModelOverride>("auto");
   const [aspectRatio, setAspectRatio] = useState("4:5");
   const [useReferences, setUseReferences] = useState(true);
+  const [variationMode, setVariationMode] = useState<VariationMode>("balanced");
   const [references, setReferences] = useState<Reference[]>([]);
   const [busy, setBusy] = useState(false);
   const [activeJobId, setActiveJobId] = useState<string | null>(null);
@@ -92,6 +97,7 @@ export default function CreatorImageStudio({
     setResult(null);
     setMessage("");
     setUseReferences(true);
+    setVariationMode("balanced");
     setMode("auto");
     setModelOverride("auto");
     setActiveJobId(null);
@@ -110,10 +116,17 @@ export default function CreatorImageStudio({
     void fetch(`/api/generate/image/jobs?creatorId=${encodeURIComponent(creator.id)}`, { cache: "no-store" })
       .then(async (response) => {
         const data = (await response.json()) as {
-          job?: { cooperative_job_id?: string; status?: string; local_profile?: string } | null;
+          job?: {
+            cooperative_job_id?: string;
+            status?: string;
+            local_profile?: string;
+            variation_mode?: VariationMode;
+            seed?: number | null;
+          } | null;
         };
         if (!cancelled && response.ok && data.job?.cooperative_job_id) {
           setActiveJobId(data.job.cooperative_job_id);
+          if (data.job.variation_mode) setVariationMode(data.job.variation_mode);
           setMessage(
             `Resumed Local ${data.job.local_profile === "quality" ? "Quality" : "Fast"} generation · ${data.job.status || "queued"}…`,
           );
@@ -214,6 +227,7 @@ export default function CreatorImageStudio({
           modelOverride,
           aspectRatio,
           useReferences,
+          variationMode,
           confirmedSpend: true,
         }),
       });
@@ -286,6 +300,8 @@ export default function CreatorImageStudio({
           aspect_ratio: result.aspectRatio,
           reference_count: result.referenceCount,
           source_reference_titles: result.referenceTitles,
+          variation_mode: result.variationMode || variationMode,
+          seed: result.seed ?? null,
         },
       });
 
@@ -407,6 +423,20 @@ export default function CreatorImageStudio({
             <option value="16:9">16:9 landscape</option>
           </select>
         </label>
+
+        <label style={{ display: "block", fontWeight: 700 }}>
+          Variation
+          <select
+            value={variationMode}
+            onChange={(event) => setVariationMode(event.target.value as VariationMode)}
+            style={input}
+            disabled={generating || !useReferences}
+          >
+            <option value="preserve">Preserve · stay close to reference pose/composition</option>
+            <option value="balanced">Balanced · same identity, meaningful variation</option>
+            <option value="new-scene">New scene · change pose/composition/background</option>
+          </select>
+        </label>
       </div>
 
       <div style={{ background: colors.purpleSoft, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 12, marginTop: 8 }}>
@@ -419,7 +449,7 @@ export default function CreatorImageStudio({
           {activeReferenceCount > 0
             ? routePreview.supportsReferences
               ? routePreview.target === "cooperative"
-                ? " · uses the primary saved image reference"
+                ? ` · primary identity reference · ${variationMode.replace("-", " ")} variation`
                 : ` · will receive up to ${Math.min(activeReferenceCount, 3)} saved image references`
               : " · saved references fall back to text identity"
             : ""}
@@ -453,7 +483,10 @@ export default function CreatorImageStudio({
             style={{ width: "100%", maxWidth: 720, borderRadius: 16, border: `1px solid ${colors.border}`, display: "block" }}
           />
           <div style={{ marginTop: 8, color: colors.muted, fontSize: 13 }}>
-            {result.modelLabel} · {result.aspectRatio} · {result.referenceCount} reference{result.referenceCount === 1 ? "" : "s"} · {new Date(result.createdAt).toLocaleString()}
+            {result.modelLabel} · {result.aspectRatio} · {result.referenceCount} reference{result.referenceCount === 1 ? "" : "s"}
+            {result.variationMode ? ` · ${result.variationMode.replace("-", " ")}` : ""}
+            {typeof result.seed === "number" ? ` · seed ${result.seed}` : ""}
+            {" · "}{new Date(result.createdAt).toLocaleString()}
           </div>
           {result.referenceTitles?.length ? (
             <div style={{ marginTop: 5, color: colors.muted, fontSize: 12 }}>
@@ -461,6 +494,14 @@ export default function CreatorImageStudio({
             </div>
           ) : null}
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap", marginTop: 10 }}>
+            <button
+              type="button"
+              style={secondaryButton}
+              disabled={generating || prompt.trim().length < 3}
+              onClick={() => void generate()}
+            >
+              Generate another variation
+            </button>
             <button type="button" style={secondaryButton} disabled={savingReference} onClick={() => void saveGeneratedReference()}>
               {savingReference ? "Saving…" : "Save as approved reference"}
             </button>
