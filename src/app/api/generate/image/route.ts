@@ -153,7 +153,7 @@ export async function POST(request: Request) {
 
   const cooperativeUrl = process.env.COOPERATIVE_INFERENCE_URL?.replace(/\\\/+$/, "");
   const cooperativeSecret = process.env.COOPERATIVE_INFERENCE_SECRET;
-  const shouldTryCooperative = selected.target === "auto" || selected.target === "cooperative";
+  const shouldTryCooperative = selected.target === "auto";
 
   if (selected.target === "cooperative") {
     if (!cooperativeUrl || !cooperativeSecret) {
@@ -244,17 +244,7 @@ export async function POST(request: Request) {
   }
 
   if (shouldTryCooperative) {
-    if (!cooperativeUrl || !cooperativeSecret) {
-      if (selected.target === "cooperative") {
-        return Response.json(
-          {
-            error: "CoOperative local image generation is not configured.",
-            detail: "Choose Automatic or a hosted model, or configure the CoOperative inference connection.",
-          },
-          { status: 503, headers: { "Cache-Control": "no-store" } },
-        );
-      }
-    } else {
+    if (cooperativeUrl && cooperativeSecret) {
       try {
         const response = await fetch(`${cooperativeUrl}/api/inference/image`, {
           method: "POST",
@@ -309,13 +299,6 @@ export async function POST(request: Request) {
         }
 
         const detail = payload?.detail?.slice(0, 500) || `CoOperative returned HTTP ${response.status}.`;
-        if (selected.target === "cooperative") {
-          return Response.json(
-            { error: "The selected local image worker is unavailable.", detail },
-            { status: 502, headers: { "Cache-Control": "no-store" } },
-          );
-        }
-
         console.warn("CoOperative inference unavailable; falling back to AI Gateway", {
           status: response.status,
           detail,
@@ -323,13 +306,6 @@ export async function POST(request: Request) {
       } catch (cooperativeError) {
         const detail =
           cooperativeError instanceof Error ? cooperativeError.message.slice(0, 500) : "unknown error";
-
-        if (selected.target === "cooperative") {
-          return Response.json(
-            { error: "The selected local image worker is unavailable.", detail },
-            { status: 502, headers: { "Cache-Control": "no-store" } },
-          );
-        }
 
         console.warn("CoOperative inference request failed; falling back to AI Gateway", { detail });
       }
