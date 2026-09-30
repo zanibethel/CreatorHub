@@ -22,12 +22,34 @@ type ChatAction = {
   label?: string;
 };
 
+type ReviewCheck = {
+  command?: string;
+  passed?: boolean;
+  skipped?: boolean;
+  output?: string;
+};
+
+type ReviewDetails = {
+  taskId: string;
+  branchName?: string | null;
+  summary?: string | null;
+  changedFiles?: string[];
+  checksPassed?: boolean | null;
+  checks?: ReviewCheck[];
+  diffStat?: string;
+  diff?: string;
+  showDetails?: boolean;
+  decision?: "approved" | "denied";
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
   mode?: RouteMode;
   action?: ChatAction | null;
+  attachmentNames?: string[];
+  review?: ReviewDetails | null;
 };
 
 type BridgeResponse = {
@@ -43,7 +65,12 @@ type BridgeResponse = {
     summary?: string;
     changedFiles?: string[];
     checksPassed?: boolean;
+    checks?: ReviewCheck[];
+    diffStat?: string;
+    diff?: string;
   } | null;
+  review?: Omit<ReviewDetails, "taskId"> | null;
+  decision?: "approved" | "denied";
   branchName?: string | null;
   model?: string | null;
   error?: string | null;
@@ -89,8 +116,16 @@ export default function CreatorHubAiBubble({
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [routeLabel, setRouteLabel] = useState("Code first · Local AI when needed");
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    id: string;
+    fileName: string;
+    previewUrl: string;
+  } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [reviewBusyId, setReviewBusyId] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const activePollRef = useRef("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const persistMessages = useCallback(
     (next: ChatMessage[]) => {
