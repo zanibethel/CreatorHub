@@ -3,7 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import AuthPanel from "@/components/AuthPanel";
 import Dashboard from "@/components/Dashboard";
-import IntegrationHealthPanel from "@/components/IntegrationHealthPanel";
 import { createClient } from "@/lib/supabase";
 
 export default function Home() {
@@ -24,12 +23,5 @@ export default function Home() {
 
   if (!userId) return <AuthPanel />;
 
-  return (
-    <>
-      <div style={{ maxWidth: 1120, margin: "0 auto", padding: "24px 24px 0" }}>
-        <IntegrationHealthPanel />
-      </div>
-      <Dashboard userId={userId} />
-    </>
-  );
+  return <Dashboard userId={userId} />;
 }
