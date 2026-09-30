@@ -647,9 +647,11 @@ export default function CreatorHubAiBubble({
 
   function clearChat() {
     activePollRef.current = "";
+    clearPendingAttachment();
     setMessages([]);
     setConversationId(undefined);
     setBusy(false);
+    setReviewBusyId("");
     try {
       window.localStorage.removeItem(historyKey);
       window.localStorage.removeItem(activeKey);
@@ -1035,50 +1037,153 @@ export default function CreatorHubAiBubble({
               borderTop: "1px solid #3d2d50",
               padding: 10,
               display: "grid",
-              gridTemplateColumns: "minmax(0,1fr) auto",
               gap: 8,
-              alignItems: "end",
             }}
           >
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void send();
-                }
-              }}
-              placeholder="Ask CoOperative…"
-              rows={2}
-              disabled={busy}
-              style={{
-                width: "100%",
-                resize: "none",
-                boxSizing: "border-box",
-                border: "1px solid #4a3565",
-                borderRadius: 13,
-                background: "#0f0a17",
-                color: "#fff",
-                padding: "10px 11px",
-                font: "inherit",
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadImageAttachment(file);
               }}
             />
-            <button
-              type="submit"
-              disabled={busy || input.trim().length === 0}
+
+            {pendingAttachment ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "42px minmax(0,1fr) auto",
+                  gap: 8,
+                  alignItems: "center",
+                  border: "1px solid #4a3565",
+                  borderRadius: 12,
+                  padding: 7,
+                  background: "#171020",
+                }}
+              >
+                <img
+                  src={pendingAttachment.previewUrl}
+                  alt=""
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 9,
+                    objectFit: "cover",
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <strong style={{ display: "block", fontSize: 11 }}>Image attached</strong>
+                  <span
+                    style={{
+                      display: "block",
+                      color: "#b8aec7",
+                      fontSize: 10,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {pendingAttachment.fileName}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remove attached image"
+                  onClick={clearPendingAttachment}
+                  disabled={busy}
+                  style={{
+                    border: "1px solid #4a3565",
+                    borderRadius: 999,
+                    background: "#21172f",
+                    color: "#fff",
+                    width: 30,
+                    height: 30,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
+
+            <div
               style={{
-                border: 0,
-                borderRadius: 13,
-                background: busy ? "#49365f" : "#7c3aed",
-                color: "#fff",
-                fontWeight: 900,
-                padding: "11px 13px",
-                minHeight: 44,
+                display: "grid",
+                gridTemplateColumns: "auto minmax(0,1fr) auto",
+                gap: 8,
+                alignItems: "end",
               }}
             >
-              {busy ? "…" : "Send"}
-            </button>
+              <button
+                type="button"
+                aria-label="Attach image"
+                title="Attach image"
+                disabled={busy || uploading}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: "1px solid #4a3565",
+                  borderRadius: 13,
+                  background: "#21172f",
+                  color: "#e9ddff",
+                  fontWeight: 900,
+                  width: 44,
+                  minHeight: 44,
+                  fontSize: 17,
+                }}
+              >
+                {uploading ? "…" : "📎"}
+              </button>
+
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void send();
+                  }
+                }}
+                placeholder={
+                  pendingAttachment
+                    ? "Ask about this image…"
+                    : "Ask CoOperative…"
+                }
+                rows={2}
+                disabled={busy || uploading}
+                style={{
+                  width: "100%",
+                  resize: "none",
+                  boxSizing: "border-box",
+                  border: "1px solid #4a3565",
+                  borderRadius: 13,
+                  background: "#0f0a17",
+                  color: "#fff",
+                  padding: "10px 11px",
+                  font: "inherit",
+                }}
+              />
+              <button
+                type="submit"
+                disabled={
+                  busy ||
+                  uploading ||
+                  (input.trim().length === 0 && !pendingAttachment)
+                }
+                style={{
+                  border: 0,
+                  borderRadius: 13,
+                  background: busy || uploading ? "#49365f" : "#7c3aed",
+                  color: "#fff",
+                  fontWeight: 900,
+                  padding: "11px 13px",
+                  minHeight: 44,
+                }}
+              >
+                {busy || uploading ? "…" : "Send"}
+              </button>
+            </div>
           </form>
         </section>
       ) : null}
