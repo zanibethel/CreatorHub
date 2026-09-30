@@ -800,6 +800,17 @@ export default function CreatorHubAiBubble({
                   >
                     {message.text}
                   </div>
+                  {message.attachmentNames?.length ? (
+                    <div
+                      style={{
+                        marginTop: 5,
+                        color: message.role === "user" ? "#e9ddff" : "#b8aec7",
+                        fontSize: 10,
+                      }}
+                    >
+                      📎 {message.attachmentNames.join(", ")}
+                    </div>
+                  ) : null}
                   {message.role === "assistant" && message.mode ? (
                     <div style={{ color: "#9f95ac", fontSize: 10, margin: "4px 3px 0" }}>
                       {labelForMode(message.mode)}
@@ -822,6 +833,196 @@ export default function CreatorHubAiBubble({
                     >
                       Open {message.action.label || "section"} →
                     </button>
+                  ) : null}
+                  {message.review ? (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        border: "1px solid #5b3a86",
+                        borderRadius: 13,
+                        background: "#171020",
+                        padding: 10,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, color: "#b8aec7", lineHeight: 1.45 }}>
+                        <strong style={{ color: "#fff" }}>Proposal branch</strong>
+                        <br />
+                        {message.review.branchName || "agent branch"}
+                      </div>
+
+                      {message.review.decision ? (
+                        <div
+                          style={{
+                            marginTop: 9,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            color:
+                              message.review.decision === "approved"
+                                ? "#d8c8eb"
+                                : "#cfc7da",
+                          }}
+                        >
+                          {message.review.decision === "approved"
+                            ? "Approved · still isolated and unpushed"
+                            : "Denied · no push or deploy"}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                          <button
+                            type="button"
+                            disabled={Boolean(reviewBusyId)}
+                            onClick={() =>
+                              void handleReview(message.id, message.review!, "approve")
+                            }
+                            style={{
+                              border: "1px solid #8b5cf6",
+                              borderRadius: 999,
+                              background: "#6d28d9",
+                              color: "#fff",
+                              padding: "7px 10px",
+                              fontWeight: 800,
+                              fontSize: 11,
+                            }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(reviewBusyId)}
+                            onClick={() =>
+                              void handleReview(message.id, message.review!, "deny")
+                            }
+                            style={{
+                              border: "1px solid #5c496b",
+                              borderRadius: 999,
+                              background: "#21172f",
+                              color: "#fff",
+                              padding: "7px 10px",
+                              fontWeight: 800,
+                              fontSize: 11,
+                            }}
+                          >
+                            Deny
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(reviewBusyId)}
+                            onClick={() =>
+                              void handleReview(message.id, message.review!, "explain")
+                            }
+                            style={{
+                              border: "1px solid #7c3aed",
+                              borderRadius: 999,
+                              background: "#2d1b42",
+                              color: "#e9ddff",
+                              padding: "7px 10px",
+                              fontWeight: 800,
+                              fontSize: 11,
+                            }}
+                          >
+                            {reviewBusyId === message.id ? "Loading…" : "Tell me more"}
+                          </button>
+                        </div>
+                      )}
+
+                      {message.review.showDetails ? (
+                        <div style={{ marginTop: 11, display: "grid", gap: 9 }}>
+                          {message.review.changedFiles?.length ? (
+                            <div>
+                              <strong style={{ fontSize: 11 }}>Changed files</strong>
+                              <pre
+                                style={{
+                                  margin: "5px 0 0",
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  color: "#cfc7da",
+                                  fontSize: 10,
+                                }}
+                              >
+                                {message.review.changedFiles.join("\n")}
+                              </pre>
+                            </div>
+                          ) : null}
+
+                          {message.review.checks?.length ? (
+                            <div>
+                              <strong style={{ fontSize: 11 }}>Checks</strong>
+                              <div style={{ display: "grid", gap: 4, marginTop: 5 }}>
+                                {message.review.checks.map((check, index) => (
+                                  <div key={`${check.command || "check"}-${index}`} style={{ fontSize: 10, color: "#cfc7da" }}>
+                                    {check.skipped ? "○" : check.passed ? "✓" : "×"} {check.command || "check"}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {message.review.diffStat ? (
+                            <div>
+                              <strong style={{ fontSize: 11 }}>Diff stat</strong>
+                              <pre
+                                style={{
+                                  margin: "5px 0 0",
+                                  whiteSpace: "pre-wrap",
+                                  color: "#cfc7da",
+                                  fontSize: 10,
+                                }}
+                              >
+                                {message.review.diffStat}
+                              </pre>
+                            </div>
+                          ) : null}
+
+                          <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 8,
+                                alignItems: "center",
+                              }}
+                            >
+                              <strong style={{ fontSize: 11 }}>Prepared diff</strong>
+                              <button
+                                type="button"
+                                disabled={!message.review.diff}
+                                onClick={() =>
+                                  void navigator.clipboard.writeText(message.review?.diff || "")
+                                }
+                                style={{
+                                  border: "1px solid #4a3565",
+                                  borderRadius: 999,
+                                  background: "#21172f",
+                                  color: "#d8c8eb",
+                                  padding: "5px 8px",
+                                  fontSize: 10,
+                                }}
+                              >
+                                Copy diff
+                              </button>
+                            </div>
+                            <pre
+                              style={{
+                                maxHeight: 280,
+                                overflow: "auto",
+                                margin: "6px 0 0",
+                                padding: 8,
+                                borderRadius: 9,
+                                background: "#0d0912",
+                                border: "1px solid #352641",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
+                                color: "#d8c8eb",
+                                fontSize: 9,
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {message.review.diff || "No textual diff was produced."}
+                            </pre>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               ))
