@@ -1,5 +1,9 @@
 import { generateImage } from "ai";
-import { chooseImageModel, type ImageGenerationMode } from "@/lib/generation-router";
+import {
+  chooseImageModel,
+  type ImageGenerationMode,
+  type ImageModelOverride,
+} from "@/lib/generation-router";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -8,6 +12,7 @@ export const maxDuration = 300;
 type GenerateBody = {
   prompt?: unknown;
   mode?: unknown;
+  modelOverride?: unknown;
   aspectRatio?: unknown;
   confirmedSpend?: unknown;
   creatorId?: unknown;
@@ -15,6 +20,13 @@ type GenerateBody = {
 };
 
 const MODES = new Set<ImageGenerationMode>(["auto", "economy", "balanced", "premium"]);
+const MODEL_OVERRIDES = new Set<ImageModelOverride>([
+  "auto",
+  "cooperative-local",
+  "recraft-v4.1-flash",
+  "gpt-image-2.5-flare",
+  "gpt-image-2.5-sunburst",
+]);
 const RATIOS = new Set(["1:1", "4:5", "9:16", "16:9"]);
 
 function cleanString(value: unknown, max = 2_000) {
@@ -98,9 +110,11 @@ export async function POST(request: Request) {
 
   const requestedMode = cleanString(body.mode, 20) as ImageGenerationMode;
   const mode = MODES.has(requestedMode) ? requestedMode : "auto";
+  const requestedModelOverride = cleanString(body.modelOverride, 40) as ImageModelOverride;
+  const modelOverride = MODEL_OVERRIDES.has(requestedModelOverride) ? requestedModelOverride : "auto";
   const rawRatio = cleanString(body.aspectRatio, 10);
   const aspectRatio = RATIOS.has(rawRatio) ? rawRatio : "4:5";
-  const selected = chooseImageModel(mode, prompt, references.length > 0);
+  const selected = chooseImageModel(mode, prompt, references.length > 0, modelOverride);
 
   const referenceImages: Uint8Array[] = [];
   const referenceTitles: string[] = [];
@@ -137,65 +151,96 @@ export async function POST(request: Request) {
 
   const cooperativeUrl = process.env.COOPERATIVE_INFERENCE_URL?.replace(/\\\/+$/, "");
   const cooperativeSecret = process.env.COOPERATIVE_INFERENCE_SECRET;
+  const shouldTryCooperative = selected.target === "auto" || selected.target === "cooperative";
 
-  if (cooperativeUrl && cooperativeSecret) {
-    try {
-      const response = await fetch(`${cooperativeUrl}/api/inference/image`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${cooperativeSecret}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          prompt: finalPrompt,
-          aspectRatio,
-          referenceUrls: referenceRemoteUrls,
-        }),
-        cache: "no-store",
-      });
-
-      const payload = (await response.json().catch(() => null)) as
-        | {
-            dataUrl?: string;
-            model?: string;
-            provider?: string;
-            worker?: string;
-            referencesUsed?: number;
-            detail?: string;
-          }
-        | null;
-
-      if (response.ok && payload?.dataUrl) {
+  if (shouldTryCooperative) {
+    if (!cooperativeUrl || !cooperativeSecret) {
+      if (selected.target === "cooperative") {
         return Response.json(
           {
-            ok: true,
-            image: payload.dataUrl,
-            model: payload.model || "cooperative-worker",
-            modelLabel: payload.model || "CoOperative inference worker",
-            mode: selected.mode,
-            routedBy: `cooperative-${payload.worker || payload.provider || "worker"}`,
-            costHint:
-              payload.worker === "local"
-                ? "local inference · no per-image API charge"
-                : "CoOperative-managed inference",
-            aspectRatio,
-            referenceCount: payload.referencesUsed ?? referenceImages.length,
-            referenceTitles,
-            referenceFallback: null,
-            createdAt: new Date().toISOString(),
+            error: "CoOperative local image generation is not configured.",
+            detail: "Choose Automatic or a hosted model, or configure the CoOperative inference connection.",
           },
-          { headers: { "Cache-Control": "no-store" } },
+          { status: 503, headers: { "Cache-Control": "no-store" } },
         );
       }
+    } else {
+      try {
+        const response = await fetch(`${cooperativeUrl}/api/inference/image`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${cooperativeSecret}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            prompt: finalPrompt,
+            aspectRatio,
+            referenceUrls: referenceRemoteUrls,
+          }),
+          cache: "no-store",
+        });
 
-      console.warn("CoOperative inference unavailable; falling back to AI Gateway", {
-        status: response.status,
-        detail: payload?.detail?.slice(0, 500),
-      });
-    } catch (cooperativeError) {
-      console.warn("CoOperative inference request failed; falling back to AI Gateway", {
-        detail: cooperativeError instanceof Error ? cooperativeError.message.slice(0, 500) : "unknown error",
-      });
+        const payload = (await response.json().catch(() => null)) as
+          | {
+              dataUrl?: string;
+              model?: string;
+              provider?: string;
+              worker?: string;
+              referencesUsed?: number;
+              detail?: string;
+            }
+          | null;
+
+        if (response.ok && payload?.dataUrl) {
+          return Response.json(
+            {
+              ok: true,
+              image: payload.dataUrl,
+              model: payload.model || "cooperative-worker",
+              modelLabel: payload.model
+                ? `Local · ${payload.model}`
+                : "CoOperative Local Worker",
+              mode: selected.mode,
+              routedBy: `cooperative-${payload.worker || payload.provider || "worker"}`,
+              costHint:
+                payload.worker === "local"
+                  ? "local inference · no per-image API charge"
+                  : "CoOperative-managed inference",
+              aspectRatio,
+              referenceCount: payload.referencesUsed ?? referenceImages.length,
+              referenceTitles,
+              referenceFallback: null,
+              createdAt: new Date().toISOString(),
+            },
+            { headers: { "Cache-Control": "no-store" } },
+          );
+        }
+
+        const detail = payload?.detail?.slice(0, 500) || `CoOperative returned HTTP ${response.status}.`;
+        if (selected.target === "cooperative") {
+          return Response.json(
+            { error: "The selected local image worker is unavailable.", detail },
+            { status: 502, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+
+        console.warn("CoOperative inference unavailable; falling back to AI Gateway", {
+          status: response.status,
+          detail,
+        });
+      } catch (cooperativeError) {
+        const detail =
+          cooperativeError instanceof Error ? cooperativeError.message.slice(0, 500) : "unknown error";
+
+        if (selected.target === "cooperative") {
+          return Response.json(
+            { error: "The selected local image worker is unavailable.", detail },
+            { status: 502, headers: { "Cache-Control": "no-store" } },
+          );
+        }
+
+        console.warn("CoOperative inference request failed; falling back to AI Gateway", { detail });
+      }
     }
   }
 
@@ -226,7 +271,7 @@ export async function POST(request: Request) {
         referenceTitles,
         referenceFallback:
           wantsReferences && references.length > 0 && !selected.supportsReferences
-            ? "The selected Economy model does not accept reference images, so CreatorHub used the saved visual profile as a text fallback."
+            ? "The selected model does not accept reference images, so CreatorHub used the saved visual profile as a text fallback."
             : null,
         createdAt: new Date().toISOString(),
       },

@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { Creator } from "@/lib/types";
-import { chooseImageModel, imageModeOptions, type ImageGenerationMode } from "@/lib/generation-router";
+import { chooseImageModel, imageModeOptions, imageModelOptions, type ImageGenerationMode, type ImageModelOverride } from "@/lib/generation-router";
 import { createClient } from "@/lib/supabase";
 import { card, colors, input, primaryButton, secondaryButton } from "@/lib/ui";
 
@@ -56,6 +56,7 @@ export default function CreatorImageStudio({
   const supabase = useMemo(() => createClient(), []);
   const [prompt, setPrompt] = useState("");
   const [mode, setMode] = useState<ImageGenerationMode>("auto");
+  const [modelOverride, setModelOverride] = useState<ImageModelOverride>("auto");
   const [aspectRatio, setAspectRatio] = useState("4:5");
   const [useReferences, setUseReferences] = useState(true);
   const [references, setReferences] = useState<Reference[]>([]);
@@ -66,8 +67,8 @@ export default function CreatorImageStudio({
 
   const activeReferenceCount = useReferences ? references.length : 0;
   const routePreview = useMemo(
-    () => chooseImageModel(mode, prompt || "general creator visual", activeReferenceCount > 0),
-    [mode, prompt, activeReferenceCount],
+    () => chooseImageModel(mode, prompt || "general creator visual", activeReferenceCount > 0, modelOverride),
+    [mode, prompt, activeReferenceCount, modelOverride],
   );
 
   useEffect(() => {
@@ -75,6 +76,8 @@ export default function CreatorImageStudio({
     setResult(null);
     setMessage("");
     setUseReferences(true);
+    setMode("auto");
+    setModelOverride("auto");
 
     let cancelled = false;
     void fetch(`/api/creators/${creator.id}/image-context`, { cache: "no-store" })
@@ -103,8 +106,15 @@ export default function CreatorImageStudio({
           ? " using the saved text profile only"
           : "";
 
+    const chargeNote =
+      routePreview.target === "cooperative"
+        ? "This selection has no per-image API charge and will not fall back to a paid hosted model."
+        : routePreview.target === "auto"
+          ? "CreatorHub will try local inference first; a hosted fallback can incur AI Gateway charges."
+          : "This hosted selection can incur AI Gateway charges.";
+
     const approved = window.confirm(
-      `Generate 1 image with ${routePreview.label}${referenceText}? Estimated pricing: ${routePreview.costHint}. This can incur AI Gateway charges.`,
+      `Generate 1 image with ${routePreview.label}${referenceText}? Pricing: ${routePreview.costHint}. ${chargeNote}`,
     );
     if (!approved) return;
 
@@ -120,6 +130,7 @@ export default function CreatorImageStudio({
           creatorId: creator.id,
           prompt: trimmed,
           mode,
+          modelOverride,
           aspectRatio,
           useReferences,
           confirmedSpend: true,
@@ -273,8 +284,22 @@ export default function CreatorImageStudio({
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10 }}>
         <label style={{ display: "block", fontWeight: 700 }}>
           Routing
-          <select value={mode} onChange={(event) => setMode(event.target.value as ImageGenerationMode)} style={input} disabled={busy}>
+          <select value={mode} onChange={(event) => setMode(event.target.value as ImageGenerationMode)} style={input} disabled={busy || modelOverride !== "auto"}>
             {imageModeOptions().map((option) => (
+              <option key={option.value} value={option.value}>{option.label} · {option.detail}</option>
+            ))}
+          </select>
+        </label>
+
+        <label style={{ display: "block", fontWeight: 700 }}>
+          Model
+          <select
+            value={modelOverride}
+            onChange={(event) => setModelOverride(event.target.value as ImageModelOverride)}
+            style={input}
+            disabled={busy}
+          >
+            {imageModelOptions().map((option) => (
               <option key={option.value} value={option.value}>{option.label} · {option.detail}</option>
             ))}
           </select>
@@ -292,8 +317,10 @@ export default function CreatorImageStudio({
       </div>
 
       <div style={{ background: colors.purpleSoft, border: `1px solid ${colors.border}`, borderRadius: 12, padding: 12, marginTop: 8 }}>
-        <strong>Selected: {routePreview.label}</strong>
-        <div style={{ color: colors.muted, marginTop: 4 }}>{routePreview.reason}</div>
+        <strong>Selected model: {routePreview.label}</strong>
+        <div style={{ color: colors.muted, marginTop: 4 }}>
+          {modelOverride === "auto" ? "Automatic selection · " : "Manual override · "}{routePreview.reason}
+        </div>
         <div style={{ color: colors.muted, marginTop: 4 }}>
           {routePreview.costHint}
           {activeReferenceCount > 0
