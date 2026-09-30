@@ -17,7 +17,7 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabase
     .from("creator_image_jobs")
-    .select("cooperative_job_id,status,local_profile,aspect_ratio,created_at")
+    .select("cooperative_job_id,status,local_profile,aspect_ratio,variation_mode,seed,created_at")
     .eq("user_id", user.id)
     .eq("creator_id", creatorId)
     .in("status", ["queued", "running"])
