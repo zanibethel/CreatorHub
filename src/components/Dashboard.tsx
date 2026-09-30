@@ -6,6 +6,7 @@ import AIRecommendationsButton from "@/components/AIRecommendationsButton";
 import ConnectionsPanel from "@/components/ConnectionsPanel";
 import CreatorForm from "@/components/CreatorForm";
 import CreatorImageStudio from "@/components/CreatorImageStudio";
+import CreatorHubAiBubble from "@/components/CreatorHubAiBubble";
 import CreatorReferenceLibrary from "@/components/CreatorReferenceLibrary";
 import EbookStudio from "@/components/EbookStudio";
 import IntegrationHealthPanel from "@/components/IntegrationHealthPanel";
@@ -589,12 +590,20 @@ export default function Dashboard({ userId }: { userId: string }) {
       )}
 
       {savingCreator ? (
-        <div style={{ ...card, position: "fixed", right: 18, bottom: 18 }}>Creating workspace…</div>
+        <div style={{ ...card, position: "fixed", right: 18, bottom: 90 }}>Creating workspace…</div>
       ) : null}
       {!savingCreator && message ? (
-        <div style={{ ...card, position: "fixed", right: 18, bottom: 18, maxWidth: 420, zIndex: 10 }}>
+        <div style={{ ...card, position: "fixed", right: 18, bottom: 90, maxWidth: 420, zIndex: 10 }}>
           {message}
         </div>
+      ) : null}
+
+      {activeCreator ? (
+        <CreatorHubAiBubble
+          creatorId={creatorId}
+          creatorName={activeCreator.name}
+          onOpenModule={openAndScroll}
+        />
       ) : null}
     </main>
   );
