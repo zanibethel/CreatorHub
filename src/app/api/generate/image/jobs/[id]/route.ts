@@ -53,6 +53,8 @@ export async function GET(
         referencesUsed?: number;
         referenceTitles?: string[];
         latencyMs?: number | null;
+        seed?: number | null;
+        variationMode?: "preserve" | "balanced" | "new-scene";
         error?: string | null;
         aspectRatio?: string;
         createdAt?: string;
@@ -78,6 +80,8 @@ export async function GET(
       status: nextStatus,
       result_model: payload.model ?? null,
       result_reference_count: payload.referencesUsed ?? null,
+      seed: payload.seed ?? localJob.seed ?? null,
+      variation_mode: payload.variationMode || localJob.variation_mode || "balanced",
       error: payload.error ?? null,
       completed_at: payload.completedAt ?? null,
       updated_at: new Date().toISOString(),
@@ -104,6 +108,8 @@ export async function GET(
         referenceTitles: payload.referenceTitles ?? [],
         referenceFallback: null,
         latencyMs: payload.latencyMs ?? null,
+        seed: payload.seed ?? localJob.seed ?? null,
+        variationMode: payload.variationMode || localJob.variation_mode || "balanced",
         createdAt: payload.completedAt || payload.createdAt || new Date().toISOString(),
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -117,6 +123,8 @@ export async function GET(
       jobId: id,
       status: nextStatus,
       profile: payload.profile || localJob.local_profile,
+      seed: payload.seed ?? localJob.seed ?? null,
+      variationMode: payload.variationMode || localJob.variation_mode || "balanced",
       error: payload.error || null,
     },
     { headers: { "Cache-Control": "no-store" } },
