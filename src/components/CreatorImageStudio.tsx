@@ -38,6 +38,8 @@ type GenerationResult = {
   referenceFallback?: string | null;
   seed?: number | null;
   variationMode?: VariationMode;
+  promptUsed?: string;
+  referenceMode?: "none" | "img2img" | "ip-adapter";
   createdAt: string;
 };
 
@@ -88,7 +90,10 @@ export default function CreatorImageStudio({
 
   const previewReferenceCount =
     routePreview.target === "cooperative"
-      ? Math.min(activeReferenceCount, 1)
+      ? Math.min(
+          activeReferenceCount,
+          routePreview.localProfile === "quality" && variationMode !== "preserve" ? 2 : 1,
+        )
       : Math.min(activeReferenceCount, 3);
   const generating = busy || Boolean(activeJobId);
 
@@ -189,32 +194,39 @@ export default function CreatorImageStudio({
     };
   }, [activeJobId]);
 
-  async function generate() {
-    const trimmed = prompt.trim();
+  async function generate(promptOverride?: string) {
+    const trimmed = (promptOverride ?? prompt).trim();
     if (trimmed.length < 3 || generating) return;
 
+    const requestRoute = chooseImageModel(
+      mode,
+      trimmed,
+      activeReferenceCount > 0,
+      modelOverride,
+    );
+
     const referenceText =
-      activeReferenceCount > 0 && routePreview.supportsReferences
+      activeReferenceCount > 0 && requestRoute.supportsReferences
         ? ` using ${previewReferenceCount} saved reference image${previewReferenceCount === 1 ? "" : "s"}`
         : activeReferenceCount > 0
           ? " using the saved text profile only"
           : "";
 
     const chargeNote =
-      routePreview.target === "cooperative"
+      requestRoute.target === "cooperative"
         ? "This selection has no per-image API charge and will not fall back to a paid hosted model."
-        : routePreview.target === "auto"
+        : requestRoute.target === "auto"
           ? "CreatorHub will try local inference first; a hosted fallback can incur AI Gateway charges."
           : "This hosted selection can incur AI Gateway charges.";
 
     const approved = window.confirm(
-      `Generate 1 image with ${routePreview.label}${referenceText}? Pricing: ${routePreview.costHint}. ${chargeNote}`,
+      `Generate 1 image with ${requestRoute.label}${referenceText}? Pricing: ${requestRoute.costHint}. ${chargeNote}`,
     );
     if (!approved) return;
 
     setBusy(true);
     setResult(null);
-    setMessage(`Generating with ${routePreview.label}…`);
+    setMessage(`Generating with ${requestRoute.label}…`);
 
     try {
       const response = await fetch("/api/generate/image", {
@@ -250,7 +262,7 @@ export default function CreatorImageStudio({
         return;
       }
 
-      setResult(data);
+      setResult({ ...data, promptUsed: data.promptUsed || trimmed });
       setMessage(
         data.referenceCount > 0
           ? `Generated with ${data.modelLabel} using ${data.referenceCount} saved reference image${data.referenceCount === 1 ? "" : "s"}.`
@@ -290,7 +302,7 @@ export default function CreatorImageStudio({
         title: `Approved generation · ${new Date(result.createdAt).toLocaleDateString()}`,
         storage_path: storagePath,
         mime_type: blob.type,
-        prompt_notes: prompt.trim() || null,
+        prompt_notes: result.promptUsed || prompt.trim() || null,
         tags: ["generated", "approved"],
         approved: true,
         is_primary: false,
@@ -449,7 +461,7 @@ export default function CreatorImageStudio({
           {activeReferenceCount > 0
             ? routePreview.supportsReferences
               ? routePreview.target === "cooperative"
-                ? ` · primary identity reference · ${variationMode.replace("-", " ")} variation`
+                ? ` · ${previewReferenceCount} identity reference${previewReferenceCount === 1 ? "" : "s"} · ${variationMode.replace("-", " ")} variation`
                 : ` · will receive up to ${Math.min(activeReferenceCount, 3)} saved image references`
               : " · saved references fall back to text identity"
             : ""}
@@ -486,6 +498,7 @@ export default function CreatorImageStudio({
             {result.modelLabel} · {result.aspectRatio} · {result.referenceCount} reference{result.referenceCount === 1 ? "" : "s"}
             {result.variationMode ? ` · ${result.variationMode.replace("-", " ")}` : ""}
             {typeof result.seed === "number" ? ` · seed ${result.seed}` : ""}
+            {result.referenceMode === "ip-adapter" ? " · identity-guided" : ""}
             {" · "}{new Date(result.createdAt).toLocaleString()}
           </div>
           {result.referenceTitles?.length ? (
@@ -497,8 +510,8 @@ export default function CreatorImageStudio({
             <button
               type="button"
               style={secondaryButton}
-              disabled={generating || prompt.trim().length < 3}
-              onClick={() => void generate()}
+              disabled={generating || (result.promptUsed || prompt).trim().length < 3}
+              onClick={() => void generate(result.promptUsed || prompt)}
             >
               Generate another variation
             </button>
