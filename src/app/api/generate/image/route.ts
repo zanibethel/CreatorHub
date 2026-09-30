@@ -23,6 +23,8 @@ const MODES = new Set<ImageGenerationMode>(["auto", "economy", "balanced", "prem
 const MODEL_OVERRIDES = new Set<ImageModelOverride>([
   "auto",
   "cooperative-local",
+  "cooperative-local-fast",
+  "cooperative-local-quality",
   "recraft-v4.1-flash",
   "gpt-image-2.5-flare",
   "gpt-image-2.5-sunburst",
@@ -175,6 +177,7 @@ export async function POST(request: Request) {
           body: JSON.stringify({
             prompt: finalPrompt,
             aspectRatio,
+            profile: selected.localProfile || "fast",
             referenceUrls: referenceRemoteUrls,
           }),
           cache: "no-store",
@@ -187,6 +190,7 @@ export async function POST(request: Request) {
               provider?: string;
               worker?: string;
               referencesUsed?: number;
+              profile?: "fast" | "quality";
               detail?: string;
             }
           | null;
@@ -198,8 +202,8 @@ export async function POST(request: Request) {
               image: payload.dataUrl,
               model: payload.model || "cooperative-worker",
               modelLabel: payload.model
-                ? `Local · ${payload.model}`
-                : "CoOperative Local Worker",
+                ? `Local ${payload.profile === "quality" ? "Quality" : "Fast"} · ${payload.model}`
+                : `CoOperative AI · Local ${payload.profile === "quality" ? "Quality" : "Fast"}`,
               mode: selected.mode,
               routedBy: `cooperative-${payload.worker || payload.provider || "worker"}`,
               costHint:
@@ -208,7 +212,7 @@ export async function POST(request: Request) {
                   : "CoOperative-managed inference",
               aspectRatio,
               referenceCount: payload.referencesUsed ?? referenceImages.length,
-              referenceTitles,
+              referenceTitles: referenceTitles.slice(0, payload.referencesUsed ?? referenceImages.length),
               referenceFallback: null,
               createdAt: new Date().toISOString(),
             },

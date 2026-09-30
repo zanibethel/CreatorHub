@@ -2,11 +2,14 @@ export type ImageGenerationMode = "auto" | "economy" | "balanced" | "premium";
 export type ImageModelOverride =
   | "auto"
   | "cooperative-local"
+  | "cooperative-local-fast"
+  | "cooperative-local-quality"
   | "recraft-v4.1-flash"
   | "gpt-image-2.5-flare"
   | "gpt-image-2.5-sunburst";
 
 export type ImageExecutionTarget = "auto" | "cooperative" | "gateway";
+export type LocalImageProfile = "fast" | "quality";
 
 export type ImageModelChoice = {
   mode: Exclude<ImageGenerationMode, "auto"> | "reference";
@@ -16,17 +19,29 @@ export type ImageModelChoice = {
   reason: string;
   supportsReferences: boolean;
   target: ImageExecutionTarget;
+  localProfile?: LocalImageProfile;
 };
 
 const MODEL_CHOICES = {
-  local: {
+  localFast: {
     mode: "reference" as const,
-    model: "cooperative/local",
-    label: "CoOperative Local Worker",
+    model: "cooperative/local-fast",
+    label: "CoOperative AI · Local Fast",
     costHint: "local inference · no per-image API charge",
-    reason: "Uses the configured CoOperative local image worker. The exact worker model is reported after generation.",
+    reason: "Uses the lightweight local model for faster drafts and inexpensive iteration.",
     supportsReferences: true,
     target: "cooperative" as const,
+    localProfile: "fast" as const,
+  },
+  localQuality: {
+    mode: "reference" as const,
+    model: "cooperative/local-quality",
+    label: "CoOperative AI · Local Quality",
+    costHint: "local inference · no per-image API charge",
+    reason: "Uses the larger local quality model. It is slower and uses more Mac memory, but aims for better realism and detail.",
+    supportsReferences: true,
+    target: "cooperative" as const,
+    localProfile: "quality" as const,
   },
   economy: {
     mode: "economy" as const,
@@ -67,7 +82,9 @@ const MODEL_CHOICES = {
 } satisfies Record<string, ImageModelChoice>;
 
 const OVERRIDE_CHOICES: Record<Exclude<ImageModelOverride, "auto">, ImageModelChoice> = {
-  "cooperative-local": MODEL_CHOICES.local,
+  "cooperative-local": MODEL_CHOICES.localFast,
+  "cooperative-local-fast": MODEL_CHOICES.localFast,
+  "cooperative-local-quality": MODEL_CHOICES.localQuality,
   "recraft-v4.1-flash": MODEL_CHOICES.economy,
   "gpt-image-2.5-flare": MODEL_CHOICES.balanced,
   "gpt-image-2.5-sunburst": MODEL_CHOICES.premium,
@@ -79,7 +96,7 @@ export function chooseImageModel(
   hasReferences = false,
   modelOverride: ImageModelOverride = "auto",
 ): ImageModelChoice & {
-  routedBy: "manual-model" | "manual-routing" | "deterministic-auto-v3";
+  routedBy: "manual-model" | "manual-routing" | "deterministic-auto-v4";
 } {
   if (modelOverride !== "auto") {
     return { ...OVERRIDE_CHOICES[modelOverride], routedBy: "manual-model" };
@@ -90,10 +107,11 @@ export function chooseImageModel(
     return {
       ...fallback,
       target: "auto",
-      label: `Auto · Local first → ${fallback.label}`,
+      localProfile: "fast",
+      label: `Auto · Local Fast → ${fallback.label}`,
       costHint: `local first · hosted fallback: ${fallback.costHint}`,
-      reason: "Tries the CoOperative local worker first. If it is unavailable, CreatorHub can fall back to the selected hosted model after your confirmation.",
-      routedBy: "deterministic-auto-v3",
+      reason: "Tries CoOperative AI Local Fast first. If it is unavailable, CreatorHub can use the suitable hosted fallback after your confirmation.",
+      routedBy: "deterministic-auto-v4",
     };
   }
 
@@ -105,7 +123,7 @@ export function imageModeOptions() {
     {
       value: "auto" as const,
       label: "Auto",
-      detail: "Local first, then the lowest suitable hosted fallback.",
+      detail: "Local Fast first, then the lowest suitable hosted fallback.",
     },
     {
       value: "economy" as const,
@@ -133,9 +151,14 @@ export function imageModelOptions() {
       detail: "Follow the routing choice above.",
     },
     {
-      value: "cooperative-local" as const,
-      label: "CoOperative Local Worker",
-      detail: "Mac/local worker · no per-image API charge · no paid fallback",
+      value: "cooperative-local-fast" as const,
+      label: "CoOperative AI · Local Fast",
+      detail: "current lightweight model · faster · no per-image API charge",
+    },
+    {
+      value: "cooperative-local-quality" as const,
+      label: "CoOperative AI · Local Quality",
+      detail: "larger SDXL-class local model · slower · no per-image API charge",
     },
     {
       value: "recraft-v4.1-flash" as const,

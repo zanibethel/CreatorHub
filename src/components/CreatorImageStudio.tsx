@@ -71,6 +71,11 @@ export default function CreatorImageStudio({
     [mode, prompt, activeReferenceCount, modelOverride],
   );
 
+  const previewReferenceCount =
+    routePreview.target === "cooperative"
+      ? Math.min(activeReferenceCount, 1)
+      : Math.min(activeReferenceCount, 3);
+
   useEffect(() => {
     setPrompt("");
     setResult(null);
@@ -101,7 +106,7 @@ export default function CreatorImageStudio({
 
     const referenceText =
       activeReferenceCount > 0 && routePreview.supportsReferences
-        ? ` using ${Math.min(activeReferenceCount, 3)} saved reference image${activeReferenceCount === 1 ? "" : "s"}`
+        ? ` using ${previewReferenceCount} saved reference image${previewReferenceCount === 1 ? "" : "s"}`
         : activeReferenceCount > 0
           ? " using the saved text profile only"
           : "";
@@ -325,7 +330,9 @@ export default function CreatorImageStudio({
           {routePreview.costHint}
           {activeReferenceCount > 0
             ? routePreview.supportsReferences
-              ? ` · will receive up to ${Math.min(activeReferenceCount, 3)} saved image references`
+              ? routePreview.target === "cooperative"
+                ? " · uses the primary saved image reference"
+                : ` · will receive up to ${Math.min(activeReferenceCount, 3)} saved image references`
               : " · saved references fall back to text identity"
             : ""}
         </div>
