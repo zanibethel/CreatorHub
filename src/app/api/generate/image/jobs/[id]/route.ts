@@ -55,6 +55,7 @@ export async function GET(
         latencyMs?: number | null;
         seed?: number | null;
         variationMode?: "preserve" | "balanced" | "new-scene";
+        referenceMode?: "none" | "img2img" | "ip-adapter";
         error?: string | null;
         aspectRatio?: string;
         createdAt?: string;
@@ -110,6 +111,8 @@ export async function GET(
         latencyMs: payload.latencyMs ?? null,
         seed: payload.seed ?? localJob.seed ?? null,
         variationMode: payload.variationMode || localJob.variation_mode || "balanced",
+        referenceMode: payload.referenceMode || null,
+        promptUsed: localJob.prompt,
         createdAt: payload.completedAt || payload.createdAt || new Date().toISOString(),
       },
       { headers: { "Cache-Control": "no-store" } },
@@ -125,6 +128,8 @@ export async function GET(
       profile: payload.profile || localJob.local_profile,
       seed: payload.seed ?? localJob.seed ?? null,
       variationMode: payload.variationMode || localJob.variation_mode || "balanced",
+      referenceMode: payload.referenceMode || null,
+      promptUsed: localJob.prompt,
       error: payload.error || null,
     },
     { headers: { "Cache-Control": "no-store" } },
