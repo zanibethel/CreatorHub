@@ -58,6 +58,13 @@ function wantsLatestImage(message: string) {
   return /(latest|last|recent).*?(image|generation)|image.*?(status|job)/i.test(message);
 }
 
+function hasEngineeringIntent(message: string) {
+  const value = message.toLowerCase();
+  const action = /(fix|debug|inspect|investigate|test|implement|change|update|refactor|repair|trace|prepare|patch)/;
+  const target = /(code|repo|repository|worker|model|inference|pipeline|api|route|component|image generation|identity|ip-adapter|supervisor|bug|error)/;
+  return action.test(value) && target.test(value);
+}
+
 function configuredProviders() {
   return {
     instagram: Boolean(process.env.INSTAGRAM_APP_ID && process.env.INSTAGRAM_APP_SECRET),
@@ -91,7 +98,8 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Creator workspace not found." }, { status: 404 });
     }
 
-    const moduleId = moduleForMessage(input.message);
+    const engineeringIntent = hasEngineeringIntent(input.message);
+    const moduleId = engineeringIntent ? null : moduleForMessage(input.message);
     if (moduleId) {
       const label =
         moduleId === "creator-studio" ? "Creator Studio" :
@@ -171,14 +179,14 @@ export async function POST(request: Request) {
 
     const latestImage = latestImageResult.data || null;
 
-    if (wantsStats(input.message)) {
+    if (!engineeringIntent && wantsStats(input.message)) {
       return NextResponse.json({
         mode: "code",
         text: `${creator.name} currently has ${stats.contentCount} tracked content item${stats.contentCount === 1 ? "" : "s"}, ${stats.views.toLocaleString()} views, and $${stats.revenue.toFixed(2)} recorded revenue.`,
       });
     }
 
-    if (wantsReferences(input.message)) {
+    if (!engineeringIntent && wantsReferences(input.message)) {
       const primary = references.primary ? ` Primary: ${references.primary}.` : "";
       return NextResponse.json({
         mode: "code",
@@ -187,7 +195,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (wantsConnections(input.message)) {
+    if (!engineeringIntent && wantsConnections(input.message)) {
       const summary = connections
         .map((item) => {
           const account = item.account ? ` (${item.account})` : "";
@@ -201,7 +209,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (wantsLatestImage(input.message)) {
+    if (!engineeringIntent && wantsLatestImage(input.message)) {
       if (!latestImage) {
         return NextResponse.json({
           mode: "code",
