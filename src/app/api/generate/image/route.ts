@@ -265,9 +265,7 @@ export async function POST(request: Request) {
           referenceTitles: referenceTitles.slice(0, 1),
           seed: payload.seed ?? null,
           variationMode: payload.variationMode || variationMode,
-          seed: null,
-        variationMode,
-        createdAt: new Date().toISOString(),
+          createdAt: new Date().toISOString(),
         },
         { status: 202, headers: { "Cache-Control": "no-store" } },
       );
@@ -383,6 +381,8 @@ export async function POST(request: Request) {
           wantsReferences && references.length > 0 && !selected.supportsReferences
             ? "The selected model does not accept reference images, so CreatorHub used the saved visual profile as a text fallback."
             : null,
+        seed: null,
+        variationMode,
         createdAt: new Date().toISOString(),
       },
       { headers: { "Cache-Control": "no-store" } },
