@@ -39,6 +39,7 @@ type GenerationResult = {
   seed?: number | null;
   variationMode?: VariationMode;
   promptUsed?: string;
+  referenceMode?: "none" | "img2img" | "ip-adapter";
   createdAt: string;
 };
 
@@ -457,7 +458,7 @@ export default function CreatorImageStudio({
           {activeReferenceCount > 0
             ? routePreview.supportsReferences
               ? routePreview.target === "cooperative"
-                ? ` · primary identity reference · ${variationMode.replace("-", " ")} variation`
+                ? ` · ${previewReferenceCount} identity reference${previewReferenceCount === 1 ? "" : "s"} · ${variationMode.replace("-", " ")} variation`
                 : ` · will receive up to ${Math.min(activeReferenceCount, 3)} saved image references`
               : " · saved references fall back to text identity"
             : ""}
@@ -494,6 +495,7 @@ export default function CreatorImageStudio({
             {result.modelLabel} · {result.aspectRatio} · {result.referenceCount} reference{result.referenceCount === 1 ? "" : "s"}
             {result.variationMode ? ` · ${result.variationMode.replace("-", " ")}` : ""}
             {typeof result.seed === "number" ? ` · seed ${result.seed}` : ""}
+            {result.referenceMode === "ip-adapter" ? " · identity-guided" : ""}
             {" · "}{new Date(result.createdAt).toLocaleString()}
           </div>
           {result.referenceTitles?.length ? (
