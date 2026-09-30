@@ -36,7 +36,7 @@ export async function GET(
   }
 
   const response = await fetch(
-    `${cooperativeUrl}/api/inference/jobs/${encodeURIComponent(id)}?ownerRef=${encodeURIComponent(user.id)}`,
+    `${cooperativeUrl}/api/inference/jobs/status?jobId=${encodeURIComponent(id)}&ownerRef=${encodeURIComponent(user.id)}`,
     {
       headers: { Authorization: `Bearer ${cooperativeSecret}` },
       cache: "no-store",
