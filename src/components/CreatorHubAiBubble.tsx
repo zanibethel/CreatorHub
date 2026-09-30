@@ -207,28 +207,53 @@ export default function CreatorHubAiBubble({
 
           if (mode === "agent") {
             if (["completed", "needs_approval", "failed", "cancelled"].includes(result.status || "")) {
-              const summary =
-                result.status === "needs_approval"
-                  ? [
-                      result.result?.summary || "The Repo Engineer prepared a change for review.",
-                      result.result?.changedFiles?.length
-                        ? `Changed: ${result.result.changedFiles.join(", ")}.`
-                        : null,
-                      typeof result.result?.checksPassed === "boolean"
-                        ? result.result.checksPassed
-                          ? "Configured checks passed."
-                          : "At least one configured check did not pass or could not run."
-                        : null,
-                      "Nothing was pushed or deployed.",
-                    ].filter(Boolean).join(" ")
-                  : result.status === "completed"
+              if (result.status === "needs_approval") {
+                const review: ReviewDetails = {
+                  taskId: taskId || result.taskId || "",
+                  branchName: result.branchName || null,
+                  summary: result.result?.summary || null,
+                  changedFiles: result.result?.changedFiles || [],
+                  checksPassed:
+                    typeof result.result?.checksPassed === "boolean"
+                      ? result.result.checksPassed
+                      : null,
+                  checks: result.result?.checks || [],
+                  diffStat: result.result?.diffStat || "",
+                  diff: result.result?.diff || "",
+                };
+
+                const summary = [
+                  review.summary || "The Repo Engineer prepared a change for review.",
+                  review.changedFiles?.length
+                    ? `Changed: ${review.changedFiles.join(", ")}.`
+                    : null,
+                  review.branchName ? `Proposal branch: ${review.branchName}.` : null,
+                  typeof review.checksPassed === "boolean"
+                    ? review.checksPassed
+                      ? "Configured checks passed."
+                      : "At least one configured check did not pass or could not run."
+                    : null,
+                  "Nothing was pushed, merged, or deployed.",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                replaceAssistant(assistantId, {
+                  text: summary,
+                  mode: "agent",
+                  review,
+                });
+              } else {
+                const summary =
+                  result.status === "completed"
                     ? result.result?.summary || "The Repo Engineer completed the task."
                     : result.error || `Agent task ${result.status}.`;
+                replaceAssistant(assistantId, {
+                  text: summary,
+                  mode: "agent",
+                });
+              }
 
-              replaceAssistant(assistantId, {
-                text: summary,
-                mode: "agent",
-              });
               window.localStorage.removeItem(activeKey);
               return;
             }
@@ -237,7 +262,7 @@ export default function CreatorHubAiBubble({
               text:
                 result.status === "waiting_llm"
                   ? "Repo Engineer is using Local Quality on the repository evidence…"
-                  : "Repo Engineer is inspecting CreatorHub and running deterministic checks…",
+                  : "Repo Engineer is inspecting the owning repository and running deterministic checks…",
               mode: "agent",
             });
           } else {
