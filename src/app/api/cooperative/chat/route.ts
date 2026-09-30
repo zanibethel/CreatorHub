@@ -5,12 +5,18 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 export const runtime = "nodejs";
 export const maxDuration = 30;
 
-const requestSchema = z.object({
-  creatorId: z.string().uuid(),
-  message: z.string().trim().min(1).max(16000),
-  conversationId: z.string().uuid().optional(),
-  pageContext: z.string().max(200).optional(),
-});
+const requestSchema = z
+  .object({
+    creatorId: z.string().uuid(),
+    message: z.string().trim().max(16000).default(""),
+    conversationId: z.string().uuid().optional(),
+    attachmentIds: z.array(z.string().uuid()).max(4).default([]),
+    pageContext: z.string().max(200).optional(),
+  })
+  .refine(
+    (value) => Boolean(value.message.trim()) || value.attachmentIds.length > 0,
+    "Message or image attachment is required.",
+  );
 
 type ModuleId =
   | "creator-studio"
@@ -98,8 +104,10 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: "Creator workspace not found." }, { status: 404 });
     }
 
+    const hasAttachments = input.attachmentIds.length > 0;
     const engineeringIntent = hasEngineeringIntent(input.message);
-    const moduleId = engineeringIntent ? null : moduleForMessage(input.message);
+    const moduleId =
+      engineeringIntent || hasAttachments ? null : moduleForMessage(input.message);
     if (moduleId) {
       const label =
         moduleId === "creator-studio" ? "Creator Studio" :
@@ -179,14 +187,14 @@ export async function POST(request: Request) {
 
     const latestImage = latestImageResult.data || null;
 
-    if (!engineeringIntent && wantsStats(input.message)) {
+    if (!engineeringIntent && !hasAttachments && wantsStats(input.message)) {
       return NextResponse.json({
         mode: "code",
         text: `${creator.name} currently has ${stats.contentCount} tracked content item${stats.contentCount === 1 ? "" : "s"}, ${stats.views.toLocaleString()} views, and $${stats.revenue.toFixed(2)} recorded revenue.`,
       });
     }
 
-    if (!engineeringIntent && wantsReferences(input.message)) {
+    if (!engineeringIntent && !hasAttachments && wantsReferences(input.message)) {
       const primary = references.primary ? ` Primary: ${references.primary}.` : "";
       return NextResponse.json({
         mode: "code",
@@ -195,7 +203,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (!engineeringIntent && wantsConnections(input.message)) {
+    if (!engineeringIntent && !hasAttachments && wantsConnections(input.message)) {
       const summary = connections
         .map((item) => {
           const account = item.account ? ` (${item.account})` : "";
@@ -209,7 +217,7 @@ export async function POST(request: Request) {
       });
     }
 
-    if (!engineeringIntent && wantsLatestImage(input.message)) {
+    if (!engineeringIntent && !hasAttachments && wantsLatestImage(input.message)) {
       if (!latestImage) {
         return NextResponse.json({
           mode: "code",
@@ -265,6 +273,7 @@ export async function POST(request: Request) {
           creatorName: creator.name,
           conversationId: input.conversationId,
           message: input.message,
+          attachmentIds: input.attachmentIds,
           pageContext: input.pageContext || "CreatorHub dashboard",
           context,
         }),

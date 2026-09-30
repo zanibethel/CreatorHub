@@ -22,12 +22,34 @@ type ChatAction = {
   label?: string;
 };
 
+type ReviewCheck = {
+  command?: string;
+  passed?: boolean;
+  skipped?: boolean;
+  output?: string;
+};
+
+type ReviewDetails = {
+  taskId: string;
+  branchName?: string | null;
+  summary?: string | null;
+  changedFiles?: string[];
+  checksPassed?: boolean | null;
+  checks?: ReviewCheck[];
+  diffStat?: string;
+  diff?: string;
+  showDetails?: boolean;
+  decision?: "approved" | "denied";
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
   text: string;
   mode?: RouteMode;
   action?: ChatAction | null;
+  attachmentNames?: string[];
+  review?: ReviewDetails | null;
 };
 
 type BridgeResponse = {
@@ -43,7 +65,12 @@ type BridgeResponse = {
     summary?: string;
     changedFiles?: string[];
     checksPassed?: boolean;
+    checks?: ReviewCheck[];
+    diffStat?: string;
+    diff?: string;
   } | null;
+  review?: Omit<ReviewDetails, "taskId"> | null;
+  decision?: "approved" | "denied";
   branchName?: string | null;
   model?: string | null;
   error?: string | null;
@@ -89,8 +116,16 @@ export default function CreatorHubAiBubble({
   const [busy, setBusy] = useState(false);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [routeLabel, setRouteLabel] = useState("Code first · Local AI when needed");
+  const [pendingAttachment, setPendingAttachment] = useState<{
+    id: string;
+    fileName: string;
+    previewUrl: string;
+  } | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const [reviewBusyId, setReviewBusyId] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const activePollRef = useRef("");
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   const persistMessages = useCallback(
     (next: ChatMessage[]) => {
@@ -172,28 +207,53 @@ export default function CreatorHubAiBubble({
 
           if (mode === "agent") {
             if (["completed", "needs_approval", "failed", "cancelled"].includes(result.status || "")) {
-              const summary =
-                result.status === "needs_approval"
-                  ? [
-                      result.result?.summary || "The Repo Engineer prepared a change for review.",
-                      result.result?.changedFiles?.length
-                        ? `Changed: ${result.result.changedFiles.join(", ")}.`
-                        : null,
-                      typeof result.result?.checksPassed === "boolean"
-                        ? result.result.checksPassed
-                          ? "Configured checks passed."
-                          : "At least one configured check did not pass or could not run."
-                        : null,
-                      "Nothing was pushed or deployed.",
-                    ].filter(Boolean).join(" ")
-                  : result.status === "completed"
+              if (result.status === "needs_approval") {
+                const review: ReviewDetails = {
+                  taskId: taskId || result.taskId || "",
+                  branchName: result.branchName || null,
+                  summary: result.result?.summary || null,
+                  changedFiles: result.result?.changedFiles || [],
+                  checksPassed:
+                    typeof result.result?.checksPassed === "boolean"
+                      ? result.result.checksPassed
+                      : null,
+                  checks: result.result?.checks || [],
+                  diffStat: result.result?.diffStat || "",
+                  diff: result.result?.diff || "",
+                };
+
+                const summary = [
+                  review.summary || "The Repo Engineer prepared a change for review.",
+                  review.changedFiles?.length
+                    ? `Changed: ${review.changedFiles.join(", ")}.`
+                    : null,
+                  review.branchName ? `Proposal branch: ${review.branchName}.` : null,
+                  typeof review.checksPassed === "boolean"
+                    ? review.checksPassed
+                      ? "Configured checks passed."
+                      : "At least one configured check did not pass or could not run."
+                    : null,
+                  "Nothing was pushed, merged, or deployed.",
+                ]
+                  .filter(Boolean)
+                  .join(" ");
+
+                replaceAssistant(assistantId, {
+                  text: summary,
+                  mode: "agent",
+                  review,
+                });
+              } else {
+                const summary =
+                  result.status === "completed"
                     ? result.result?.summary || "The Repo Engineer completed the task."
                     : result.error || `Agent task ${result.status}.`;
+                replaceAssistant(assistantId, {
+                  text: summary,
+                  mode: "agent",
+                });
+              }
 
-              replaceAssistant(assistantId, {
-                text: summary,
-                mode: "agent",
-              });
               window.localStorage.removeItem(activeKey);
               return;
             }
@@ -202,7 +262,7 @@ export default function CreatorHubAiBubble({
               text:
                 result.status === "waiting_llm"
                   ? "Repo Engineer is using Local Quality on the repository evidence…"
-                  : "Repo Engineer is inspecting CreatorHub and running deterministic checks…",
+                  : "Repo Engineer is inspecting the owning repository and running deterministic checks…",
               mode: "agent",
             });
           } else {
@@ -299,15 +359,174 @@ export default function CreatorHubAiBubble({
     }, 40);
   }, [messages, open]);
 
+  function clearPendingAttachment() {
+    if (pendingAttachment?.previewUrl) {
+      URL.revokeObjectURL(pendingAttachment.previewUrl);
+    }
+    setPendingAttachment(null);
+  }
+
+  async function uploadImageAttachment(file: File) {
+    if (uploading || busy) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: "I can attach JPEG, PNG, or WebP images.",
+        mode: "code",
+      });
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: "That image is over 3 MB. Choose a smaller image or screenshot.",
+        mode: "code",
+      });
+      return;
+    }
+
+    setUploading(true);
+    setRouteLabel("Uploading image…");
+    try {
+      const form = new FormData();
+      form.set("creatorId", creatorId);
+      form.set("file", file, file.name);
+
+      const response = await fetch("/api/cooperative/attachments", {
+        method: "POST",
+        body: form,
+      });
+      const result = (await response.json()) as {
+        attachment?: { id?: string; fileName?: string };
+        error?: string;
+        detail?: string;
+      };
+
+      if (!response.ok || !result.attachment?.id) {
+        throw new Error(result.detail || result.error || "Could not attach image.");
+      }
+
+      clearPendingAttachment();
+      setPendingAttachment({
+        id: result.attachment.id,
+        fileName: result.attachment.fileName || file.name,
+        previewUrl: URL.createObjectURL(file),
+      });
+      setRouteLabel("Image ready · Local Vision when sent");
+    } catch (error) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: error instanceof Error ? error.message : "Could not attach image.",
+        mode: "code",
+      });
+      setRouteLabel("Attachment failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleReview(
+    messageId: string,
+    review: ReviewDetails,
+    action: "approve" | "deny" | "explain",
+  ) {
+    if (!review.taskId || reviewBusyId) return;
+
+    setReviewBusyId(messageId);
+    try {
+      const response = await fetch("/api/cooperative/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId,
+          taskId: review.taskId,
+          action,
+        }),
+      });
+      const result = (await response.json()) as BridgeResponse;
+      if (!response.ok) {
+        throw new Error(result.detail || result.error || "Could not review proposal.");
+      }
+
+      const nextReview: ReviewDetails = {
+        ...review,
+        ...(result.review || {}),
+        taskId: review.taskId,
+        showDetails: action === "explain" ? true : review.showDetails,
+        decision: result.decision || review.decision,
+      };
+
+      if (action === "approve" || action === "deny") {
+        replaceAssistant(messageId, {
+          text: [messages.find((item) => item.id === messageId)?.text, result.text]
+            .filter(Boolean)
+            .join("\n\n"),
+          review: nextReview,
+        });
+        setRouteLabel(
+          action === "approve"
+            ? "Proposal approved · branch still isolated"
+            : "Proposal denied",
+        );
+        return;
+      }
+
+      replaceAssistant(messageId, { review: nextReview });
+
+      if (result.jobId) {
+        const explanationId = newId();
+        appendMessage({
+          id: explanationId,
+          role: "assistant",
+          text: "Local Quality is reviewing the full diff, checks, risks, and whether the proposal matches your request…",
+          mode: "local-quality",
+        });
+        setRouteLabel("Local Quality · proposal review");
+        window.localStorage.setItem(
+          activeKey,
+          JSON.stringify({
+            jobId: result.jobId,
+            assistantId: explanationId,
+            mode: "local-quality",
+            conversationId,
+          }),
+        );
+        void poll({
+          jobId: result.jobId,
+          assistantId: explanationId,
+          mode: "local-quality",
+        });
+      }
+    } catch (error) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: error instanceof Error ? error.message : "Could not review proposal.",
+        mode: "code",
+      });
+    } finally {
+      setReviewBusyId("");
+    }
+  }
+
   async function send(event?: FormEvent) {
     event?.preventDefault();
     const message = input.trim();
-    if (!message || busy) return;
+    const attachment = pendingAttachment;
+    if ((!message && !attachment) || busy || uploading) return;
+    const attachmentIds = attachment ? [attachment.id] : [];
+    const hadAttachment = attachmentIds.length > 0;
 
     const userMessage: ChatMessage = {
       id: newId(),
       role: "user",
-      text: message,
+      text: message || "Image attached",
+      attachmentNames: attachment ? [attachment.fileName] : undefined,
     };
     const assistantId = newId();
     const assistantMessage: ChatMessage = {
@@ -320,7 +539,7 @@ export default function CreatorHubAiBubble({
     persistMessages([...messages, userMessage, assistantMessage]);
     setInput("");
     setBusy(true);
-    setRouteLabel("Checking code/data first…");
+    setRouteLabel(hadAttachment ? "Routing image to Local Vision…" : "Checking code/data first…");
 
     try {
       const response = await fetch("/api/cooperative/chat", {
@@ -330,6 +549,7 @@ export default function CreatorHubAiBubble({
           creatorId,
           message,
           conversationId,
+          attachmentIds,
           pageContext: "CreatorHub creator command center",
         }),
       });
@@ -339,8 +559,11 @@ export default function CreatorHubAiBubble({
       }
 
       const mode = result.mode || "local-fast";
+      if (hadAttachment) clearPendingAttachment();
       setRouteLabel(
-        mode === "code"
+        hadAttachment
+          ? "Local Vision"
+          : mode === "code"
           ? "Answered from CreatorHub code/data"
           : mode === "agent"
             ? "Repo Engineer · Local Quality as needed"
@@ -387,9 +610,11 @@ export default function CreatorHubAiBubble({
       if (result.jobId) {
         replaceAssistant(assistantId, {
           text:
-            mode === "local-quality"
-              ? "Local Quality is working on that…"
-              : "Local Fast is working on that…",
+            hadAttachment
+              ? "Local Vision is analyzing the attached image…"
+              : mode === "local-quality"
+                ? "Local Quality is working on that…"
+                : "Local Fast is working on that…",
           mode,
         });
         window.localStorage.setItem(
@@ -422,9 +647,11 @@ export default function CreatorHubAiBubble({
 
   function clearChat() {
     activePollRef.current = "";
+    clearPendingAttachment();
     setMessages([]);
     setConversationId(undefined);
     setBusy(false);
+    setReviewBusyId("");
     try {
       window.localStorage.removeItem(historyKey);
       window.localStorage.removeItem(activeKey);
@@ -575,6 +802,17 @@ export default function CreatorHubAiBubble({
                   >
                     {message.text}
                   </div>
+                  {message.attachmentNames?.length ? (
+                    <div
+                      style={{
+                        marginTop: 5,
+                        color: message.role === "user" ? "#e9ddff" : "#b8aec7",
+                        fontSize: 10,
+                      }}
+                    >
+                      📎 {message.attachmentNames.join(", ")}
+                    </div>
+                  ) : null}
                   {message.role === "assistant" && message.mode ? (
                     <div style={{ color: "#9f95ac", fontSize: 10, margin: "4px 3px 0" }}>
                       {labelForMode(message.mode)}
@@ -598,6 +836,196 @@ export default function CreatorHubAiBubble({
                       Open {message.action.label || "section"} →
                     </button>
                   ) : null}
+                  {message.review ? (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        border: "1px solid #5b3a86",
+                        borderRadius: 13,
+                        background: "#171020",
+                        padding: 10,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, color: "#b8aec7", lineHeight: 1.45 }}>
+                        <strong style={{ color: "#fff" }}>Proposal branch</strong>
+                        <br />
+                        {message.review.branchName || "agent branch"}
+                      </div>
+
+                      {message.review.decision ? (
+                        <div
+                          style={{
+                            marginTop: 9,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            color:
+                              message.review.decision === "approved"
+                                ? "#d8c8eb"
+                                : "#cfc7da",
+                          }}
+                        >
+                          {message.review.decision === "approved"
+                            ? "Approved · still isolated and unpushed"
+                            : "Denied · no push or deploy"}
+                        </div>
+                      ) : (
+                        <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
+                          <button
+                            type="button"
+                            disabled={Boolean(reviewBusyId)}
+                            onClick={() =>
+                              void handleReview(message.id, message.review!, "approve")
+                            }
+                            style={{
+                              border: "1px solid #8b5cf6",
+                              borderRadius: 999,
+                              background: "#6d28d9",
+                              color: "#fff",
+                              padding: "7px 10px",
+                              fontWeight: 800,
+                              fontSize: 11,
+                            }}
+                          >
+                            Approve
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(reviewBusyId)}
+                            onClick={() =>
+                              void handleReview(message.id, message.review!, "deny")
+                            }
+                            style={{
+                              border: "1px solid #5c496b",
+                              borderRadius: 999,
+                              background: "#21172f",
+                              color: "#fff",
+                              padding: "7px 10px",
+                              fontWeight: 800,
+                              fontSize: 11,
+                            }}
+                          >
+                            Deny
+                          </button>
+                          <button
+                            type="button"
+                            disabled={Boolean(reviewBusyId)}
+                            onClick={() =>
+                              void handleReview(message.id, message.review!, "explain")
+                            }
+                            style={{
+                              border: "1px solid #7c3aed",
+                              borderRadius: 999,
+                              background: "#2d1b42",
+                              color: "#e9ddff",
+                              padding: "7px 10px",
+                              fontWeight: 800,
+                              fontSize: 11,
+                            }}
+                          >
+                            {reviewBusyId === message.id ? "Loading…" : "Tell me more"}
+                          </button>
+                        </div>
+                      )}
+
+                      {message.review.showDetails ? (
+                        <div style={{ marginTop: 11, display: "grid", gap: 9 }}>
+                          {message.review.changedFiles?.length ? (
+                            <div>
+                              <strong style={{ fontSize: 11 }}>Changed files</strong>
+                              <pre
+                                style={{
+                                  margin: "5px 0 0",
+                                  whiteSpace: "pre-wrap",
+                                  wordBreak: "break-word",
+                                  color: "#cfc7da",
+                                  fontSize: 10,
+                                }}
+                              >
+                                {message.review.changedFiles.join("\n")}
+                              </pre>
+                            </div>
+                          ) : null}
+
+                          {message.review.checks?.length ? (
+                            <div>
+                              <strong style={{ fontSize: 11 }}>Checks</strong>
+                              <div style={{ display: "grid", gap: 4, marginTop: 5 }}>
+                                {message.review.checks.map((check, index) => (
+                                  <div key={`${check.command || "check"}-${index}`} style={{ fontSize: 10, color: "#cfc7da" }}>
+                                    {check.skipped ? "○" : check.passed ? "✓" : "×"} {check.command || "check"}
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+                          ) : null}
+
+                          {message.review.diffStat ? (
+                            <div>
+                              <strong style={{ fontSize: 11 }}>Diff stat</strong>
+                              <pre
+                                style={{
+                                  margin: "5px 0 0",
+                                  whiteSpace: "pre-wrap",
+                                  color: "#cfc7da",
+                                  fontSize: 10,
+                                }}
+                              >
+                                {message.review.diffStat}
+                              </pre>
+                            </div>
+                          ) : null}
+
+                          <div>
+                            <div
+                              style={{
+                                display: "flex",
+                                justifyContent: "space-between",
+                                gap: 8,
+                                alignItems: "center",
+                              }}
+                            >
+                              <strong style={{ fontSize: 11 }}>Prepared diff</strong>
+                              <button
+                                type="button"
+                                disabled={!message.review.diff}
+                                onClick={() =>
+                                  void navigator.clipboard.writeText(message.review?.diff || "")
+                                }
+                                style={{
+                                  border: "1px solid #4a3565",
+                                  borderRadius: 999,
+                                  background: "#21172f",
+                                  color: "#d8c8eb",
+                                  padding: "5px 8px",
+                                  fontSize: 10,
+                                }}
+                              >
+                                Copy diff
+                              </button>
+                            </div>
+                            <pre
+                              style={{
+                                maxHeight: 280,
+                                overflow: "auto",
+                                margin: "6px 0 0",
+                                padding: 8,
+                                borderRadius: 9,
+                                background: "#0d0912",
+                                border: "1px solid #352641",
+                                whiteSpace: "pre-wrap",
+                                wordBreak: "break-word",
+                                color: "#d8c8eb",
+                                fontSize: 9,
+                                lineHeight: 1.45,
+                              }}
+                            >
+                              {message.review.diff || "No textual diff was produced."}
+                            </pre>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
               ))
             )}
@@ -609,50 +1037,153 @@ export default function CreatorHubAiBubble({
               borderTop: "1px solid #3d2d50",
               padding: 10,
               display: "grid",
-              gridTemplateColumns: "minmax(0,1fr) auto",
               gap: 8,
-              alignItems: "end",
             }}
           >
-            <textarea
-              value={input}
-              onChange={(event) => setInput(event.target.value)}
-              onKeyDown={(event) => {
-                if (event.key === "Enter" && !event.shiftKey) {
-                  event.preventDefault();
-                  void send();
-                }
-              }}
-              placeholder="Ask CoOperative…"
-              rows={2}
-              disabled={busy}
-              style={{
-                width: "100%",
-                resize: "none",
-                boxSizing: "border-box",
-                border: "1px solid #4a3565",
-                borderRadius: 13,
-                background: "#0f0a17",
-                color: "#fff",
-                padding: "10px 11px",
-                font: "inherit",
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              hidden
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) void uploadImageAttachment(file);
               }}
             />
-            <button
-              type="submit"
-              disabled={busy || input.trim().length === 0}
+
+            {pendingAttachment ? (
+              <div
+                style={{
+                  display: "grid",
+                  gridTemplateColumns: "42px minmax(0,1fr) auto",
+                  gap: 8,
+                  alignItems: "center",
+                  border: "1px solid #4a3565",
+                  borderRadius: 12,
+                  padding: 7,
+                  background: "#171020",
+                }}
+              >
+                <img
+                  src={pendingAttachment.previewUrl}
+                  alt=""
+                  style={{
+                    width: 42,
+                    height: 42,
+                    borderRadius: 9,
+                    objectFit: "cover",
+                  }}
+                />
+                <div style={{ minWidth: 0 }}>
+                  <strong style={{ display: "block", fontSize: 11 }}>Image attached</strong>
+                  <span
+                    style={{
+                      display: "block",
+                      color: "#b8aec7",
+                      fontSize: 10,
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
+                    {pendingAttachment.fileName}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  aria-label="Remove attached image"
+                  onClick={clearPendingAttachment}
+                  disabled={busy}
+                  style={{
+                    border: "1px solid #4a3565",
+                    borderRadius: 999,
+                    background: "#21172f",
+                    color: "#fff",
+                    width: 30,
+                    height: 30,
+                  }}
+                >
+                  ×
+                </button>
+              </div>
+            ) : null}
+
+            <div
               style={{
-                border: 0,
-                borderRadius: 13,
-                background: busy ? "#49365f" : "#7c3aed",
-                color: "#fff",
-                fontWeight: 900,
-                padding: "11px 13px",
-                minHeight: 44,
+                display: "grid",
+                gridTemplateColumns: "auto minmax(0,1fr) auto",
+                gap: 8,
+                alignItems: "end",
               }}
             >
-              {busy ? "…" : "Send"}
-            </button>
+              <button
+                type="button"
+                aria-label="Attach image"
+                title="Attach image"
+                disabled={busy || uploading}
+                onClick={() => fileInputRef.current?.click()}
+                style={{
+                  border: "1px solid #4a3565",
+                  borderRadius: 13,
+                  background: "#21172f",
+                  color: "#e9ddff",
+                  fontWeight: 900,
+                  width: 44,
+                  minHeight: 44,
+                  fontSize: 17,
+                }}
+              >
+                {uploading ? "…" : "📎"}
+              </button>
+
+              <textarea
+                value={input}
+                onChange={(event) => setInput(event.target.value)}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter" && !event.shiftKey) {
+                    event.preventDefault();
+                    void send();
+                  }
+                }}
+                placeholder={
+                  pendingAttachment
+                    ? "Ask about this image…"
+                    : "Ask CoOperative…"
+                }
+                rows={2}
+                disabled={busy || uploading}
+                style={{
+                  width: "100%",
+                  resize: "none",
+                  boxSizing: "border-box",
+                  border: "1px solid #4a3565",
+                  borderRadius: 13,
+                  background: "#0f0a17",
+                  color: "#fff",
+                  padding: "10px 11px",
+                  font: "inherit",
+                }}
+              />
+              <button
+                type="submit"
+                disabled={
+                  busy ||
+                  uploading ||
+                  (input.trim().length === 0 && !pendingAttachment)
+                }
+                style={{
+                  border: 0,
+                  borderRadius: 13,
+                  background: busy || uploading ? "#49365f" : "#7c3aed",
+                  color: "#fff",
+                  fontWeight: 900,
+                  padding: "11px 13px",
+                  minHeight: 44,
+                }}
+              >
+                {busy || uploading ? "…" : "Send"}
+              </button>
+            </div>
           </form>
         </section>
       ) : null}
