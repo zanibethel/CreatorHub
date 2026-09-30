@@ -359,6 +359,161 @@ export default function CreatorHubAiBubble({
     }, 40);
   }, [messages, open]);
 
+  function clearPendingAttachment() {
+    if (pendingAttachment?.previewUrl) {
+      URL.revokeObjectURL(pendingAttachment.previewUrl);
+    }
+    setPendingAttachment(null);
+  }
+
+  async function uploadImageAttachment(file: File) {
+    if (uploading || busy) return;
+
+    if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: "I can attach JPEG, PNG, or WebP images.",
+        mode: "code",
+      });
+      return;
+    }
+    if (file.size > 3 * 1024 * 1024) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: "That image is over 3 MB. Choose a smaller image or screenshot.",
+        mode: "code",
+      });
+      return;
+    }
+
+    setUploading(true);
+    setRouteLabel("Uploading image…");
+    try {
+      const form = new FormData();
+      form.set("creatorId", creatorId);
+      form.set("file", file, file.name);
+
+      const response = await fetch("/api/cooperative/attachments", {
+        method: "POST",
+        body: form,
+      });
+      const result = (await response.json()) as {
+        attachment?: { id?: string; fileName?: string };
+        error?: string;
+        detail?: string;
+      };
+
+      if (!response.ok || !result.attachment?.id) {
+        throw new Error(result.detail || result.error || "Could not attach image.");
+      }
+
+      clearPendingAttachment();
+      setPendingAttachment({
+        id: result.attachment.id,
+        fileName: result.attachment.fileName || file.name,
+        previewUrl: URL.createObjectURL(file),
+      });
+      setRouteLabel("Image ready · Local Vision when sent");
+    } catch (error) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: error instanceof Error ? error.message : "Could not attach image.",
+        mode: "code",
+      });
+      setRouteLabel("Attachment failed");
+    } finally {
+      setUploading(false);
+      if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+  }
+
+  async function handleReview(
+    messageId: string,
+    review: ReviewDetails,
+    action: "approve" | "deny" | "explain",
+  ) {
+    if (!review.taskId || reviewBusyId) return;
+
+    setReviewBusyId(messageId);
+    try {
+      const response = await fetch("/api/cooperative/review", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId,
+          taskId: review.taskId,
+          action,
+        }),
+      });
+      const result = (await response.json()) as BridgeResponse;
+      if (!response.ok) {
+        throw new Error(result.detail || result.error || "Could not review proposal.");
+      }
+
+      const nextReview: ReviewDetails = {
+        ...review,
+        ...(result.review || {}),
+        taskId: review.taskId,
+        showDetails: action === "explain" ? true : review.showDetails,
+        decision: result.decision || review.decision,
+      };
+
+      if (action === "approve" || action === "deny") {
+        replaceAssistant(messageId, {
+          text: [messages.find((item) => item.id === messageId)?.text, result.text]
+            .filter(Boolean)
+            .join("\n\n"),
+          review: nextReview,
+        });
+        setRouteLabel(
+          action === "approve"
+            ? "Proposal approved · branch still isolated"
+            : "Proposal denied",
+        );
+        return;
+      }
+
+      replaceAssistant(messageId, { review: nextReview });
+
+      if (result.jobId) {
+        const explanationId = newId();
+        appendMessage({
+          id: explanationId,
+          role: "assistant",
+          text: "Local Quality is reviewing the full diff, checks, risks, and whether the proposal matches your request…",
+          mode: "local-quality",
+        });
+        setRouteLabel("Local Quality · proposal review");
+        window.localStorage.setItem(
+          activeKey,
+          JSON.stringify({
+            jobId: result.jobId,
+            assistantId: explanationId,
+            mode: "local-quality",
+            conversationId,
+          }),
+        );
+        void poll({
+          jobId: result.jobId,
+          assistantId: explanationId,
+          mode: "local-quality",
+        });
+      }
+    } catch (error) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text: error instanceof Error ? error.message : "Could not review proposal.",
+        mode: "code",
+      });
+    } finally {
+      setReviewBusyId("");
+    }
+  }
+
   async function send(event?: FormEvent) {
     event?.preventDefault();
     const message = input.trim();
