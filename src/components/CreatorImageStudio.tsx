@@ -22,6 +22,9 @@ type ImageContext = {
 
 type GenerationResult = {
   image: string;
+  jobId?: string;
+  status?: string;
+  async?: boolean;
   model: string;
   modelLabel: string;
   mode: string;
@@ -34,8 +37,14 @@ type GenerationResult = {
   createdAt: string;
 };
 
-function dataUrlToBlob(dataUrl: string) {
-  const [header, base64] = dataUrl.split(",");
+async function imageSourceToBlob(source: string) {
+  if (!source.startsWith("data:")) {
+    const response = await fetch(source, { cache: "no-store" });
+    if (!response.ok) throw new Error("Could not download the generated image.");
+    return response.blob();
+  }
+
+  const [header, base64] = source.split(",");
   if (!header || !base64) throw new Error("Generated image data is invalid.");
   const mime = header.match(/data:(.*?);base64/)?.[1] || "image/png";
   const binary = atob(base64);
@@ -61,6 +70,7 @@ export default function CreatorImageStudio({
   const [useReferences, setUseReferences] = useState(true);
   const [references, setReferences] = useState<Reference[]>([]);
   const [busy, setBusy] = useState(false);
+  const [activeJobId, setActiveJobId] = useState<string | null>(null);
   const [savingReference, setSavingReference] = useState(false);
   const [message, setMessage] = useState("");
   const [result, setResult] = useState<GenerationResult | null>(null);
@@ -75,6 +85,7 @@ export default function CreatorImageStudio({
     routePreview.target === "cooperative"
       ? Math.min(activeReferenceCount, 1)
       : Math.min(activeReferenceCount, 3);
+  const generating = busy || Boolean(activeJobId);
 
   useEffect(() => {
     setPrompt("");
@@ -83,6 +94,7 @@ export default function CreatorImageStudio({
     setUseReferences(true);
     setMode("auto");
     setModelOverride("auto");
+    setActiveJobId(null);
 
     let cancelled = false;
     void fetch(`/api/creators/${creator.id}/image-context`, { cache: "no-store" })
@@ -95,14 +107,78 @@ export default function CreatorImageStudio({
         if (!cancelled) setMessage(error instanceof Error ? error.message : "Could not load saved references.");
       });
 
+    void fetch(`/api/generate/image/jobs?creatorId=${encodeURIComponent(creator.id)}`, { cache: "no-store" })
+      .then(async (response) => {
+        const data = (await response.json()) as {
+          job?: { cooperative_job_id?: string; status?: string; local_profile?: string } | null;
+        };
+        if (!cancelled && response.ok && data.job?.cooperative_job_id) {
+          setActiveJobId(data.job.cooperative_job_id);
+          setMessage(
+            `Resumed Local ${data.job.local_profile === "quality" ? "Quality" : "Fast"} generation · ${data.job.status || "queued"}…`,
+          );
+        }
+      })
+      .catch(() => {
+        // Reference loading remains usable even if async-job recovery is unavailable.
+      });
+
     return () => {
       cancelled = true;
     };
   }, [creator.id]);
 
+  useEffect(() => {
+    if (!activeJobId) return;
+
+    let cancelled = false;
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
+
+    const poll = async () => {
+      try {
+        const response = await fetch(`/api/generate/image/jobs/${encodeURIComponent(activeJobId)}`, {
+          cache: "no-store",
+        });
+        const data = (await response.json()) as
+          | (GenerationResult & { status?: string; error?: string })
+          | { status?: string; error?: string; profile?: string };
+
+        if (cancelled) return;
+
+        if (!response.ok) {
+          setMessage("Could not check local generation status. CreatorHub will retry.");
+        } else if (data.status === "completed" && "image" in data && data.image) {
+          setResult(data as GenerationResult);
+          setActiveJobId(null);
+          setMessage(
+            `Generated with ${(data as GenerationResult).modelLabel} using ${(data as GenerationResult).referenceCount} saved reference image${(data as GenerationResult).referenceCount === 1 ? "" : "s"}.`,
+          );
+          return;
+        } else if (data.status === "failed") {
+          setActiveJobId(null);
+          setMessage(data.error || "Local generation failed.");
+          return;
+        } else {
+          const profile = "profile" in data && data.profile === "quality" ? "Quality" : "Fast";
+          setMessage(`Local ${profile} generation · ${data.status || "queued"}… You can close CreatorHub and come back later.`);
+        }
+      } catch {
+        if (!cancelled) setMessage("Local generation is still running. CreatorHub will retry the status check.");
+      }
+
+      if (!cancelled) timeoutId = setTimeout(poll, 3000);
+    };
+
+    void poll();
+    return () => {
+      cancelled = true;
+      if (timeoutId) clearTimeout(timeoutId);
+    };
+  }, [activeJobId]);
+
   async function generate() {
     const trimmed = prompt.trim();
-    if (trimmed.length < 3 || busy) return;
+    if (trimmed.length < 3 || generating) return;
 
     const referenceText =
       activeReferenceCount > 0 && routePreview.supportsReferences
@@ -142,9 +218,21 @@ export default function CreatorImageStudio({
         }),
       });
 
-      const data = (await response.json()) as GenerationResult & { error?: string; detail?: string };
+      const data = (await response.json()) as GenerationResult & {
+        error?: string;
+        detail?: string;
+        jobId?: string;
+        status?: string;
+        async?: boolean;
+      };
       if (!response.ok) {
         setMessage([data.error, data.detail].filter(Boolean).join(" "));
+        return;
+      }
+
+      if (response.status === 202 && data.async && data.jobId) {
+        setActiveJobId(data.jobId);
+        setMessage(`${data.modelLabel} queued on your Mac. You can close CreatorHub and come back later.`);
         return;
       }
 
@@ -167,7 +255,7 @@ export default function CreatorImageStudio({
     setMessage("Saving generated image to the character library…");
 
     try {
-      const blob = dataUrlToBlob(result.image);
+      const blob = await imageSourceToBlob(result.image);
       const extension = blob.type.includes("jpeg") ? "jpg" : blob.type.includes("webp") ? "webp" : "png";
       const key = typeof crypto.randomUUID === "function" ? crypto.randomUUID() : String(Date.now());
       const storagePath = `${userId}/${creator.id}/generated-${Date.now()}-${key}.${extension}`;
@@ -240,7 +328,7 @@ export default function CreatorImageStudio({
                 type="checkbox"
                 checked={useReferences}
                 onChange={(event) => setUseReferences(event.target.checked)}
-                disabled={busy}
+                disabled={generating}
               />
               Use saved references
             </label>
@@ -302,7 +390,7 @@ export default function CreatorImageStudio({
             value={modelOverride}
             onChange={(event) => setModelOverride(event.target.value as ImageModelOverride)}
             style={input}
-            disabled={busy}
+            disabled={generating}
           >
             {imageModelOptions().map((option) => (
               <option key={option.value} value={option.value}>{option.label} · {option.detail}</option>
@@ -312,7 +400,7 @@ export default function CreatorImageStudio({
 
         <label style={{ display: "block", fontWeight: 700 }}>
           Aspect ratio
-          <select value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)} style={input} disabled={busy}>
+          <select value={aspectRatio} onChange={(event) => setAspectRatio(event.target.value)} style={input} disabled={generating}>
             <option value="1:1">1:1 profile / square</option>
             <option value="4:5">4:5 Instagram portrait</option>
             <option value="9:16">9:16 Story / Reel</option>
@@ -341,11 +429,11 @@ export default function CreatorImageStudio({
       <div style={{ marginTop: 14, display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
         <button
           type="button"
-          style={{ ...primaryButton, opacity: busy || prompt.trim().length < 3 ? 0.55 : 1 }}
-          disabled={busy || prompt.trim().length < 3}
+          style={{ ...primaryButton, opacity: generating || prompt.trim().length < 3 ? 0.55 : 1 }}
+          disabled={generating || prompt.trim().length < 3}
           onClick={() => void generate()}
         >
-          {busy ? "Generating…" : "Generate 1 image"}
+          {generating ? "Generating…" : "Generate 1 image"}
         </button>
         <span style={{ color: colors.muted, fontSize: 13 }}>You confirm before any potentially billable generation.</span>
       </div>
