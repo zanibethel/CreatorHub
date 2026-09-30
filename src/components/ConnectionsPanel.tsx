@@ -1,9 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import EbookStudio from "@/components/EbookStudio";
 import InstagramPublisher from "@/components/InstagramPublisher";
-import ProductManager from "@/components/ProductManager";
 import { createClient } from "@/lib/supabase";
 import { card, primaryButton, secondaryButton } from "@/lib/ui";
 
@@ -286,8 +284,7 @@ export default function ConnectionsPanel({ userId, creatorId }: { userId: string
           onClose={() => setPublisherConnection(null)}
         />
       ) : null}
-      <EbookStudio userId={userId} creatorId={creatorId} />
-      <ProductManager userId={userId} creatorId={creatorId} />
+
     </>
   );
 }
