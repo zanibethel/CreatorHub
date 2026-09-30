@@ -261,8 +261,14 @@ export async function POST(request: Request) {
           routedBy: "cooperative-async-queue",
           costHint: "local inference · no per-image API charge",
           aspectRatio,
-          referenceCount: Math.min(referenceRemoteUrls.length, 1),
-          referenceTitles: referenceTitles.slice(0, 1),
+          referenceCount: Math.min(
+            referenceRemoteUrls.length,
+            selected.localProfile === "quality" && variationMode !== "preserve" ? 2 : 1,
+          ),
+          referenceTitles: referenceTitles.slice(
+            0,
+            selected.localProfile === "quality" && variationMode !== "preserve" ? 2 : 1,
+          ),
           seed: payload.seed ?? null,
           variationMode: payload.variationMode || variationMode,
           promptUsed: prompt,
