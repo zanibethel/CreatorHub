@@ -212,7 +212,7 @@ export async function POST(request: Request) {
                   : "CoOperative-managed inference",
               aspectRatio,
               referenceCount: payload.referencesUsed ?? referenceImages.length,
-              referenceTitles,
+              referenceTitles: referenceTitles.slice(0, payload.referencesUsed ?? referenceImages.length),
               referenceFallback: null,
               createdAt: new Date().toISOString(),
             },
