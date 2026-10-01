@@ -19,7 +19,7 @@ CreatorHub should avoid becoming a pile of disconnected tools. Features should w
 
 ## AI Strategy
 
-CreatorHub should treat **CoOperative AI as its orchestration and reasoning layer**, rather than binding CreatorHub directly to one model provider.
+CreatorHub should treat **CoOperative AI as its orchestration and reasoning layer**, rather than binding CreatorHub directly to one model provider. The default policy should be to use **AI resources the creator already owns or has connected** whenever they are available, capable, and permitted for the task.
 
 The purpose of AI inside CreatorHub is to improve a creator's ability to **create, operate, grow, and monetize**. CoOperative's owner/operator dashboard remains focused on improving CoOperative itself: its code, infrastructure, routing, workers, node network, model benchmarking, system health, and platform operations.
 
@@ -40,7 +40,18 @@ CoOperative AI should be available to CreatorHub as an embedded capability/plugi
 
 ### Cost-aware compute routing
 
-Every CreatorHub AI/reasoning request should be sent to CoOperative with the task requirements plus the CreatorHub user's permissions, privacy rules, and AI budget/limits. **CreatorHub should not independently choose a model provider when CoOperative can route the work.**
+Every CreatorHub AI/reasoning request should be sent to CoOperative with the task requirements plus the CreatorHub user's permissions, privacy rules, connected AI resources, and AI budget/limits. **CreatorHub should not independently choose a model provider when CoOperative can route the work.**
+
+The general routing principle is **user-owned/user-connected AI first**. This can include:
+
+- Local models running on the creator's own computer or devices.
+- CoOperative nodes owned or explicitly linked by that creator.
+- AI services the creator personally connects or supplies credentials/entitlements for, such as Claude, OpenAI, or other supported providers.
+- Other creator-controlled compute that CoOperative can safely and reliably use.
+
+Within that user-controlled pool, CoOperative should choose the cheapest capable option that satisfies privacy, quality, latency, and user-preference requirements. A linked Claude, OpenAI, or other provider is therefore a valid execution source, but **no single commercial provider should be the universal default**.
+
+If the creator has no suitable owned/connected AI available, CoOperative may fall back to CreatorHub/CoOperative-owned local compute, eligible community compute, and finally Hermes/commercial paid options according to capability, cost, and the creator's approved budget.
 
 For the current test profile, routing priority is:
 
@@ -50,7 +61,7 @@ For the current test profile, routing priority is:
 4. **Cheapest capable Hermes option first.**
 5. **Progressive paid escalation only when needed**, and only within the CreatorHub user's approved per-job/account budget and permissions.
 
-As CoOperative grows, the routing system may also use eligible community compute before commercial cloud/paid models, while continuing to prefer user-owned resources whenever they are capable and policy-allowed.
+As CoOperative grows, the routing system may also use CreatorHub/CoOperative-owned local compute and eligible community compute before commercial cloud/paid models, while continuing to prefer user-owned or user-connected resources whenever they are capable and policy-allowed.
 
 The router should consider at least:
 
@@ -59,6 +70,7 @@ The router should consider at least:
 - Expected latency.
 - Privacy/data-location restrictions.
 - User ownership or relationship to the compute resource.
+- Whether the creator is already paying for or has personally connected the AI service, so CreatorHub does not unnecessarily absorb that cost.
 - Current workload/capacity.
 - Estimated cost.
 - CreatorHub budget and escalation permissions.
@@ -268,7 +280,7 @@ The first test should prove:
 
 ## Near-Term Build Priority
 
-1. Verify CreatorHub -> CoOperative AI routing end-to-end, including Mac-first routing, linked-node fallback, and Hermes escalation.
+1. Verify CreatorHub -> CoOperative AI routing end-to-end, including user-owned/user-connected AI preference, Mac-first routing for the current test profile, linked-node fallback, and Hermes escalation.
 2. Verify Stripe production/test connectivity.
 3. Complete secure ebook packaging and delivery.
 4. Complete the first Ava purchase flow.
