@@ -260,9 +260,11 @@ export default function CreatorHubAiBubble({
 
             replaceAssistant(assistantId, {
               text:
-                result.status === "waiting_llm"
-                  ? "Repo Engineer is using Local Quality on the repository evidence…"
-                  : "Repo Engineer is inspecting the owning repository and running deterministic checks…",
+                result.status === "queued"
+                  ? "Repo Engineer task is queued and waiting for a local worker…"
+                  : result.status === "waiting_llm"
+                    ? "Repo Engineer is using Local Quality on the repository evidence…"
+                    : "Repo Engineer is inspecting the owning repository and running deterministic checks…",
               mode: "agent",
             });
           } else {
@@ -1148,10 +1150,12 @@ export default function CreatorHubAiBubble({
                 placeholder={
                   pendingAttachment
                     ? "Ask about this image…"
-                    : "Ask CoOperative…"
+                    : busy
+                      ? "Task running — you can type your next message…"
+                      : "Ask CoOperative…"
                 }
                 rows={2}
-                disabled={busy || uploading}
+                disabled={uploading}
                 style={{
                   width: "100%",
                   resize: "none",
