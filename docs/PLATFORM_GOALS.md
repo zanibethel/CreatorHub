@@ -73,7 +73,7 @@ Every creator should be able to do all of the following:
 
 ### Generate a new ebook
 
-The creator selects topic, audience, tone, length, goal, and product direction. CreatorHub uses Claude to help create the outline, manuscript, exercises, sales copy, and promotion assets.
+The creator selects topic, audience, tone, length, goal, and product direction. CreatorHub uses CoOperative AI to create the outline, manuscript, exercises, sales copy, and promotion assets through the cheapest capable route allowed by the creator's profile.
 
 ### Upload an existing ebook
 
@@ -81,7 +81,7 @@ The creator can upload an existing PDF or EPUB, create a product listing, price 
 
 ### Import and improve a manuscript
 
-The creator can upload source material such as Markdown, text, or document content and use Claude to restructure, edit, expand, polish, or repackage it.
+The creator can upload source material such as Markdown, text, or document content and use CoOperative AI to restructure, edit, expand, polish, or repackage it.
 
 ### Generate derivative products
 
