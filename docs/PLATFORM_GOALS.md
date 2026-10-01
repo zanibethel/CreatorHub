@@ -19,23 +19,53 @@ CreatorHub should avoid becoming a pile of disconnected tools. Features should w
 
 ## AI Strategy
 
-Claude is the preferred primary intelligence layer for CreatorHub.
+CreatorHub should treat **CoOperative AI as its orchestration and reasoning layer**, rather than binding CreatorHub directly to one model provider.
 
-CreatorHub should use Claude for:
+The purpose of AI inside CreatorHub is to improve a creator's ability to **create, operate, grow, and monetize**. CoOperative's owner/operator dashboard remains focused on improving CoOperative itself: its code, infrastructure, routing, workers, node network, model benchmarking, system health, and platform operations.
 
-- Ebook ideation and market positioning.
-- Outline generation.
-- Long-form drafting and editing.
-- Chapter and exercise generation.
-- Product descriptions and sales copy.
-- Creator-specific promotion material.
-- Campaign planning.
-- Audience/product matching.
-- Content repurposing.
-- Recommendations based on creator history and results.
-- Store and marketplace assistance.
+### CreatorHub AI responsibilities
 
-CreatorHub should keep the AI provider abstracted enough that individual tasks can later use other models where useful, but Claude should remain the primary writing/strategy engine unless there is a clear reason otherwise.
+CoOperative AI should be available to CreatorHub as an embedded capability/plugin that can power:
+
+- CreatorHub chat and guidance.
+- Ebook and digital-product ideation, drafting, editing, packaging, and repurposing.
+- Creator/model/persona creation and refinement.
+- Audience, offer, and monetization strategy.
+- Content planning and repurposing.
+- Strategic posting to connected social platforms when the user has authorized it.
+- Analytics interpretation and next-action recommendations.
+- Discovery and evaluation of credible monetization opportunities.
+- User-authorized changes to CreatorHub configuration, workflows, products, and connected creator assets.
+- Higher-complexity tasks that may require multiple models, tools, or execution environments.
+
+### Cost-aware compute routing
+
+Every CreatorHub AI/reasoning request should be sent to CoOperative with the task requirements plus the CreatorHub user's permissions, privacy rules, and AI budget/limits. **CreatorHub should not independently choose a model provider when CoOperative can route the work.**
+
+For the current test profile, routing priority is:
+
+1. **User-owned local AI first** — currently the live Mac worker, when it is online and capable of the task.
+2. **The user's linked CoOperative nodes next** — currently test/unpaid linked nodes, when capable and available.
+3. **Hermes fallback** — only when the user's owned/linked compute is unavailable, overloaded, or insufficient.
+4. **Cheapest capable Hermes option first.**
+5. **Progressive paid escalation only when needed**, and only within the CreatorHub user's approved per-job/account budget and permissions.
+
+As CoOperative grows, the routing system may also use eligible community compute before commercial cloud/paid models, while continuing to prefer user-owned resources whenever they are capable and policy-allowed.
+
+The router should consider at least:
+
+- Capability required by the task.
+- Node/model availability and health.
+- Expected latency.
+- Privacy/data-location restrictions.
+- User ownership or relationship to the compute resource.
+- Current workload/capacity.
+- Estimated cost.
+- CreatorHub budget and escalation permissions.
+- Quality requirements and whether a cheaper attempt succeeded.
+- Whether the task can be decomposed so inexpensive/local models handle most work and stronger paid models handle only the unresolved portion.
+
+A creator should not need to understand nodes, model names, or provider routing. CreatorHub should expose the **outcome, cost, controls, and relevant status**, while CoOperative handles the infrastructure decision underneath.
 
 ## Ebook and Digital Product System
 
@@ -130,7 +160,7 @@ Every creator should have a storefront where they can sell:
 
 Creators should be able to add a product to their store without manually building a new sales page.
 
-Claude should generate creator-specific positioning and promotion material for the same master product.
+CoOperative AI should generate creator-specific positioning and promotion material for the same master product using the cheapest capable route allowed by the creator's profile.
 
 ## Affiliate and Attribution System
 
@@ -199,7 +229,7 @@ Example recommendation card:
 - Ready-to-post content count
 - **Add & Promote** action
 
-Claude should be able to generate promotional material using the creator's established persona, tone, audience, and platform strategy.
+CoOperative AI should be able to generate promotional material using the creator's established persona, tone, audience, and platform strategy.
 
 ## Connected Platforms
 
@@ -238,7 +268,7 @@ The first test should prove:
 
 ## Near-Term Build Priority
 
-1. Verify Claude production connectivity.
+1. Verify CreatorHub -> CoOperative AI routing end-to-end, including Mac-first routing, linked-node fallback, and Hermes escalation.
 2. Verify Stripe production/test connectivity.
 3. Complete secure ebook packaging and delivery.
 4. Complete the first Ava purchase flow.
@@ -246,7 +276,7 @@ The first test should prove:
 6. Add product-library / marketplace data model.
 7. Add **Add to My Store / Promote** workflow.
 8. Add commission ledger.
-9. Add CreatorHub subscription and AI-usage model.
+9. Add CreatorHub subscription, AI-usage, budget, and paid-escalation controls.
 10. Add Stripe Connect onboarding and marketplace payouts after the first-party purchase flow is proven.
 
 ## Long-Term Vision
