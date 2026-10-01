@@ -61,7 +61,7 @@ function wantsConnections(message: string) {
 }
 
 function wantsLatestImage(message: string) {
-  return /(latest|last|recent).*?(image|generation)|image.*?(status|job)/i.test(message);
+  return /(latest|last|recent|still|current|currently).*?(image|generation)|image.*?(status|job|running|generating|done|finished|failed)/i.test(message);
 }
 
 function hasEngineeringIntent(message: string) {
@@ -144,7 +144,7 @@ export async function POST(request: Request) {
         .or(`creator_id.eq.${creator.id},creator_id.is.null`),
       supabase
         .from("creator_image_jobs")
-        .select("status,local_profile,aspect_ratio,variation_mode,seed,result_model,error,created_at,updated_at")
+        .select("cooperative_job_id,status,local_profile,aspect_ratio,variation_mode,seed,result_model,error,created_at,updated_at")
         .eq("creator_id", creator.id)
         .order("created_at", { ascending: false })
         .limit(1)
@@ -185,7 +185,62 @@ export async function POST(request: Request) {
       };
     });
 
-    const latestImage = latestImageResult.data || null;
+    let latestImage = latestImageResult.data || null;
+
+    const cooperativeUrl = process.env.COOPERATIVE_INFERENCE_URL?.replace(/\/+$/, "");
+    const cooperativeSecret = process.env.COOPERATIVE_INFERENCE_SECRET;
+
+    // Reconcile CreatorHub's cached image status with CoOperative before answering
+    // status questions or passing job context to the AI. This prevents a failed
+    // or completed local job from remaining "queued" indefinitely in chat.
+    if (
+      latestImage?.cooperative_job_id &&
+      (latestImage.status === "queued" || latestImage.status === "running") &&
+      cooperativeUrl &&
+      cooperativeSecret
+    ) {
+      try {
+        const statusResponse = await fetch(
+          `${cooperativeUrl}/api/inference/jobs/status?jobId=${encodeURIComponent(latestImage.cooperative_job_id)}&ownerRef=${encodeURIComponent(user.id)}`,
+          {
+            headers: { Authorization: `Bearer ${cooperativeSecret}` },
+            cache: "no-store",
+          },
+        );
+        const remote = (await statusResponse.json().catch(() => null)) as
+          | {
+              status?: "queued" | "running" | "completed" | "failed" | "cancelled";
+              model?: string | null;
+              error?: string | null;
+              completedAt?: string | null;
+            }
+          | null;
+
+        if (statusResponse.ok && remote?.status) {
+          await supabase
+            .from("creator_image_jobs")
+            .update({
+              status: remote.status,
+              result_model: remote.model ?? latestImage.result_model ?? null,
+              error: remote.error ?? null,
+              completed_at: remote.completedAt ?? null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq("user_id", user.id)
+            .eq("cooperative_job_id", latestImage.cooperative_job_id);
+
+          latestImage = {
+            ...latestImage,
+            status: remote.status,
+            result_model: remote.model ?? latestImage.result_model,
+            error: remote.error ?? null,
+            updated_at: new Date().toISOString(),
+          };
+        }
+      } catch {
+        // Keep the cached status if CoOperative is temporarily unavailable.
+      }
+    }
 
     if (!engineeringIntent && !hasAttachments && wantsStats(input.message)) {
       return NextResponse.json({
@@ -233,8 +288,6 @@ export async function POST(request: Request) {
       });
     }
 
-    const cooperativeUrl = process.env.COOPERATIVE_INFERENCE_URL?.replace(/\/+$/, "");
-    const cooperativeSecret = process.env.COOPERATIVE_INFERENCE_SECRET;
     if (!cooperativeUrl || !cooperativeSecret) {
       return NextResponse.json(
         { error: "CoOperative chat bridge is not configured." },
