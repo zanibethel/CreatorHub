@@ -42,6 +42,24 @@ type ReviewDetails = {
   decision?: "approved" | "denied";
 };
 
+type EscalationCandidate = {
+  id?: string;
+  provider?: string;
+  model?: string;
+  estimatedMarginalCostUsd?: number;
+  benchmarkSuccessRate?: number;
+};
+
+type EscalationDetails = {
+  taskId: string;
+  action?: "stay-local" | "no-qualified-executor" | "approval-required" | "escalate";
+  justified?: boolean;
+  reason?: string;
+  reasonCodes?: string[];
+  candidate?: EscalationCandidate | null;
+  retryTaskId?: string;
+};
+
 type ChatMessage = {
   id: string;
   role: "user" | "assistant";
@@ -50,6 +68,7 @@ type ChatMessage = {
   action?: ChatAction | null;
   attachmentNames?: string[];
   review?: ReviewDetails | null;
+  escalation?: EscalationDetails | null;
 };
 
 type BridgeResponse = {
@@ -71,6 +90,37 @@ type BridgeResponse = {
   } | null;
   review?: Omit<ReviewDetails, "taskId"> | null;
   decision?: "approved" | "denied";
+  escalation?: {
+    decision?: {
+      action?: EscalationDetails["action"];
+      justified?: boolean;
+      reason?: string;
+      reasonCodes?: string[];
+      candidate?: EscalationCandidate | null;
+    };
+    evidence?: {
+      localAttempts?: number;
+      localFailures?: number;
+      malformedStructuredOutputs?: number;
+      scopeGuardRejections?: number;
+      verificationStatus?: string;
+    };
+  } | null;
+  recommendation?: {
+    decision?: {
+      action?: EscalationDetails["action"];
+      justified?: boolean;
+      reason?: string;
+      reasonCodes?: string[];
+      candidate?: EscalationCandidate | null;
+    };
+  } | null;
+  executorApproval?: {
+    provider?: string;
+    model?: string;
+    approvedMaxCostUsd?: number;
+    estimatedCostUsd?: number;
+  } | null;
   branchName?: string | null;
   model?: string | null;
   error?: string | null;
@@ -123,6 +173,7 @@ export default function CreatorHubAiBubble({
   } | null>(null);
   const [uploading, setUploading] = useState(false);
   const [reviewBusyId, setReviewBusyId] = useState("");
+  const [escalationBusyId, setEscalationBusyId] = useState("");
   const scrollRef = useRef<HTMLDivElement | null>(null);
   const activePollRef = useRef("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -248,9 +299,31 @@ export default function CreatorHubAiBubble({
                   result.status === "completed"
                     ? result.result?.summary || "The Repo Engineer completed the task."
                     : result.error || `Agent task ${result.status}.`;
+
+                const decision = result.escalation?.decision;
+                const escalation: EscalationDetails | null =
+                  result.status === "failed" && decision?.justified
+                    ? {
+                        taskId: taskId || result.taskId || "",
+                        action: decision.action,
+                        justified: decision.justified,
+                        reason: decision.reason,
+                        reasonCodes: decision.reasonCodes,
+                        candidate: decision.candidate || null,
+                      }
+                    : null;
+
+                const escalationText =
+                  escalation?.action === "approval-required" && escalation.candidate
+                    ? `\n\nCoOperative found enough evidence that a stronger model is justified. ${escalation.reason || ""}`
+                    : escalation?.action === "no-qualified-executor"
+                      ? `\n\nA stronger model is justified, but no qualified paid/business-owned executor is configured yet. ${escalation.reason || ""}`
+                      : "";
+
                 replaceAssistant(assistantId, {
-                  text: summary,
+                  text: `${summary}${escalationText}`,
                   mode: "agent",
+                  escalation,
                 });
               }
 
@@ -516,6 +589,88 @@ export default function CreatorHubAiBubble({
     }
   }
 
+  async function handleEscalation(
+    messageId: string,
+    escalation: EscalationDetails,
+  ) {
+    const candidate = escalation.candidate;
+    const estimatedCostUsd = candidate?.estimatedMarginalCostUsd;
+    if (
+      !escalation.taskId ||
+      !candidate ||
+      typeof estimatedCostUsd !== "number" ||
+      escalationBusyId
+    ) {
+      return;
+    }
+
+    setEscalationBusyId(messageId);
+    setRouteLabel("Approving stronger-model retry…");
+
+    try {
+      const response = await fetch("/api/cooperative/escalation", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          creatorId,
+          taskId: escalation.taskId,
+          action: "retry-stronger",
+          approvedMaxCostUsd: estimatedCostUsd,
+        }),
+      });
+      const result = (await response.json()) as BridgeResponse;
+      if (!response.ok || !result.taskId) {
+        throw new Error(
+          result.detail ||
+            result.error ||
+            "Could not queue the stronger-model retry.",
+        );
+      }
+
+      replaceAssistant(messageId, {
+        text:
+          result.text ||
+          `Stronger-model retry queued using ${candidate.model || candidate.provider || "the approved executor"}.`,
+        mode: "agent",
+        escalation: {
+          ...escalation,
+          retryTaskId: result.taskId,
+        },
+      });
+
+      setRouteLabel(
+        `Stronger AI approved · ${candidate.model || candidate.provider || "paid executor"}`,
+      );
+      window.localStorage.setItem(
+        activeKey,
+        JSON.stringify({
+          taskId: result.taskId,
+          assistantId: messageId,
+          mode: "agent",
+          conversationId,
+        }),
+      );
+      void poll({
+        taskId: result.taskId,
+        assistantId: messageId,
+        mode: "agent",
+      });
+    } catch (error) {
+      appendMessage({
+        id: newId(),
+        role: "assistant",
+        text:
+          error instanceof Error
+            ? error.message
+            : "Could not queue the stronger-model retry.",
+        mode: "code",
+      });
+      setRouteLabel("Stronger-model retry not started");
+    } finally {
+      setEscalationBusyId("");
+    }
+  }
+
   async function send(event?: FormEvent) {
     event?.preventDefault();
     const message = input.trim();
@@ -654,6 +809,7 @@ export default function CreatorHubAiBubble({
     setConversationId(undefined);
     setBusy(false);
     setReviewBusyId("");
+    setEscalationBusyId("");
     try {
       window.localStorage.removeItem(historyKey);
       window.localStorage.removeItem(activeKey);
@@ -837,6 +993,67 @@ export default function CreatorHubAiBubble({
                     >
                       Open {message.action.label || "section"} →
                     </button>
+                  ) : null}
+                  {message.escalation ? (
+                    <div
+                      style={{
+                        marginTop: 8,
+                        border: "1px solid #5b3a86",
+                        borderRadius: 13,
+                        background: "#171020",
+                        padding: 10,
+                      }}
+                    >
+                      <div style={{ fontSize: 11, color: "#cfc7da", lineHeight: 1.45 }}>
+                        <strong style={{ color: "#fff" }}>Stronger-model escalation</strong>
+                        <br />
+                        {message.escalation.reason ||
+                          "CoOperative found evidence that local reasoning may not be sufficient."}
+                      </div>
+
+                      {message.escalation.candidate ? (
+                        <div style={{ marginTop: 8, fontSize: 11, color: "#b8aec7" }}>
+                          {message.escalation.candidate.provider || "provider"} ·{" "}
+                          {message.escalation.candidate.model || "model"}
+                          {typeof message.escalation.candidate.estimatedMarginalCostUsd === "number"
+                            ? ` · est. ${message.escalation.candidate.estimatedMarginalCostUsd.toFixed(4)} max`
+                            : ""}
+                        </div>
+                      ) : null}
+
+                      {message.escalation.action === "approval-required" &&
+                      message.escalation.candidate &&
+                      typeof message.escalation.candidate.estimatedMarginalCostUsd === "number" &&
+                      !message.escalation.retryTaskId ? (
+                        <button
+                          type="button"
+                          disabled={Boolean(escalationBusyId)}
+                          onClick={() =>
+                            void handleEscalation(message.id, message.escalation!)
+                          }
+                          style={{
+                            marginTop: 9,
+                            border: "1px solid #8b5cf6",
+                            borderRadius: 999,
+                            background: "#6d28d9",
+                            color: "#fff",
+                            padding: "7px 10px",
+                            fontWeight: 800,
+                            fontSize: 11,
+                          }}
+                        >
+                          {escalationBusyId === message.id
+                            ? "Queuing…"
+                            : `Use stronger model · up to ${message.escalation.candidate.estimatedMarginalCostUsd.toFixed(4)}`}
+                        </button>
+                      ) : null}
+
+                      {message.escalation.action === "no-qualified-executor" ? (
+                        <div style={{ marginTop: 8, fontSize: 10, color: "#9f95ac" }}>
+                          Configure and benchmark a paid or business-owned AI executor before this can run.
+                        </div>
+                      ) : null}
+                    </div>
                   ) : null}
                   {message.review ? (
                     <div
