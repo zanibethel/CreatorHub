@@ -22,7 +22,7 @@ const json = value => Response.json(value);
 const fixtures = {
   account: {id:'private-account-id',equity:'100000',cash:'99990',last_equity:'99995',currency:'USD',account_number:'private-number',email:'private-email'},
   positions: [{symbol:'SPY',side:'long',qty:'0.01',avg_entry_price:'600',market_value:'6.10',unrealized_pl:'0.10',asset_id:'private-asset'}],
-  orders: [{id:'private-order',client_order_id:'private-client',symbol:'SPY',side:'buy',type:'limit',status:'partially_filled',qty:'1',filled_qty:'0.2',limit_price:'600',stop_price:null,submitted_at:stamp}],
+  orders: [{id:'private-order',client_order_id:'ch-div-v1-fixture01',symbol:'SPY',asset_class:'us_equity',side:'buy',type:'limit',order_class:'simple',status:'partially_filled',qty:'1',filled_qty:'0.2',filled_avg_price:'600',limit_price:'600',stop_price:null,submitted_at:stamp,filled_at:null}],
   fills: [{id:'private-fill',order_id:'private-order',symbol:'SPY',side:'buy',qty:'0.2',price:'600',transaction_time:stamp}],
 };
 function alpaca(url) {
@@ -36,7 +36,7 @@ function alpaca(url) {
 
 test('collector uses only GETs on the fixed paper host and strips broker identifiers', async () => {
   const requests = [];
-  const {report,sourceKey} = await collector.collectPaperReport('test-key','test-secret',(url, options) => {
+  const {report,sourceKey,brokerActivity} = await collector.collectPaperReport('test-key','test-secret',(url, options) => {
     requests.push({url,options}); return alpaca(url);
   });
   assert.equal(report.account.equity,100000,'does not scale the broker balance to the $100 virtual challenge');
@@ -44,13 +44,17 @@ test('collector uses only GETs on the fixed paper host and strips broker identif
   assert.equal(report.fills[0].quantity,0.2);
   assert.equal(report.orders[0].stop,null);
   assert.match(sourceKey,/^[a-f0-9]{64}$/);
-  assert.equal(requests.length,4);
+  assert.equal(requests.length,5);
   for (const {url,options} of requests) {
     assert.equal(new URL(url).origin,'https://paper-api.alpaca.markets');
     assert.equal(options.method,'GET');
     assert.equal(options.headers['APCA-API-SECRET-KEY'],'test-secret');
   }
-  assert.doesNotMatch(JSON.stringify(report),/private-|test-key|test-secret|account_number|order_id/);
+  assert.doesNotMatch(JSON.stringify(report),/private-|test-key|test-secret|account_number|order_id|client_order_id/);
+  assert.equal(brokerActivity.orders.length,1);
+  assert.equal(brokerActivity.orders[0].clientOrderId,'ch-div-v1-fixture01');
+  assert.equal(brokerActivity.orders[0].brokerOrderId,'private-order');
+  assert.equal(brokerActivity.fills[0].fillActivityId,'private-fill');
   assert.ok(schemas.paperAccountSchema.safeParse(report).success);
 });
 test('missing collector keys make no brokerage calls', async () => {
@@ -105,20 +109,24 @@ test('missing scheduler credentials record setup_required even when the RPC retu
   assert.equal((await response.json()).setupRequired,true);
   assert.equal(failure.p_status,'setup_required');
 });
-test('authorized collection saves only the sanitized snapshot and returns no account data', async () => {
-  let saved;
+test('authorized collection saves only the sanitized snapshot while reconciling tagged broker IDs privately', async () => {
+  let saved, reconciled;
   const run = handler.createHandler(env,(url,options) => {
     if (url.startsWith('https://paper-api')) return alpaca(url);
     if (url.includes('paper_report_state')) return json([{cron_token_hash:hash}]);
     if (url.endsWith('paper_report_claim_refresh')) return json(true);
+    if (url.endsWith('paper_bot_reconcile_broker_activity')) {reconciled = JSON.parse(options.body); return json({ordersSeen:1,fillsAdded:1});}
     if (url.endsWith('paper_report_save_snapshot')) {saved = JSON.parse(options.body); return new Response(null,{status:204});}
     throw new Error('Unexpected database call');
   });
   const response = await run(scheduledRequest());
   assert.equal(response.status,200);
   assert.equal(saved.p_payload.account.equity,100000);
-  assert.doesNotMatch(JSON.stringify(saved),/private-/);
-  assert.doesNotMatch(JSON.stringify(await response.json()),/equity|cash|quantity|account_id|secret/);
+  assert.doesNotMatch(JSON.stringify(saved),/private-|clientOrderId|brokerOrderId|fillActivityId/);
+  assert.equal(reconciled.p_orders[0].clientOrderId,'ch-div-v1-fixture01');
+  assert.equal(reconciled.p_orders[0].brokerOrderId,'private-order');
+  assert.equal(reconciled.p_fills[0].fillActivityId,'private-fill');
+  assert.doesNotMatch(JSON.stringify(await response.json()),/equity|cash|quantity|account_id|secret|clientOrderId|brokerOrderId/);
 });
 test('collector failures record a retry without overwriting the prior snapshot', async () => {
   let failure;
