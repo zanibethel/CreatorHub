@@ -33,7 +33,7 @@ const ledgerRows = [
     peak_equity: "100", current_drawdown_pct: "0",
     open_planned_risk_pct: "0", correlated_risk_pct: "0",
     daily_realized_loss_pct: "0", weekly_drawdown_pct: "0",
-    last_synced_at: stamp, source: "virtual-ledger", metadata: { secret: "private-value" },
+    last_synced_at: stamp, source: "virtual-ledger", pool_usage: { day: 0, "multi-day": 0, "multi-week": 0 }, metadata: { secret: "private-value" },
   },
   {
     bot_id: "penny-volatility-day-100", display_name: "$100 Penny Volatility Day Bot", status: "planned",
@@ -42,7 +42,7 @@ const ledgerRows = [
     buying_power: "100", peak_equity: "100", current_drawdown_pct: "0",
     open_planned_risk_pct: "0", correlated_risk_pct: "0",
     daily_realized_loss_pct: "0", weekly_drawdown_pct: "0",
-    last_synced_at: null, source: "virtual-ledger",
+    last_synced_at: null, source: "virtual-ledger", pool_usage: { day: 0, "multi-day": 0, "multi-week": 0 },
   },
 ];
 
@@ -67,6 +67,7 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
     if (url.includes("paper_bot_journal")) return Response.json([]);
     if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id: "default-diverse", broker_order_id: "private-order" }]);
     if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id: "default-diverse", fill_activity_id: "private-fill", transaction_time: stamp, ledger_applied_at: stamp }]);
+    if (url.includes("paper_bot_orders")) return Response.json([{ bot_id: "default-diverse", symbol: "QQQ", asset_class: "etf", status: "prepared", requested_notional: "10", requested_quantity: null, pool_id: "multi-day", entry_trigger: "750", max_entry_price: "755", protective_stop: "730", planned_risk_dollars: "1", expires_at: stamp, stage_reason: "fixture" }]);
     throw new Error("Unexpected request");
   });
   const response = await route.GET();
@@ -83,7 +84,9 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.bots[0].brokerFillCount, 1);
   assert.equal(body.bots[0].lastBrokerFillAt, stamp);
   assert.equal(body.history["default-diverse"][0].equity, 100);
-  assert.equal(requested.length, 6);
+  assert.equal(body.bots[0].poolUsage["multi-day"], 0);
+  assert.equal(body.stagedOrders["default-diverse"][0].symbol, "QQQ");
+  assert.equal(requested.length, 7);
   assert.doesNotMatch(JSON.stringify(body), /private-value|database-secret|metadata|private-order|private-fill/);
 });
 
