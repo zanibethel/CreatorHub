@@ -117,7 +117,7 @@ export default function PaperTradingLab() {
           </div>
         </details>
       </div>
-      <div className={styles.sharedWatchlist} aria-label="Persistent shared watchlist"><span>Watching</span><div>{[...watchlist.stocks,...watchlist.crypto].map(item => <button key={item.symbol} onClick={() => choose("watchlist")} title={`${item.tier === "reserve" ? "Reserve · watched" : "Initial list"} · ${item.role}: ${item.rationale}`}>{item.symbol}</button>)}</div><Link href="/paper-trading/research">Selection report</Link></div>
+      <div className={styles.sharedWatchlist} aria-label="Persistent shared watchlist"><span>Watching</span><div>{[...watchlist.stocks,...watchlist.crypto].map(item => <button key={item.symbol} onClick={() => choose("watchlist")} title={`${item.tier === "reserve" ? "Reserve · watched" : "Initial list"} · ${item.role}: ${item.rationale}`}>{item.symbol}</button>)}</div><Link href="/paper-trading/bots">Bot Lab</Link><Link href="/paper-trading/research">Selection report</Link></div>
       {watchlistError ? <p role="status" className={styles.error}>{watchlistError}</p> : null}
     </div>
     <div className={styles.stage} onFocusCapture={() => setRotating(false)} onPointerDown={() => setRotating(false)}>
