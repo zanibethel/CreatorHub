@@ -55,11 +55,35 @@ export type PaperPositionPlan = {
   exit_manager_state: ExitManagerState;
 };
 
+export type PaperTradeMetric = {
+  bot_id: string;
+  symbol: string;
+  status: "open" | "closing" | "closed";
+  opened_at: string;
+  closed_at: string | null;
+  entry_price: number | null;
+  initial_protective_stop: number | null;
+  initial_risk_dollars: number | null;
+  peak_mark_price: number | null;
+  trough_mark_price: number | null;
+  last_mark_price: number | null;
+  last_mark_at: string | null;
+  mark_count: number;
+  mfe_r: number;
+  mae_r: number;
+  exit_price: number | null;
+  realized_pl: number | null;
+  r_multiple: number | null;
+  estimated_fees: number | null;
+  exit_reason: string | null;
+};
+
 export type PaperBotLedgerReport = {
   collectedAt: string;
   bots: PaperBotSummary[];
   stagedOrders: Record<string, StagedPaperOrder[]>;
   positionPlans: Record<string, PaperPositionPlan[]>;
+  tradeMetrics: Record<string, PaperTradeMetric[]>;
   history: Record<string, Array<{ time: string; equity: number }>>;
   accountingModel: {
     challengeStartingCash: number;
