@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import useAccountReport from "./useAccountReport";
-import usePaperBotLedgers, { type StagedPaperOrder } from "./usePaperBotLedgers";
+import usePaperBotLedgers, { type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
 import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -32,11 +32,12 @@ function OrderPlan({ order }: { order: StagedPaperOrder }) {
   </div>;
 }
 
-function BotCard({ profile, ledger, history, staged }: {
+function BotCard({ profile, ledger, history, staged, positions }: {
   profile: PaperBotProfile;
   ledger: PaperBotSummary | null;
   history: Array<{ time: string; equity: number }>;
   staged: StagedPaperOrder[];
+  positions: PaperPositionPlan[];
 }) {
   const active = (ledger?.status ?? profile.status) === "active";
   const equity = ledger?.equity ?? profile.challengeStartingCash;
@@ -68,6 +69,16 @@ function BotCard({ profile, ledger, history, staged }: {
       <div><span>Risk state</span><strong>Daily loss {percent(ledger?.dailyRealizedLossPct ?? 0)} · Weekly drawdown {percent(ledger?.weeklyDrawdownPct ?? 0)}</strong><small>Alpaca paper activity only changes this challenge when it matches a prepared bot order.</small></div>
     </div>
 
+    {positions.length ? <div>
+      <h3>Exit manager</h3>
+      <div className={styles.botRuleGrid}>{positions.map(position => <div key={position.symbol}>
+        <span>{position.symbol}</span>
+        <strong>{(position.exit_manager_state.plannedAction ?? "hold").replaceAll("_", " ")}{position.exit_manager_state.rMultiple !== undefined ? ` · ${position.exit_manager_state.rMultiple >= 0 ? "+" : ""}${position.exit_manager_state.rMultiple.toFixed(2)}R` : ""}</strong>
+        <small>Mark {money(position.exit_manager_state.markPrice ?? null)} · stop {money(position.protective_stop)}{position.exit_manager_state.desiredStop ? ` · planned stop ${money(position.exit_manager_state.desiredStop)}` : ""}</small>
+        <small>{position.exit_manager_state.reason ?? "Waiting for evaluation."}</small>
+      </div>)}</div>
+    </div> : null}
+
     {staged.length ? <div>
       <h3>Staged plans</h3>
       {staged.map(order => <OrderPlan key={`${order.symbol}-${order.entry_trigger}`} order={order} />)}
@@ -84,6 +95,7 @@ export default function PaperBotLab() {
   const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
   const ledgerFor = (botId: string) => ledgerReport?.bots.find(bot => bot.botId === botId) ?? null;
   const stagedFor = (botId: string) => ledgerReport?.stagedOrders?.[botId] ?? [];
+  const positionsFor = (botId: string) => ledgerReport?.positionPlans?.[botId] ?? [];
   const historyFor = (botId: string) => ledgerReport?.history?.[botId] ?? [];
   const brokerEquity = accountReport?.snapshot?.account.equity ?? null;
 
@@ -114,6 +126,7 @@ export default function PaperBotLab() {
         ledger={ledgerFor(profile.id)}
         history={historyFor(profile.id)}
         staged={stagedFor(profile.id)}
+        positions={positionsFor(profile.id)}
       />)}
     </section>
 
