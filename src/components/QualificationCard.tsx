@@ -65,7 +65,7 @@ export default function QualificationCard({ item, quote, timestamp, candles, ben
         </dl>
 
         <h3>Possible pools</h3>
-        {evidence.pools.length ? <><div className={styles.poolOptions}>{evidence.pools.map(pool => <div key={pool.id}><strong>{pool.label}</strong><span>{pool.allocationPct}% allocation ceiling</span><span>{(100 * pool.allocationPct / 100).toFixed(0)} of the $100 challenge</span></div>)}</div><p>These are portfolio allocation ceilings, not fixed position sizes. The strategy risk engine determines each position from planned loss risk, and available pool capacity must still pass before an order can qualify.</p></> : <p>Watched without a funded pool. Allocation must be configured before qualification.</p>}
+        {evidence.pools.length ? <><div className={styles.poolOptions}>{evidence.pools.map(pool => <div key={pool.id}><strong>{pool.label}</strong><span>{pool.allocationPct}% allocation ceiling</span><span>${(100 * pool.allocationPct / 100).toFixed(0)} of the $100 challenge</span></div>)}</div><p>These are portfolio allocation ceilings, not fixed position sizes. The strategy risk engine determines each position from planned loss risk, and available pool capacity must still pass before an order can qualify.</p></> : <p>Watched without a funded pool. Allocation must be configured before qualification.</p>}
 
         <h3>Observed evidence</h3>
         <dl>
