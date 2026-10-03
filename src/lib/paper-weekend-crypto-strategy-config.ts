@@ -16,7 +16,7 @@ export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = {
     maximumOpenPositions: 1,
   },
   marketData: {
-    quoteFreshnessSeconds: 20,
+    quoteFreshnessSeconds: 60,
     maximumSpreadPct: 0.15,
     fastTimeframeMinutes: 5,
     slowTimeframeMinutes: 15,
