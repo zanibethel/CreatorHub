@@ -24,6 +24,12 @@ CreatorHub's Paper Trading Lab is a private, paper-only portfolio report and str
 
 The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a validated default.
 
+## Report views
+
+- Show **open orders and positions** as current state at the latest simulator update, including pending and partial limit entries, filled positions, fill quantity, assigned pool, timestamps, and linked stop/target levels where available.
+- Keep **previous trades** as a separate closed-trade history with entry and exit times/prices, costs, realized net result, and recorded signal/exit rationale.
+- Never label a pending or partially filled order as a completed trade. Until private persistence and a market-data simulator are connected, show truthful empty states rather than sample or fabricated records.
+
 ## Scheduling and data handling
 
 - The future hourly job updates snapshots and paper-trade state; it does **not** rewrite or commit website source code every hour.
