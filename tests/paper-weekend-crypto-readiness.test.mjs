@@ -1,0 +1,152 @@
+import { test } from "node:test";
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
+import ts from "typescript";
+
+function load(path, imports = {}) {
+  const exports = {};
+  const source = readFileSync(new URL(path, import.meta.url), "utf8");
+  const code = ts.transpileModule(source, {
+    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 },
+  }).outputText;
+  vm.runInNewContext(code, {
+    exports,
+    Intl,
+    Date,
+    require: name => {
+      if (name in imports) return imports[name];
+      throw new Error(`Unexpected import: ${name}`);
+    },
+  });
+  return exports;
+}
+
+const config = load("../src/lib/paper-weekend-crypto-strategy-config.ts");
+const readiness = load("../src/lib/paper-weekend-crypto-readiness.ts", {
+  "./paper-weekend-crypto-strategy-config": config,
+});
+
+const now = Date.parse("2026-10-03T18:00:00Z");
+
+function bars(count, minutes, base, step) {
+  return Array.from({ length: count }, (_, index) => {
+    const close = base + step * index;
+    return {
+      t: new Date(now - (count - index) * minutes * 60_000).toISOString(),
+      o: close - 0.03,
+      h: close + 0.08,
+      l: close - 0.08,
+      c: close,
+      v: 10,
+    };
+  });
+}
+
+function input(overrides = {}) {
+  const bars5m = {
+    "BTC/USD": bars(30,5,100,0.05),
+    "ETH/USD": bars(30,5,100,0.05),
+    "SOL/USD": bars(30,5,100,0.05),
+  };
+  const bars15m = {
+    "BTC/USD": bars(20,15,95,0.20),
+    "ETH/USD": bars(20,15,95,0.20),
+    "SOL/USD": bars(20,15,95,0.20),
+  };
+  const ask = bars5m["BTC/USD"].at(-1).c + 0.09;
+  return {
+    now,
+    ledger: {
+      active: true,
+      equity: 100,
+      buyingPower: 100,
+      openRiskPct: 0,
+      dailyRealizedLossPct: 0,
+      openPositions: 0,
+      dailyNewEntries: 0,
+      executionEnabled: false,
+    },
+    quotes: {
+      "BTC/USD": { bid: ask - 0.03, ask, timestamp: new Date(now - 2_000).toISOString() },
+      "ETH/USD": { bid: ask - 0.03, ask, timestamp: new Date(now - 2_000).toISOString() },
+      "SOL/USD": { bid: ask - 0.03, ask, timestamp: new Date(now - 2_000).toISOString() },
+    },
+    bars5m,
+    bars15m,
+    occupiedByOtherBots: [],
+    ...overrides,
+  };
+}
+
+test("Saturday scanner can select one qualified PAPER candidate while execution is disabled", () => {
+  const result = readiness.evaluateWeekendCryptoReadiness(input());
+  assert.equal(result.session.isWeekend, true);
+  assert.equal(result.session.entriesOpen, true);
+  assert.equal(result.paperOnly, true);
+  assert.equal(result.executionEnabled, false);
+  assert.equal(result.submissionReady, false);
+  assert.equal(result.candidates.filter(candidate => candidate.selectedForSubmission).length, 1);
+  const selected = result.candidates.find(candidate => candidate.selectedForSubmission);
+  assert.equal(selected.state, "ready");
+  assert.ok(selected.score >= 80);
+  assert.ok(selected.plannedNotional <= 30.000001);
+  assert.ok(selected.plannedRiskPct <= 0.500001);
+  assert.ok(selected.feeCoverageMultiple >= 2.5);
+});
+
+test("another bot holding the same symbol blocks that weekend candidate", () => {
+  const result = readiness.evaluateWeekendCryptoReadiness(input({
+    occupiedByOtherBots: ["SOL/USD"],
+  }));
+  const sol = result.candidates.find(candidate => candidate.symbol === "SOL/USD");
+  assert.equal(sol.state, "blocked");
+  assert.match(sol.blockers.join(" "), /already holds this symbol/i);
+});
+
+test("weekday session blocks every candidate", () => {
+  const monday = Date.parse("2026-10-05T18:00:00Z");
+  const result = readiness.evaluateWeekendCryptoReadiness(input({ now: monday }));
+  assert.equal(result.session.isWeekend, false);
+  assert.equal(result.candidates.every(candidate => candidate.state === "blocked"), true);
+});
+
+test("daily loss kill switch blocks new weekend risk", () => {
+  const base = input();
+  const result = readiness.evaluateWeekendCryptoReadiness({
+    ...base,
+    ledger: { ...base.ledger, dailyRealizedLossPct: 1.5 },
+  });
+  assert.equal(result.candidates.every(candidate => candidate.state === "blocked"), true);
+  assert.match(result.candidates[0].blockers.join(" "), /daily realized-loss kill switch/i);
+});
+
+test("one open position blocks additional entries", () => {
+  const base = input();
+  const result = readiness.evaluateWeekendCryptoReadiness({
+    ...base,
+    ledger: { ...base.ledger, openPositions: 1 },
+  });
+  assert.equal(result.openPositionSlotsRemaining, 0);
+  assert.equal(result.candidates.every(candidate => candidate.state === "blocked"), true);
+});
+
+test("armed execution still requires a selected ready setup", () => {
+  const base = input();
+  const armed = readiness.evaluateWeekendCryptoReadiness({
+    ...base,
+    ledger: { ...base.ledger, executionEnabled: true },
+  });
+  assert.equal(armed.submissionReady, true);
+
+  const staleQuotes = Object.fromEntries(Object.entries(base.quotes).map(([symbol, quote]) => [
+    symbol,
+    { ...quote, timestamp: new Date(now - 120_000).toISOString() },
+  ]));
+  const stale = readiness.evaluateWeekendCryptoReadiness({
+    ...base,
+    ledger: { ...base.ledger, executionEnabled: true },
+    quotes: staleQuotes,
+  });
+  assert.equal(stale.submissionReady, false);
+});
