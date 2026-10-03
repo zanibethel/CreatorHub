@@ -5,6 +5,7 @@ import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profil
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import useAccountReport from "./useAccountReport";
 import usePaperBotLedgers, { type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
+import useSwingReadiness from "./useSwingReadiness";
 import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -99,6 +100,7 @@ function BotCard({ profile, ledger, history, staged, positions }: {
 export default function PaperBotLab() {
   const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
   const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
+  const { report: swingReadiness, error: swingReadinessError } = useSwingReadiness();
   const ledgerFor = (botId: string) => ledgerReport?.bots.find(bot => bot.botId === botId) ?? null;
   const stagedFor = (botId: string) => ledgerReport?.stagedOrders?.[botId] ?? [];
   const positionsFor = (botId: string) => ledgerReport?.positionPlans?.[botId] ?? [];
@@ -124,6 +126,36 @@ export default function PaperBotLab() {
 
     {ledgerError ? <p role="status" className={styles.error}>Bot ledger: {ledgerError}</p> : null}
     {accountError ? <p role="status" className={styles.error}>Alpaca audit feed: {accountError}</p> : null}
+    {swingReadinessError ? <p role="status" className={styles.error}>Swing readiness: {swingReadinessError}</p> : null}
+
+    <section className={styles.botCompare}>
+      <div className={styles.cardHeader}>
+        <div>
+          <h2>Monday swing readiness</h2>
+          <p>Read-only revalidation. A READY result is permission for the future PAPER executor to consider a plan; it does not submit an order.</p>
+        </div>
+        <span className={styles.meta}>{swingReadiness?.paperOnly === false ? "BLOCKED" : "PAPER ONLY"}</span>
+      </div>
+      <div className={styles.botOverview}>
+        <div><span>Selected now</span><strong>{swingReadiness?.readyCount ?? 0}</strong></div>
+        <div><span>Weekly slots</span><strong>{swingReadiness?.weeklySlotsRemaining ?? "—"}</strong></div>
+        <div><span>Position slots</span><strong>{swingReadiness?.openPositionSlotsRemaining ?? "—"}</strong></div>
+        <div><span>Broad market</span><strong>{swingReadiness ? (swingReadiness.broadMarketSupportive ? "Supportive" : "Blocked") : "—"}</strong></div>
+      </div>
+      {swingReadiness?.nextMarketOpen ? <p className={styles.meta}>Next market open: {new Date(swingReadiness.nextMarketOpen).toLocaleString()}</p> : null}
+      <div className={styles.botRuleGrid}>
+        {(swingReadiness?.plans ?? []).map(plan => <div key={plan.symbol}>
+          <span>{plan.symbol}</span>
+          <strong className={plan.state === "ready" ? styles.fresh : plan.state === "blocked" ? styles.stale : styles.meta}>
+            {plan.state.toUpperCase()}{plan.selectedForSubmission ? " · SELECTED" : ""}
+          </strong>
+          <small>Bid {money(plan.bid)} · ask {money(plan.ask)} · spread {plan.spreadPct === null ? "—" : `${plan.spreadPct.toFixed(3)}%`} · quote age {plan.quoteAgeSeconds === null ? "—" : `${Math.round(plan.quoteAgeSeconds)}s`}</small>
+          <small>Allocation {percent(plan.allocationPct)} · planned risk {percent(plan.plannedRiskPct)}{plan.correlationGroup ? ` · ${plan.correlationGroup}` : ""}</small>
+          {plan.waitingOn.length ? <small>Waiting: {plan.waitingOn.join(" · ")}</small> : null}
+          {plan.blockers.length ? <small>Blocked: {plan.blockers.join(" · ")}</small> : null}
+        </div>)}
+      </div>
+    </section>
 
     <section className={styles.botGrid}>
       {PAPER_BOT_PROFILES.map(profile => <BotCard
