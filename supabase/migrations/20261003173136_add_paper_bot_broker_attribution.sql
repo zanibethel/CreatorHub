@@ -87,7 +87,7 @@ begin
     left(item->>'clientOrderId',128),
     l.bot_id,
     l.strategy_id,
-    nullif(substring(item->>'clientOrderId' from '^ch-[a-z0-9]{2,12}-v([0-9]+)-'),'')::integer,
+    nullif(substring(item->>'clientOrderId' from '^chb-[a-z0-9]{2,12}-v([1-9][0-9]*)-'),'')::integer,
     left(item->>'symbol',32),
     case when item->>'assetClass' in ('stock','etf','crypto') then item->>'assetClass' else 'unknown' end,
     case when lower(item->>'side')='sell' then 'sell' else 'buy' end,
@@ -103,7 +103,7 @@ begin
     jsonb_build_object('source','alpaca-paper','attribution','client-order-id')
   from jsonb_array_elements(coalesce(p_orders,'[]'::jsonb)) item
   join public.paper_bot_ledgers l
-    on l.broker_tag = substring(item->>'clientOrderId' from '^ch-([a-z0-9]{2,12})-v[0-9]+-[a-z0-9-]{8,80}$')
+    on l.broker_tag = substring(item->>'clientOrderId' from '^chb-([a-z0-9]{2,12})-v[1-9][0-9]*-[a-z0-9]+-[a-z0-9]{6,24}$')
   where coalesce(item->>'brokerOrderId','') <> ''
     and coalesce(item->>'clientOrderId','') <> ''
     and coalesce(item->>'symbol','') <> ''
