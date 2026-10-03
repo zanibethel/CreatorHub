@@ -11,7 +11,19 @@ const historyRow = z.object({
   collected_at: timestamp,
   equity: z.coerce.number().finite().nonnegative(),
 });
-const positionRow = z.object({ bot_id: z.string().min(1).max(64), symbol: z.string().min(1).max(32) });
+const positionRow = z.object({
+  bot_id: z.string().min(1).max(64),
+  symbol: z.string().min(1).max(32),
+  quantity: z.coerce.number().finite().positive(),
+  average_entry: z.coerce.number().finite().positive().nullable(),
+  protective_stop: z.coerce.number().finite().positive().nullable(),
+  planned_risk_dollars: z.coerce.number().finite().nonnegative().nullable(),
+  take_profit_price: z.coerce.number().finite().positive().nullable(),
+  take_profit_fraction: z.coerce.number().finite().positive().max(1).nullable(),
+  take_profit_r: z.coerce.number().finite().positive().nullable(),
+  protect_winner_at_r: z.coerce.number().finite().positive().nullable(),
+  trail_remainder: z.boolean(),
+});
 const journalCountRow = z.object({ bot_id: z.string().min(1).max(64), id: z.coerce.number().int().positive() });
 const brokerOrderRow = z.object({ bot_id: z.string().min(1).max(64), broker_order_id: z.string().min(1).max(80) });
 const brokerFillRow = z.object({ bot_id: z.string().min(1).max(64), fill_activity_id: z.string().min(1).max(160), transaction_time: timestamp, ledger_applied_at: timestamp.nullable() });
@@ -29,6 +41,11 @@ const stagedOrderRow = z.object({
   planned_risk_dollars: z.coerce.number().finite().nonnegative().nullable(),
   expires_at: timestamp.nullable(),
   stage_reason: z.string().nullable(),
+  take_profit_price: z.coerce.number().finite().positive().nullable(),
+  take_profit_fraction: z.coerce.number().finite().positive().max(1).nullable(),
+  take_profit_r: z.coerce.number().finite().positive().nullable(),
+  protect_winner_at_r: z.coerce.number().finite().positive().nullable(),
+  trail_remainder: z.boolean(),
 });
 
 export async function GET() {
@@ -52,11 +69,11 @@ export async function GET() {
     const [ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw] = await Promise.all([
       read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source,pool_usage&order=bot_id.asc"),
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
-      read("paper_bot_positions?select=bot_id,symbol&limit=5000"),
+      read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&limit=5000"),
       read("paper_bot_journal?select=id,bot_id&limit=10000"),
       read("paper_bot_broker_orders?select=bot_id,broker_order_id&limit=10000"),
       read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
-      read("paper_bot_orders?select=bot_id,symbol,asset_class,status,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,stage_reason&status=eq.prepared&order=created_at.asc&limit=100"),
+      read("paper_bot_orders?select=bot_id,symbol,asset_class,status,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&status=eq.prepared&order=created_at.asc&limit=100"),
     ]);
 
     const ledgers = z.array(paperBotLedgerRowSchema).parse(ledgerRaw);
@@ -78,6 +95,7 @@ export async function GET() {
         brokerFills.find(fill => fill.bot_id === row.bot_id && fill.ledger_applied_at !== null)?.transaction_time ?? null,
       )),
       stagedOrders: Object.fromEntries(ledgers.map(row => [row.bot_id, stagedOrders.filter(order => order.bot_id === row.bot_id)])),
+      positionPlans: Object.fromEntries(ledgers.map(row => [row.bot_id, positions.filter(position => position.bot_id === row.bot_id)])),
       history: Object.fromEntries(ledgers.map(row => [
         row.bot_id,
         history.filter(point => point.bot_id === row.bot_id).map(point => ({ time: point.collected_at, equity: point.equity })),
