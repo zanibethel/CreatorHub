@@ -13,6 +13,8 @@ const historyRow = z.object({
 });
 const positionRow = z.object({ bot_id: z.string().min(1).max(64), symbol: z.string().min(1).max(32) });
 const journalCountRow = z.object({ bot_id: z.string().min(1).max(64), id: z.coerce.number().int().positive() });
+const brokerOrderRow = z.object({ bot_id: z.string().min(1).max(64), broker_order_id: z.string().min(1).max(80) });
+const brokerFillRow = z.object({ bot_id: z.string().min(1).max(64), fill_activity_id: z.string().min(1).max(160), transaction_time: timestamp });
 
 export async function GET() {
   const secret = process.env.SUPABASE_SECRET_KEY;
@@ -32,17 +34,21 @@ export async function GET() {
   };
 
   try {
-    const [ledgerRaw, historyRaw, positionRaw, journalRaw] = await Promise.all([
+    const [ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw] = await Promise.all([
       read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source&order=bot_id.asc"),
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
       read("paper_bot_positions?select=bot_id,symbol&limit=5000"),
       read("paper_bot_journal?select=id,bot_id&limit=10000"),
+      read("paper_bot_broker_orders?select=bot_id,broker_order_id&limit=10000"),
+      read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time&order=transaction_time.desc&limit=10000"),
     ]);
 
     const ledgers = z.array(paperBotLedgerRowSchema).parse(ledgerRaw);
     const history = z.array(historyRow).parse(historyRaw);
     const positions = z.array(positionRow).parse(positionRaw);
     const journals = z.array(journalCountRow).parse(journalRaw);
+    const brokerOrders = z.array(brokerOrderRow).parse(brokerOrderRaw);
+    const brokerFills = z.array(brokerFillRow).parse(brokerFillRaw);
 
     const body = {
       collectedAt: new Date().toISOString(),
@@ -50,6 +56,9 @@ export async function GET() {
         row,
         positions.filter(position => position.bot_id === row.bot_id).length,
         journals.filter(event => event.bot_id === row.bot_id).length,
+        brokerOrders.filter(order => order.bot_id === row.bot_id).length,
+        brokerFills.filter(fill => fill.bot_id === row.bot_id).length,
+        brokerFills.find(fill => fill.bot_id === row.bot_id)?.transaction_time ?? null,
       )),
       history: Object.fromEntries(ledgers.map(row => [
         row.bot_id,
