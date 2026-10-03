@@ -5,6 +5,8 @@ import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 as strategy } from "@/lib/paper-weekend-
 
 export const dynamic = "force-dynamic";
 
+const PUBLIC_ORIGIN=process.env.CREATORHUB_PUBLIC_ORIGIN||"https://creatorhub-gray.vercel.app";
+
 const BOT_ID = strategy.botProfileId;
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
 const ALPACA_PAPER = "https://paper-api.alpaca.markets/v2";
@@ -193,7 +195,7 @@ export async function POST(request: Request) {
     return body;
   };
 
-  const readinessResponse = await fetch(new URL("/api/paper-trading/bots/weekend-crypto-readiness", request.url), {
+  const readinessResponse = await fetch(new URL("/api/paper-trading/bots/weekend-crypto-readiness", PUBLIC_ORIGIN), {
     cache: "no-store",
     signal: AbortSignal.timeout(20_000),
   });
