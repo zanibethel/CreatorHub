@@ -19,8 +19,8 @@ Implemented:
 
 Still intentionally blocked:
 - Decision/rejection events have a persisted journal target, but the live evaluator is not yet writing every event into it.
-- Automatic Monday stock/swing submission is not yet enabled; prepared plans still require same-session revalidation.
-- Stock bracket/OCO protection remains to be wired into the swing executor.
+- Monday stock/swing same-session revalidation is live and read-only; privileged PAPER submission remains disabled by the swing bot execution kill switch.
+- Stock bracket protection request construction is implemented and tested; end-to-end broker submission/fill/child-leg validation remains before automatic PAPER execution is armed.
 - Official crypto CFEE true-up and longer-horizon R/MFE/MAE analytics remain pending.
 - Correlation/sector exposure calculation needs deeper asset linkage.
 - Real-money execution remains completely disabled.
@@ -364,8 +364,8 @@ Before promoting a material strategy change:
 7. ◐ Add decision journal/rejection logging — schema/RPC exist; evaluator writes are not wired yet.
 8. ✅ Add dry-run decision endpoint that cannot place orders.
 9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
-10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution and a controlled crypto paper execution path are proven; automatic stock/swing submission remains gated.
-11. ◐ Require broker-hosted protection where supported — crypto stop-limit protection is live in PAPER; stock bracket/OCO wiring remains.
+10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution and a controlled crypto paper execution path are proven; swing bracket request construction is implemented, while privileged submission remains gated.
+11. ◐ Require broker-hosted protection where supported — crypto stop-limit protection is live in PAPER; stock bracket request construction is implemented and awaits end-to-end paper validation.
 12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — reconciliation and live marking are implemented; crypto exit-manager v1 is being paper-validated.
 13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
 14. ☐ Add outcome/R/MFE/MAE analytics.
