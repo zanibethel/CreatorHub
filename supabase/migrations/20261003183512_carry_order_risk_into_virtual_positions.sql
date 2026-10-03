@@ -1,0 +1,3 @@
+-- Historical migration retained for schema parity with the live Supabase project.
+-- Risk/pool metadata propagation is superseded by the later fee-aware
+-- paper_bot_apply_unapplied_fills definition in 20261003184205.
