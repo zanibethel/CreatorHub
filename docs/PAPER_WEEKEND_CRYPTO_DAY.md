@@ -59,7 +59,7 @@ A candidate remains Waiting or Blocked unless all mandatory checks pass.
 
 Core v1 setup:
 
-- Quote age <= 20 seconds.
+- Quote age <= 60 seconds.
 - Midpoint spread <= 0.15%.
 - At least 24 completed 5-minute bars.
 - At least 16 completed 15-minute bars.
