@@ -29,12 +29,29 @@ export const THREE_TRADE_SWING_STRATEGY_V1 = {
     firstTakeProfitFraction: 0.50,
     protectWinnerAtR: 1.00,
     trailRemainder: true,
+    dailyRealizedLossLimitPct: 2.50,
     weeklyDrawdownLimitPct: 5.00,
+    maximumCorrelatedRiskPct: 2.00,
+  },
+  correlation: {
+    groups: {
+      QQQ: "us-megacap-tech",
+      NVDA: "us-megacap-tech",
+      MSFT: "us-megacap-tech",
+    },
+  },
+  selection: {
+    simultaneousTriggerPriority: ["QQQ", "NVDA", "MSFT"],
   },
   execution: {
     requiresFreshRevalidation: true,
     submitAtMarketOpen: false,
+    minimumMinutesAfterOpen: 5,
+    maximumMinutesAfterOpen: 120,
+    maximumQuoteAgeSeconds: 30,
+    maximumSpreadPct: 0.25,
     allowGapChase: false,
+    requireSupportiveBroadMarket: true,
     paperOnly: true,
   },
 } as const;
