@@ -5,9 +5,10 @@ import { paperBotLedgerRowSchema, projectPaperBotSummary } from "@/lib/paper-bot
 export const dynamic = "force-dynamic";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
+const timestamp = z.string().max(64).refine(value => Number.isFinite(Date.parse(value)), "Invalid timestamp");
 const historyRow = z.object({
   bot_id: z.string().min(1).max(64),
-  collected_at: z.string().datetime(),
+  collected_at: timestamp,
   equity: z.coerce.number().finite().nonnegative(),
 });
 const positionRow = z.object({ bot_id: z.string().min(1).max(64), symbol: z.string().min(1).max(32) });
