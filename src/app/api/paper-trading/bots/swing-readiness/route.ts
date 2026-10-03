@@ -107,7 +107,8 @@ export async function GET() {
     const planRows = z.array(planSchema).parse(plansRaw);
     const positions = z.array(positionSchema).parse(positionsRaw);
     const priorOrders = z.array(priorOrderSchema).parse(priorRaw);
-    if (!ledgerRows[0]) return json("Swing bot ledger is unavailable.");
+    const ledger = ledgerRows[0];
+    if (!ledger) return json("Swing bot ledger is unavailable.");
 
     const now = Date.now();
     const clock = clockRaw as AlpacaClock;
@@ -156,12 +157,12 @@ export async function GET() {
       broadMarketSupportive,
       trendValid,
       ledger: {
-        active: ledgerRows[0].status === "active",
-        equity: ledgerRows[0].equity,
-        buyingPower: ledgerRows[0].buying_power ?? 0,
-        openRiskPct: ledgerRows[0].open_planned_risk_pct ?? 0,
-        dailyRealizedLossPct: ledgerRows[0].daily_realized_loss_pct ?? 0,
-        weeklyDrawdownPct: ledgerRows[0].weekly_drawdown_pct ?? 0,
+        active: ledger.status === "active",
+        equity: ledger.equity,
+        buyingPower: ledger.buying_power ?? 0,
+        openRiskPct: ledger.open_planned_risk_pct ?? 0,
+        dailyRealizedLossPct: ledger.daily_realized_loss_pct ?? 0,
+        weeklyDrawdownPct: ledger.weekly_drawdown_pct ?? 0,
         openPositions: positions.length,
         weeklyNewEntries,
       },
@@ -170,11 +171,14 @@ export async function GET() {
         plannedRiskDollars: position.planned_risk_dollars ?? 0,
       })),
       plans,
-      quotes: Object.fromEntries(plans.map(plan => [plan.symbol, {
-        bid: typeof quotes[plan.symbol]?.bp === "number" ? quotes[plan.symbol].bp! : null,
-        ask: typeof quotes[plan.symbol]?.ap === "number" ? quotes[plan.symbol].ap! : null,
-        timestamp: quotes[plan.symbol]?.t ?? null,
-      }])),
+      quotes: Object.fromEntries(plans.map(plan => {
+        const quote = quotes[plan.symbol];
+        return [plan.symbol, {
+          bid: typeof quote?.bp === "number" ? quote.bp : null,
+          ask: typeof quote?.ap === "number" ? quote.ap : null,
+          timestamp: quote?.t ?? null,
+        }];
+      })),
     });
 
     return NextResponse.json({
