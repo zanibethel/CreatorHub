@@ -3,6 +3,8 @@ import { z } from "zod";
 
 export const dynamic = "force-dynamic";
 
+const PUBLIC_ORIGIN=process.env.CREATORHUB_PUBLIC_ORIGIN||"https://creatorhub-gray.vercel.app";
+
 const readinessSchema = z.object({
   paperOnly: z.literal(true),
   executionEnabled: z.boolean(),
@@ -36,7 +38,7 @@ export async function GET(request: Request) {
     return reply({ error: "Weekend execution token is not configured." }, 503);
   }
 
-  const readinessUrl = new URL("/api/paper-trading/bots/weekend-crypto-readiness", request.url);
+  const readinessUrl = new URL("/api/paper-trading/bots/weekend-crypto-readiness", PUBLIC_ORIGIN);
   const readinessResponse = await fetch(readinessUrl, {
     cache: "no-store",
     signal: AbortSignal.timeout(20_000),
@@ -53,7 +55,7 @@ export async function GET(request: Request) {
 
   if (readiness.session.flattenDue) {
     const flattenResponse = await fetch(
-      new URL("/api/paper-trading/bots/weekend-crypto-flatten", request.url),
+      new URL("/api/paper-trading/bots/weekend-crypto-flatten", PUBLIC_ORIGIN),
       {
         method: "POST",
         headers: { "x-paper-weekend-execution-token": executionToken },
@@ -76,7 +78,7 @@ export async function GET(request: Request) {
 
   if (readiness.executionEnabled) {
     const manageResponse = await fetch(
-      new URL("/api/paper-trading/bots/weekend-crypto-manage", request.url),
+      new URL("/api/paper-trading/bots/weekend-crypto-manage", PUBLIC_ORIGIN),
       {
         method: "POST",
         headers: { "x-paper-weekend-execution-token": executionToken },
@@ -102,7 +104,7 @@ export async function GET(request: Request) {
   }
 
   const executeResponse = await fetch(
-    new URL("/api/paper-trading/bots/weekend-crypto-execute", request.url),
+    new URL("/api/paper-trading/bots/weekend-crypto-execute", PUBLIC_ORIGIN),
     {
       method: "POST",
       headers: {
