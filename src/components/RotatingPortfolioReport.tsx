@@ -12,7 +12,7 @@ export const REPORT_VIEWS: Array<[ReportView, string]> = [
   ["orders", "Orders"], ["positions", "Positions"],
 ];
 
-export default function RotatingPortfolioReport({ view, snapshot, stocks, crypto, onSetup, accountReport, accountError, watchlist }: {
+export default function RotatingPortfolioReport({ view, snapshot, stocks, crypto, onSetup, accountReport, accountError, watchlist, strategyEquity }: {
   view: ReportView;
   snapshot: MarketSnapshot | null;
   stocks: string;
@@ -21,8 +21,9 @@ export default function RotatingPortfolioReport({ view, snapshot, stocks, crypto
   accountReport: AccountReport | null;
   accountError: string;
   watchlist: PaperWatchlist;
+  strategyEquity: number | null;
 }) {
-  const accountEquity = accountReport?.snapshot?.account.equity ?? null;
+  const accountEquity = strategyEquity;
   return <div className={styles.report}>
     {view === "watchlist"
       ? <MarketDataPanel snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={onSetup} watchlist={watchlist} accountEquity={accountEquity} />
