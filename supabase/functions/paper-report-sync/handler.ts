@@ -1,5 +1,6 @@
 import { collectPaperReport } from "./collector.ts";
 import { collectPaperBotMarks } from "./marks.ts";
+import { managePaperCryptoExits } from "./exits.ts";
 
 export function createHandler(env: (name: string) => string | undefined, fetcher: typeof fetch = fetch) {
   return async (request: Request) => {
@@ -14,10 +15,17 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
     if (!url || !admin) return reply({ error: "Collector storage is not configured." }, 503);
     const headers: Record<string, string> = { apikey: admin, "Content-Type": "application/json" };
     if (admin.startsWith("eyJ")) headers.Authorization = `Bearer ${admin}`;
-    const db = async (path: string, body?: unknown) => {
+    const db = async (
+      path: string,
+      body?: unknown,
+      method: "GET" | "POST" | "PATCH" | "DELETE" = body === undefined ? "GET" : "POST",
+      prefer?: string,
+    ) => {
       const response = await fetcher(`${url}/rest/v1/${path}`, {
-        method: body === undefined ? "GET" : "POST", headers,
-        ...(body === undefined ? {} : { body: JSON.stringify(body) }), signal: AbortSignal.timeout(10_000),
+        method,
+        headers: { ...headers, ...(prefer ? { Prefer: prefer } : {}) },
+        ...((body === undefined || method === "GET" || method === "DELETE") ? {} : { body: JSON.stringify(body) }),
+        signal: AbortSignal.timeout(10_000),
       });
       if (!response.ok) throw new Error(`Report storage returned HTTP ${response.status}.`);
       const bodyText = await response.text();
@@ -47,13 +55,38 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
       phase = "virtual ledger fill application";
       await db("rpc/paper_bot_apply_unapplied_fills", { p_collected_at: report.collectedAt });
       phase = "virtual position marks";
+      let marks: Array<{ symbol: string; price: number; timestamp: string; source: string }> = [];
       try {
         const positions = await db("paper_bot_positions?select=symbol,asset_class&quantity=gt.0");
-        const marks = await collectPaperBotMarks(key, secret, Array.isArray(positions) ? positions : [], fetcher);
+        marks = await collectPaperBotMarks(key, secret, Array.isArray(positions) ? positions : [], fetcher);
         await db("rpc/paper_bot_mark_to_market", { p_prices: marks, p_collected_at: report.collectedAt });
       } catch (markError) {
         report.errors.virtualMarks = markError instanceof Error ? markError.message.slice(0, 180) : "Virtual position marks unavailable.";
       }
+
+      phase = "paper exit manager";
+      try {
+        const [exitPositions, exitOrders, exitLedgers] = await Promise.all([
+          db("paper_bot_positions?select=bot_id,symbol,asset_class,quantity,average_entry,protective_stop,initial_protective_stop,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,strategy_id,strategy_version,metadata,exit_manager_state&quantity=gt.0"),
+          db("paper_bot_orders?select=client_order_id,bot_id,symbol,side,status,broker_order_id,requested_quantity,protective_stop,metadata&side=eq.sell&limit=500"),
+          db("paper_bot_ledgers?select=bot_id,broker_tag&status=eq.active"),
+        ]);
+        const exitResults = await managePaperCryptoExits({
+          key,
+          secret,
+          db,
+          fetcher,
+          positions: Array.isArray(exitPositions) ? exitPositions : [],
+          orders: Array.isArray(exitOrders) ? exitOrders : [],
+          ledgers: Array.isArray(exitLedgers) ? exitLedgers : [],
+          marks,
+        });
+        const exitErrors = exitResults.filter(result => result.action === "error");
+        if (exitErrors.length) report.errors.exitManager = exitErrors.map(result => `${result.symbol}: ${result.detail ?? "action failed"}`).join(" · ").slice(0, 300);
+      } catch (exitError) {
+        report.errors.exitManager = exitError instanceof Error ? exitError.message.slice(0, 180) : "Paper exit manager unavailable.";
+      }
+
       phase = "snapshot save";
       await db("rpc/paper_report_save_snapshot", { p_source_key: sourceKey, p_payload: report });
       return reply({ ok: true, collectedAt: report.collectedAt, partial: Object.keys(report.errors).length > 0 });
