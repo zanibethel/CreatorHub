@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import useAccountReport from "./useAccountReport";
+import usePaperBotLedgers from "./usePaperBotLedgers";
 import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null) => value == null ? "Awaiting data" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -61,32 +62,37 @@ function BotCard({ profile, currentEquity, drawdown, positions }: {
 }
 
 export default function PaperBotLab() {
-  const { report, error, refresh } = useAccountReport();
-  const equity = report?.snapshot?.account.equity ?? null;
-  const drawdown = report ? maxDrawdown(report.history) : null;
-  const positions = report?.snapshot?.positions?.length ?? null;
+  const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
+  const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
   const defaultProfile = PAPER_BOT_PROFILES.find(profile => profile.id === "default-diverse")!;
+  const defaultLedger = ledgerReport?.bots.find(bot => bot.botId === defaultProfile.id) ?? null;
+  const equity = defaultLedger?.equity ?? defaultProfile.challengeStartingCash;
+  const drawdown = maxDrawdown(ledgerReport?.history[defaultProfile.id] ?? []);
+  const positions = defaultLedger?.positionCount ?? 0;
+  const brokerEquity = accountReport?.snapshot?.account.equity ?? null;
 
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
       <div>
         <Link href="/paper-trading">← Paper Trading Lab</Link>
         <h1>Bot Lab</h1>
-        <p>Run isolated paper strategies side by side and compare what actually works without mixing capital or risk.</p>
+        <p>Every strategy challenge starts with an isolated $100 virtual bankroll. Alpaca paper trading remains the shared execution sandbox and audit trail.</p>
       </div>
       <div className={styles.botLabActions}>
-        <button onClick={refresh}>Refresh live bot</button>
+        <button onClick={() => { refreshLedgers(); refreshAccount(); }}>Refresh</button>
       </div>
     </header>
 
     <section className={styles.botOverview}>
+      <div><span>Challenge baseline</span><strong>$100 each</strong></div>
       <div><span>Profiles</span><strong>{PAPER_BOT_PROFILES.length}</strong></div>
-      <div><span>Active</span><strong>{PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length}</strong></div>
-      <div><span>Planned</span><strong>{PAPER_BOT_PROFILES.filter(profile => profile.status === "planned").length}</strong></div>
-      <div><span>Live default equity</span><strong>{money(equity)}</strong></div>
+      <div><span>Default Diverse equity</span><strong>{money(equity)}</strong></div>
+      <div><span>Alpaca paper balance</span><strong>{money(brokerEquity)}</strong></div>
     </section>
 
-    {error ? <p role="status" className={styles.error}>Live Default Diverse data: {error}</p> : null}
+    <p className={styles.meta}>The Alpaca balance is not bot buying power. Only bot-attributed paper fills may change a challenge ledger.</p>
+    {ledgerError ? <p role="status" className={styles.error}>Bot ledger: {ledgerError}</p> : null}
+    {accountError ? <p role="status" className={styles.error}>Alpaca audit feed: {accountError}</p> : null}
 
     <section className={styles.botGrid}>
       {PAPER_BOT_PROFILES.map(profile => <BotCard
@@ -118,7 +124,7 @@ export default function PaperBotLab() {
           </tbody>
         </table>
       </div>
-      <p className={styles.meta}>No ranking is shown yet because only one bot is active and trade-journal metrics are not persisted yet. Planned bots remain completely disabled.</p>
+      <p className={styles.meta}>All challenges use the same $100 baseline. No ranking is shown yet because only one bot is active and no bot-attributed trade sample exists yet.</p>
     </section>
   </main>;
 }
