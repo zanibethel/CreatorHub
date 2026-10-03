@@ -40,7 +40,7 @@ export default function QualificationCard({ item, quote, timestamp, candles, ben
 
   return <div className={styles.qualification}>
     <span className={decision.qualification === "trade-ready" ? styles.fresh : styles.stale}>
-      Strategy v{decision.strategyVersion} · {decision.score.toFixed(1)}/100 · {qualification}
+      {decision.strategyName} · v{decision.strategyVersion} · {decision.score.toFixed(1)}/100 · {qualification}
     </span>
     <details>
       <summary>Qualification details · {item.symbol}</summary>
