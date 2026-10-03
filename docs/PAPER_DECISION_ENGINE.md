@@ -18,12 +18,12 @@ Implemented:
 - 20/40/40 Default Diverse portfolio allocation ceilings ($20/$40/$40 at the initial $100 baseline), replacing the legacy fixed position-cap interpretation.
 
 Still intentionally blocked:
-- Live pool-usage/capacity calculation has not yet been fed into final authorization.
 - Decision/rejection events have a persisted journal target, but the live evaluator is not yet writing every event into it.
-- No Alpaca paper-order adapter exists yet.
-- Live mark-to-market refresh is implemented for open virtual positions; remaining accounting work includes official crypto-fee true-up and longer-horizon outcome analytics.
-- Broker-hosted protective orders, active exit management, and MFE/MAE outcome analytics remain pending.
-- Planned experimental bots remain disabled.
+- Automatic Monday stock/swing submission is not yet enabled; prepared plans still require same-session revalidation.
+- Stock bracket/OCO protection remains to be wired into the swing executor.
+- Official crypto CFEE true-up and longer-horizon R/MFE/MAE analytics remain pending.
+- Correlation/sector exposure calculation needs deeper asset linkage.
+- Real-money execution remains completely disabled.
 
 
 ## Objective
@@ -365,8 +365,8 @@ Before promoting a material strategy change:
 8. ✅ Add dry-run decision endpoint that cannot place orders.
 9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
 10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution and a controlled crypto paper execution path are proven; automatic stock/swing submission remains gated.
-11. ☐ Require broker-hosted protection where supported.
-12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — fill reconciliation is implemented and idempotent; live mark-to-market and active exits remain.
+11. ◐ Require broker-hosted protection where supported — crypto stop-limit protection is live in PAPER; stock bracket/OCO wiring remains.
+12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — reconciliation and live marking are implemented; crypto exit-manager v1 is being paper-validated.
 13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
 14. ☐ Add outcome/R/MFE/MAE analytics.
 15. ☐ Add adaptive recommendation layer.
@@ -392,3 +392,8 @@ Live paper-only readiness work completed:
 - The SOL paper smoke-test position is protected with a separate GTC stop-limit order. Crypto protection remains subject to stop-limit execution risk if price trades through the limit without a fill.
 
 Real-money trading is not enabled by this work. The current integration and automated paths remain PAPER-only.
+
+
+## Durable readiness roadmap
+
+The source-of-truth implementation plan is `docs/PAPER_LIVE_READINESS_PLAN.md`. It defines the current exit-manager work, Monday swing revalidation executor, stock broker-hosted protection, exact crypto-fee reconciliation, readiness dashboard, and the separate future live-money gate. Update that file whenever this sequence changes so the plan is not dependent on chat history.
