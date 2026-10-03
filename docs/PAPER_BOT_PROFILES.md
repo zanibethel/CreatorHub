@@ -63,6 +63,8 @@ Bots do not:
 
 Market data, the Alpaca paper venue, and common analytical infrastructure may be shared, but every decision/order must retain the bot/profile ID and strategy version that produced it. Only bot-attributed fills may change that bot's virtual ledger.
 
+Broker attribution uses stable short profile tags in Alpaca `client_order_id` values: `div` for Default Diverse, `pny` for the Penny Volatility challenge, and `sw3` for the Three-Trade Weekly Swing challenge. The formatter/parser lives in `src/lib/paper-order-attribution.ts`. A private service-role-only `paper_bot_orders` table maps those client order IDs to the bot, strategy version, broker order ID, symbol, requested size, and reconciliation status. Raw order identifiers remain private.
+
 This avoids contaminating the experiment. A strong result from one bot must not hide losses from another.
 
 ## Common comparison scorecard
@@ -139,4 +141,4 @@ Current registry:
 2. `penny-volatility-day-100` — planned.
 3. `three-trade-weekly-swing-100` — planned.
 
-New bots should be added to this registry with a unique ID, challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
+New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
