@@ -67,7 +67,7 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
     if (url.includes("paper_bot_journal")) return Response.json([]);
     if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id: "default-diverse", broker_order_id: "private-order" }]);
     if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id: "default-diverse", fill_activity_id: "private-fill", transaction_time: stamp, ledger_applied_at: stamp }]);
-    if (url.includes("paper_bot_orders")) return Response.json([{ bot_id: "default-diverse", symbol: "QQQ", asset_class: "etf", status: "prepared", requested_notional: "10", requested_quantity: null, pool_id: "multi-day", entry_trigger: "750", max_entry_price: "755", protective_stop: "730", planned_risk_dollars: "1", expires_at: stamp, stage_reason: "fixture" }]);
+    if (url.includes("paper_bot_orders")) return Response.json([{ bot_id: "default-diverse", symbol: "QQQ", asset_class: "etf", status: "prepared", requested_notional: "10", requested_quantity: null, pool_id: "multi-day", entry_trigger: "750", max_entry_price: "755", protective_stop: "730", planned_risk_dollars: "1", expires_at: stamp, stage_reason: "fixture", take_profit_price: "790", take_profit_fraction: "0.5", take_profit_r: "2", protect_winner_at_r: "1", trail_remainder: true }]);
     throw new Error("Unexpected request");
   });
   const response = await route.GET();
