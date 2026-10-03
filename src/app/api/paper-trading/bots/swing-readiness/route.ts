@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { evaluateSwingReadiness, type SwingPreparedPlan } from "@/lib/paper-swing-revalidation";
+import { buildSwingExecutionPreview } from "@/lib/paper-swing-execution";
 
 export const dynamic = "force-dynamic";
 
@@ -14,6 +15,9 @@ const ledgerSchema = z.object({
   open_planned_risk_pct: z.coerce.number().finite().nullable(),
   daily_realized_loss_pct: z.coerce.number().finite().nullable(),
   weekly_drawdown_pct: z.coerce.number().finite().nullable(),
+  metadata: z.object({
+    executionEnabled: z.boolean().optional(),
+  }).passthrough(),
 });
 
 const planSchema = z.object({
@@ -94,7 +98,7 @@ export async function GET() {
 
   try {
     const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw, quoteRaw, barsRaw] = await Promise.all([
-      readDb(`paper_bot_ledgers?select=status,equity,buying_power,open_planned_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct&bot_id=eq.${BOT_ID}&limit=1`),
+      readDb(`paper_bot_ledgers?select=status,equity,buying_power,open_planned_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,metadata&bot_id=eq.${BOT_ID}&limit=1`),
       readDb(`paper_bot_orders?select=symbol,requested_notional,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at&bot_id=eq.${BOT_ID}&side=eq.buy&status=eq.prepared&order=created_at.asc&limit=20`),
       readDb(`paper_bot_positions?select=symbol,planned_risk_dollars&bot_id=eq.${BOT_ID}&quantity=gt.0&limit=20`),
       readDb(`paper_bot_orders?select=submitted_at,status&bot_id=eq.${BOT_ID}&side=eq.buy&status=in.(submitted,partially_filled,filled)&limit=100`),
@@ -181,6 +185,28 @@ export async function GET() {
       })),
     });
 
+    const executionEnabled = ledger.metadata.executionEnabled === true;
+    const plansWithExecution = result.plans.map(readiness => {
+      const sourcePlan = plans.find(plan => plan.symbol === readiness.symbol);
+      if (!readiness.selectedForSubmission || !sourcePlan || readiness.ask === null) {
+        return { ...readiness, executionPreview: null };
+      }
+      try {
+        return {
+          ...readiness,
+          executionPreview: buildSwingExecutionPreview({
+            symbol: readiness.symbol,
+            ask: readiness.ask,
+            protectiveStop: sourcePlan.protectiveStop,
+            equity: ledger.equity,
+            buyingPower: ledger.buying_power ?? 0,
+          }),
+        };
+      } catch {
+        return { ...readiness, executionPreview: null };
+      }
+    });
+
     return NextResponse.json({
       collectedAt: new Date(now).toISOString(),
       nextMarketOpen: clock.next_open ?? null,
@@ -188,6 +214,10 @@ export async function GET() {
       broadMarketSupportive,
       marketClockAvailable: typeof clock.is_open === "boolean",
       ...result,
+      plans: plansWithExecution,
+      executionEnabled,
+      submissionReady: executionEnabled && result.readyCount > 0,
+      brokerProtection: "bracket",
     }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=5" } });
   } catch (error) {
     return json(error instanceof Error ? error.message : "Swing readiness is temporarily unavailable.");
