@@ -1,4 +1,5 @@
 import { PAPER_STRATEGY_V1 } from "./paper-strategy-config";
+import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
 
@@ -88,10 +89,10 @@ export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
 export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
   id: "three-trade-weekly-swing-100",
   name: "$100 Three-Trade Weekly Swing Bot",
-  status: "planned",
+  status: "active",
   challengeStartingCash: 100,
   brokerTag: "sw3",
-  strategyId: null,
+  strategyId: THREE_TRADE_SWING_STRATEGY_V1.id,
   style: "Selective swing-trading experiment with intentionally low trade frequency",
   universe: {
     assetClasses: ["stock", "etf"],
@@ -110,7 +111,7 @@ export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
   notes: [
     "The three-trade limit applies to new entries, not protective exits or risk-reducing actions.",
     "Unused weekly trade slots do not create pressure to enter marginal setups.",
-    "Exact scoring, holding-period, sizing, and exit parameters are intentionally not approved yet.",
+    "Strategy v1 stages at most three fresh swing entries per week, sizes from a 1% planned-loss ceiling, and requires same-session revalidation before any paper submission."
   ],
 };
 
