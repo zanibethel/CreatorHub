@@ -36,8 +36,8 @@ The goal is not merely to place successful orders. The system must demonstrate t
 ### Still blocked before live money
 
 - Staged-action exit planner is live; broker-action execution/verification still needs promotion and paper validation.
-- Same-session swing readiness is live; privileged PAPER submission is still disabled by the execution kill switch.
-- Broker-hosted stock bracket adapter is implemented; end-to-end paper submission/fill/child-leg validation remains.
+- Same-session swing readiness and the privileged PAPER submission endpoint are implemented; submission is still disabled by the execution kill switch.
+- Broker-hosted stock bracket construction and bracket-child reconciliation are implemented; the first real market-hours PAPER bracket fill/exit rehearsal remains.
 - Official crypto CFEE reconciliation against estimated fees.
 - Correlation/sector exposure calculation.
 - Longer paper sample with outcome metrics (R, MFE, MAE, expectancy, profit factor).
