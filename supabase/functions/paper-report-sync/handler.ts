@@ -53,6 +53,8 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
       await db("rpc/paper_bot_link_prepared_orders", { p_collected_at: report.collectedAt });
       phase = "virtual ledger fill application";
       await db("rpc/paper_bot_apply_unapplied_fills", { p_collected_at: report.collectedAt });
+      phase = "closed trade telemetry";
+      await db("rpc/paper_bot_finalize_trade_metrics", { p_collected_at: report.collectedAt });
       phase = "virtual position marks";
       let marks: Array<{ symbol: string; price: number; timestamp: string; source: string }> = [];
       try {
