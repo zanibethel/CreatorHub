@@ -296,9 +296,9 @@ export function evaluatePaperCandidate(input: {
   if (weeklyDrawdown == null || !Number.isFinite(weeklyDrawdown)) blockers.push("Weekly drawdown state is required.");
   else if (weeklyDrawdown >= config.risk.weeklyDrawdownLimitPct) blockers.push("Weekly drawdown kill switch is active.");
 
-  // Existing watchlist cards still expose legacy $18/$36 research caps. Those caps
-  // conflict with risk-based sizing and must be explicitly reconciled before execution.
-  blockers.push("Legacy pool-position cap policy must be reconciled before order authorization.");
+  // Pools are portfolio allocation ceilings (20/40/40), not fixed position sizes.
+  // Until current pool usage is supplied, final authorization remains blocked.
+  blockers.push("Current pool allocation capacity must be checked before order authorization.");
 
   if (regimeResult.regime === "neutral") warnings.push("Market regime is neutral; the engine has not applied a bearish veto but conviction is reduced.");
   if (components.volumeConfirmation.points === 5 && components.volumeConfirmation.evidence[0]?.includes("unavailable")) warnings.push("Volume confirmation is neutral because volume history is unavailable.");
