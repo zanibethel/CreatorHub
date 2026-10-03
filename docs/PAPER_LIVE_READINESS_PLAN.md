@@ -32,6 +32,7 @@ The goal is not merely to place successful orders. The system must demonstrate t
 - Three-Trade Weekly Swing Bot v1 active for staging.
 - QQQ, NVDA, and MSFT Monday plans persisted with trigger, max-chase, stop, risk, take-profit, and expiration values.
 - Bot Lab and Paper Trading Orders views expose safe monitoring information without public broker identifiers.
+- Weekend Crypto Day Bot v1 has its own isolated $100 ledger, `wkd` attribution tag, fee-aware BTC/ETH/SOL scanner, and live Bot Lab readiness panel.
 
 ### Still blocked before live money
 
@@ -96,11 +97,28 @@ For accepted stock/ETF swing entries, Alpaca PAPER bracket orders are the requir
 
 A closed-market smoke test on 2026-10-03 proved Alpaca accepted a stock bracket with both take-profit and stop child legs. The parent and both children were then canceled before any fill. Broker-generated child legs are now attributed back to the tagged parent bot plan so later child fills can reconcile to the same $100 virtual ledger.
 
-### 4. Exact Fee Reconciliation
+### 4. Weekend Crypto Day PAPER Proof of Concept
+
+Source of truth: `docs/PAPER_WEEKEND_CRYPTO_DAY.md`.
+
+Current state:
+- Separate active $100 virtual ledger.
+- BTC/USD, ETH/USD, SOL/USD only.
+- Saturday/Sunday intraday session controls in America/Chicago.
+- Alpaca execution-venue latest quotes and completed 5-minute / 15-minute bars.
+- Fee-aware deterministic readiness scanner.
+- One-position / three-entry-per-day / 1.50% daily-loss controls.
+- Same-symbol cross-bot occupancy block.
+- Live Bot Lab monitoring.
+- PAPER execution intentionally disabled until the scanner and privileged crypto submission/protection path are verified.
+
+Next: controlled PAPER submission endpoint, immediate protective stop-limit after fill, broker-action exit management, and deterministic end-of-day flattening.
+
+### 5. Exact Fee Reconciliation
 
 Continue reserving estimated crypto fees immediately, then reconcile the official Alpaca CFEE activity when posted. The difference must true-up the appropriate bot ledger and journal entry without double-counting.
 
-### 5. Monday Readiness Panel
+### 6. Monday Readiness Panel
 
 Status: implemented as a live read-only Bot Lab panel backed by `/api/paper-trading/bots/swing-readiness`.
 
