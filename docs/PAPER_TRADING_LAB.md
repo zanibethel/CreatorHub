@@ -29,7 +29,7 @@ The report rotates every 12 seconds. Manual view selection, report interaction, 
 
 ## Near-live market monitor
 
-The public quote endpoint accepts up to 10 stock symbols and 10 USD crypto pairs. It serves public market data only; it does not read a brokerage account or private ledger. Alpaca credentials remain in server-only `ALPACA_API_KEY_ID` and `ALPACA_API_SECRET_KEY` variables.
+The public quote endpoint accepts up to 20 stock symbols and 10 USD crypto pairs. It serves public market data only; it does not read a brokerage account or private ledger. Alpaca credentials remain in server-only `ALPACA_API_KEY_ID` and `ALPACA_API_SECRET_KEY` variables.
 
 - Stocks use Alpaca IEX latest quotes and split-adjusted daily charts, requesting 60 calendar days, following pagination, and displaying the latest 30 bars. IEX is a single-exchange feed.
 - Crypto uses Kraken public order books and hourly charts, excluding the last incomplete candle. Depth describes Kraken's venue only.
@@ -38,7 +38,7 @@ The public quote endpoint accepts up to 10 stock symbols and 10 USD crypto pairs
 - Quote ages and full provider timestamps remain visible. Quotes older than 60 seconds, missing timestamps, or timestamps more than 60 seconds ahead are marked stale. Collection time is separate from quote time.
 - Provider calls time out after 10 seconds; browser refreshes after 20 seconds. Partial failures are isolated, including historical-chart failures. Quote-only updates preserve old charts, not missing current quotes.
 
-The reviewed shared list is SPY, QQQ, IWM, XLV, AAPL, JPM, XOM, GLD, NVDA, SH and BTC-USD/ETH-USD. SH remains monitor-only with zero allocation. See `PAPER_WATCHLIST_REVIEW.md` and `/paper-trading/research` for data, methodology and selection rationale. The page does not generate trade signals or fabricate fills.
+The reviewed shared list watches all 16 stock/ETF candidates and all three crypto candidates. DIA, MSFT, AMZN, GOOGL, META, PSQ and SOL join as monitored reserves. Initial/reserve labels indicate research priority, not a permanent exclusion from funded pools. Entry/holding-horizon/liquidity/cost/risk criteria must qualify before an order, and filled trades retain their entry-pool attribution. SH and PSQ remain monitor-only with zero inverse allocation. See `PAPER_WATCHLIST_REVIEW.md` and `/paper-trading/research` for data, methodology and selection rationale. The page does not generate trade signals or fabricate fills.
 
 `paper_report_watchlist` has RLS and service-only grants. `/api/paper-trading/watchlist` exposes a schema-validated read-only projection. Every report view shows a compact shared-symbol strip; fresh browsers derive their symbols from the same saved selection. Legacy browser-local symbol overrides are ignored. Global edits are managed centrally, never accepted from anonymous report viewers. Stored changes are checked every minute while visible; failures preserve the last known/published selection with a status message.
 

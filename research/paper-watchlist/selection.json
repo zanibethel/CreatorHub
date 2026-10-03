@@ -1,6 +1,6 @@
 {
-  "version": 1,
-  "reviewedAt": "2026-10-03T14:57:35.149Z",
+  "version": 2,
+  "reviewedAt": "2026-10-03T15:16:00.266Z",
   "dataThrough": "2026-10-02",
   "model": "20/40/40 pools; position cap 9% of its pool; inverse allocation 0%; selection is a monitoring universe, not an entry signal.",
   "stocks": [
@@ -18,7 +18,8 @@
       "volatility": 13.01,
       "maxDrawdown": -8.88,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "QQQ",
@@ -34,7 +35,8 @@
       "volatility": 19.97,
       "maxDrawdown": -11.96,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "IWM",
@@ -50,7 +52,8 @@
       "volatility": 18.69,
       "maxDrawdown": -11.03,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "XLV",
@@ -65,7 +68,8 @@
       "volatility": 15.75,
       "maxDrawdown": -10.47,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "AAPL",
@@ -81,7 +85,8 @@
       "volatility": 24.69,
       "maxDrawdown": -13.8,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "JPM",
@@ -96,7 +101,8 @@
       "volatility": 22.5,
       "maxDrawdown": -15.47,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "XOM",
@@ -111,7 +117,8 @@
       "volatility": 25.95,
       "maxDrawdown": -20.12,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "GLD",
@@ -126,7 +133,8 @@
       "volatility": 29.62,
       "maxDrawdown": -26.4,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "NVDA",
@@ -141,7 +149,8 @@
       "volatility": 37.72,
       "maxDrawdown": -20.22,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "SH",
@@ -153,7 +162,106 @@
       "volatility": 12.96,
       "maxDrawdown": -17.49,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
+    },
+    {
+      "symbol": "DIA",
+      "label": "Dow Jones",
+      "role": "Broad-market reserve",
+      "pools": [
+        "day",
+        "multi-day",
+        "multi-week"
+      ],
+      "rationale": "Overlaps broad-equity coverage; continue monitoring and evaluate any setup against pool-specific criteria.",
+      "return1y": 11.51,
+      "volatility": 12.74,
+      "maxDrawdown": -9.76,
+      "tradable": true,
+      "fractionable": true,
+      "tier": "reserve"
+    },
+    {
+      "symbol": "MSFT",
+      "label": "Microsoft",
+      "role": "Growth reserve",
+      "pools": [
+        "day",
+        "multi-day",
+        "multi-week"
+      ],
+      "rationale": "Larger historical drawdown than AAPL; remains watched and can qualify after risk and entry tests.",
+      "return1y": 1.17,
+      "volatility": 32.76,
+      "maxDrawdown": -34.5,
+      "tradable": true,
+      "fractionable": true,
+      "tier": "reserve"
+    },
+    {
+      "symbol": "AMZN",
+      "label": "Amazon",
+      "role": "Growth reserve",
+      "pools": [
+        "day",
+        "multi-day",
+        "multi-week"
+      ],
+      "rationale": "Growth exposure overlaps the initial list; a qualifying setup can still enter an appropriate pool.",
+      "return1y": 13.09,
+      "volatility": 34.42,
+      "maxDrawdown": -21.74,
+      "tradable": true,
+      "fractionable": true,
+      "tier": "reserve"
+    },
+    {
+      "symbol": "GOOGL",
+      "label": "Alphabet",
+      "role": "Growth reserve",
+      "pools": [
+        "day",
+        "multi-day",
+        "multi-week"
+      ],
+      "rationale": "Continue monitoring despite tech overlap; future selection must account for aggregate correlated exposure.",
+      "return1y": 40.18,
+      "volatility": 31.77,
+      "maxDrawdown": -21.05,
+      "tradable": true,
+      "fractionable": true,
+      "tier": "reserve"
+    },
+    {
+      "symbol": "META",
+      "label": "Meta Platforms",
+      "role": "Higher-volatility reserve",
+      "pools": [
+        "day",
+        "multi-day",
+        "multi-week"
+      ],
+      "rationale": "Higher historical volatility and drawdown require stronger risk review; reserve status does not exclude qualifying setups.",
+      "return1y": 0.48,
+      "volatility": 41.87,
+      "maxDrawdown": -29.94,
+      "tradable": true,
+      "fractionable": true,
+      "tier": "reserve"
+    },
+    {
+      "symbol": "PSQ",
+      "label": "Short Nasdaq 100",
+      "role": "Inverse reserve",
+      "pools": [],
+      "rationale": "Daily inverse Nasdaq exposure is watched; inverse allocation remains zero until explicitly configured.",
+      "return1y": -17.3,
+      "volatility": 19.98,
+      "maxDrawdown": -24.97,
+      "tradable": true,
+      "fractionable": true,
+      "tier": "reserve"
     }
   ],
   "crypto": [
@@ -170,7 +278,8 @@
       "volatility": 44.91,
       "maxDrawdown": -53.07,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
     },
     {
       "symbol": "ETH-USD",
@@ -185,7 +294,25 @@
       "volatility": 63.6,
       "maxDrawdown": -66.6,
       "fractionable": true,
-      "tradable": true
+      "tradable": true,
+      "tier": "initial"
+    },
+    {
+      "symbol": "SOL-USD",
+      "label": "Solana",
+      "role": "Crypto reserve",
+      "pools": [
+        "day",
+        "multi-day",
+        "multi-week"
+      ],
+      "rationale": "Large historical drawdown calls for fee-aware risk testing; keep watching rather than permanently excluding it.",
+      "return1y": -49.51,
+      "volatility": 67.06,
+      "maxDrawdown": -73.53,
+      "tradable": true,
+      "fractionable": true,
+      "tier": "reserve"
     }
   ]
 }

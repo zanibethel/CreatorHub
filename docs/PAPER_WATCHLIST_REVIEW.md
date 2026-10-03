@@ -1,12 +1,12 @@
 # Paper watchlist review — data through October 2, 2026
 
-The selected universe is for monitoring and paper research. No entry strategy was backtested, no expected return is estimated, and this review does not route orders.
+All 19 reviewed candidates are persistently monitored. Initial/reserve labels set research priority, not permanent eligibility. Candidates can qualify for any funded pool when current validated holding-horizon, entry, liquidity, cost and risk criteria are met. Unfilled candidates may change pools; filled trades retain their entry-pool attribution. Both inverse symbols remain unfunded until their allocation is explicitly configured. The universe is for monitoring and paper research. No entry strategy was backtested, no expected return is estimated, and this review does not route orders.
 
 ## Saved model
 
 The $1,000 challenge assigns $200/$400/$400 to day/multi-day/multi-week pools. The 9% per-position cap means $18/$36/$36 of position value; it does not specify loss risk. Crypto uses those same pools. The inverse sleeve remains at zero allocation. The actual Alpaca paper balance is displayed separately and is not silently substituted for this challenge budget. Entry, stop, daily-loss and aggregate correlated-exposure rules are still needed before automation.
 
-## Selected list
+## Initial research priorities (all 19 candidates remain watched)
 
 - **SPY — Core benchmark.** Lowest measured volatility among the selected broad equity candidates; use as the market baseline.
 - **QQQ — Growth benchmark.** Liquid growth exposure; its 0.93 correlation with SPY means these are overlapping equity risks.
@@ -29,25 +29,25 @@ The first equities to develop entry/risk tests around are SPY, IWM and XLV; QQQ 
 | --- | ---: | ---: | ---: | ---: | --- |
 | GLD | 7.1% | 29.6% | -26.4% | 3.46B USD | Selected |
 | JPM | 10.1% | 22.5% | -15.5% | 2.90B USD | Selected |
-| MSFT | 1.2% | 32.8% | -34.5% | 10.72B USD | Reserve |
-| PSQ | -17.3% | 20.0% | -25.0% | 0.39B USD | Reserve |
+| MSFT | 1.2% | 32.8% | -34.5% | 10.72B USD | Reserve · watched |
+| PSQ | -17.3% | 20.0% | -25.0% | 0.39B USD | Reserve · watched |
 | IWM | 16.5% | 18.7% | -11.0% | 6.91B USD | Selected |
 | NVDA | 24.2% | 37.7% | -20.2% | 24.95B USD | Selected |
 | SPY | 16.3% | 13.0% | -8.9% | 35.28B USD | Selected |
 | XOM | 51.6% | 26.0% | -20.1% | 2.30B USD | Selected |
 | SH | -9.4% | 13.0% | -17.5% | 0.31B USD | Selected |
 | AAPL | 30.3% | 24.7% | -13.8% | 14.04B USD | Selected |
-| AMZN | 13.1% | 34.4% | -21.7% | 8.86B USD | Reserve |
-| DIA | 11.5% | 12.7% | -9.8% | 1.78B USD | Reserve |
-| GOOGL | 40.2% | 31.8% | -21.0% | 9.44B USD | Reserve |
-| META | 0.5% | 41.9% | -29.9% | 16.66B USD | Reserve |
+| AMZN | 13.1% | 34.4% | -21.7% | 8.86B USD | Reserve · watched |
+| DIA | 11.5% | 12.7% | -9.8% | 1.78B USD | Reserve · watched |
+| GOOGL | 40.2% | 31.8% | -21.0% | 9.44B USD | Reserve · watched |
+| META | 0.5% | 41.9% | -29.9% | 16.66B USD | Reserve · watched |
 | QQQ | 24.3% | 20.0% | -12.0% | 24.78B USD | Selected |
 | XLV | 18.0% | 15.7% | -10.5% | 1.36B USD | Selected |
 | BTC-USD | -29.9% | 44.9% | -53.1% | Venue only | Selected |
 | ETH-USD | -40.6% | 63.6% | -66.6% | Venue only | Selected |
-| SOL-USD | -49.5% | 67.1% | -73.5% | Venue only | Reserve |
+| SOL-USD | -49.5% | 67.1% | -73.5% | Venue only | Reserve · watched |
 
-DIA largely duplicates broad-equity coverage. MSFT/AMZN/GOOGL/META remain reserves to keep growth/tech coverage manageable; MSFT and META also had deeper drawdowns than AAPL. PSQ duplicates the inverse role. SOL remains a reserve after a 73.5% drawdown. Those are scope decisions, not predictions of relative performance. Historical winners were not automatically selected.
+DIA largely duplicates broad-equity coverage. MSFT/AMZN/GOOGL/META remain monitored reserves to keep initial research priority manageable; MSFT and META also had deeper drawdowns than AAPL. PSQ duplicates the inverse role. SOL remains a monitored reserve after a 73.5% drawdown. Those are scope decisions, not predictions of relative performance. Historical winners were not automatically selected.
 
 QQQ/SPY correlation was 0.93. XLV/SPY was 0.22; GLD/SPY 0.33; XOM/SPY -0.28. All are one-year daily stock-return sample correlations and may change. Cash remains possible when no validated setup exists; this list does not imply holding every symbol.
 
@@ -63,4 +63,4 @@ SH targets daily -1x S&P 500 results; longer holdings can diverge because of com
 
 ## Report behavior
 
-The central Supabase watchlist is service-role controlled. A public read-only API projects validated symbols, roles and metrics. Public visitors cannot overwrite it. All five report screens show the same symbol strip; market monitoring derives its symbols from that configuration. Old browser-local symbol overrides are ignored. QR/display preferences remain browser-local. The published selection provides a last-known fallback if central reads fail, with an explicit status message. The dated historical review remains a snapshot of this selection version.
+The central Supabase watchlist is service-role controlled. A public read-only API projects validated symbols, roles and metrics. Public visitors cannot overwrite it. All five report screens show the same 16-stock/3-crypto symbol strip; market monitoring derives its symbols from that configuration. Old browser-local symbol overrides are ignored. QR/display preferences remain browser-local. The published selection provides a last-known fallback if central reads fail, with an explicit status message. The dated historical review remains a snapshot of this selection version.

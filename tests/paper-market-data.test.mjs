@@ -44,7 +44,7 @@ test("public report can fetch market data without a session or auth client", asy
 
 test("rejects malformed, empty, and oversized watchlists before fetching", async () => {
   const get = route({ fetch: () => { throw new Error("Must not fetch"); } });
-  for (const query of ["stocks=", "stocks=../secret", "crypto=BTC-EUR", `stocks=${Array.from({length:11},(_,i) => `A${i}`).join(",")}`]) {
+  for (const query of ["stocks=", "stocks=../secret", "crypto=BTC-EUR", `stocks=${Array.from({length:21},(_,i) => `A${i}`).join(",")}`]) {
     assert.equal((await get(query)).status, 400);
   }
 });
@@ -111,4 +111,14 @@ test("crypto history failure does not suppress an available order book", async (
   assert.equal(response.status,200);
   assert.equal(body.crypto[0].bestBid.price,99);
   assert.match(body.errors["BTC-USD history"], /503/);
+});
+
+test('monitors all 16 stock candidates without truncating after ten', async () => {
+ const symbols=['SPY','QQQ','IWM','XLV','AAPL','JPM','XOM','GLD','NVDA','SH','DIA','MSFT','AMZN','GOOGL','META','PSQ'];
+ const get=route({env:{ALPACA_API_KEY_ID:'key',ALPACA_API_SECRET_KEY:'secret'},fetch:url=>{
+  const asked=new URL(url).searchParams.get('symbols').split(',');
+  return json({quotes:Object.fromEntries(asked.map(s=>[s,{bp:100,ap:101,t:timestamp}]))});
+ }});
+ const response=await get(`stocks=${symbols.join(',')}&history=0`);assert.equal(response.status,200);
+ assert.equal(Object.keys((await response.json()).stocks).length,16);
 });
