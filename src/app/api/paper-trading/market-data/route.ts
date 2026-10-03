@@ -3,9 +3,16 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
+type KrakenLevel = {
+  price: string;
+  qty: string;
+  publication_ts: string;
+};
+
 type KrakenBook = {
-  bids?: Array<[string, string, string]>;
-  asks?: Array<[string, string, string]>;
+  symbol?: string;
+  bids?: KrakenLevel[];
+  asks?: KrakenLevel[];
 };
 
 function parseSymbols(value: string | null, pattern: RegExp) {
@@ -83,26 +90,26 @@ async function fetchStockQuotes(symbols: string[]) {
 
 async function fetchKrakenBook(product: string) {
   const [base, quote] = product.split("-");
-  const krakenBase = base === "BTC" ? "XBT" : base;
-  const pair = `${krakenBase}${quote}`;
-  const query = new URLSearchParams({ pair, count: "10" });
-  const response = await fetch(`https://api.kraken.com/0/public/Depth?${query.toString()}`, {
+  const symbol = `${base}/${quote}`;
+  const query = new URLSearchParams({ symbol });
+  const response = await fetch(`https://api.kraken.com/0/public/PreTrade?${query.toString()}`, {
+    headers: { Accept: "application/json" },
     cache: "no-store",
   });
   if (!response.ok) throw new Error(`Kraken returned HTTP ${response.status} for ${product}.`);
 
   const payload = await response.json() as {
     error?: string[];
-    result?: Record<string, KrakenBook>;
+    result?: KrakenBook;
   };
   if (payload.error?.length) throw new Error(`Kraken could not load ${product}: ${payload.error.join(", ")}`);
 
-  const book = Object.values(payload.result ?? {})[0];
-  const bids = (book?.bids ?? []).map(([price, size]) => ({ price: Number(price), size: Number(size) }));
-  const asks = (book?.asks ?? []).map(([price, size]) => ({ price: Number(price), size: Number(size) }));
+  const book = payload.result;
+  const bids = (book?.bids ?? []).map(({ price, qty, publication_ts }) => ({ price: Number(price), size: Number(qty), timestamp: publication_ts }));
+  const asks = (book?.asks ?? []).map(({ price, qty, publication_ts }) => ({ price: Number(price), size: Number(qty), timestamp: publication_ts }));
   return {
     product,
-    timestamp: new Date().toISOString(),
+    timestamp: bids[0]?.timestamp ?? asks[0]?.timestamp ?? new Date().toISOString(),
     bestBid: bids[0] ?? null,
     bestAsk: asks[0] ?? null,
     bids,
