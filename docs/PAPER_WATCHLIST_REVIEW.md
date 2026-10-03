@@ -4,7 +4,7 @@ All 19 reviewed candidates are persistently monitored. Initial/reserve labels se
 
 ## Saved model
 
-The $1,000 challenge assigns $200/$400/$400 to day/multi-day/multi-week pools. The 9% per-position cap means $18/$36/$36 of position value; it does not specify loss risk. Crypto uses those same pools. The inverse sleeve remains at zero allocation. The actual Alpaca paper balance is displayed separately and is not silently substituted for this challenge budget. Entry, stop, daily-loss and aggregate correlated-exposure rules are still needed before automation.
+Every bot challenge starts at $100. Default Diverse uses 20% / 40% / 40% portfolio allocation ceilings for day / multi-day / multi-week exposure, or up to $20 / $40 / $40 of virtual equity in those pools. These are pool ceilings, not per-position sizes; individual positions are sized from planned loss risk. Crypto uses the same pool ceilings. The inverse sleeve remains at zero allocation. The larger Alpaca paper balance is displayed separately as the execution sandbox/audit trail and is never substituted for challenge equity.
 
 ## Initial research priorities (all 19 candidates remain watched)
 
@@ -19,7 +19,7 @@ The $1,000 challenge assigns $200/$400/$400 to day/multi-day/multi-week pools. T
 - **NVDA — Higher-volatility research.** Liquid active-trading research candidate; higher volatility means tighter risk review, not a larger position.
 - **SH — Inverse monitor only.** Daily -1x S&P 500 objective; inverse allocation is still zero and multi-day results can diverge from -1x.
 - **BTC-USD — Crypto research.** Crypto reference; reviewed drawdown exceeds 50%. Fees and execution costs must pass testing before entry.
-- **ETH-USD — Crypto research.** Second crypto reference; reviewed drawdown exceeds 65%. Keep the same pool/position caps and test costs first.
+- **ETH-USD — Crypto research.** Second crypto reference; reviewed drawdown exceeds 65%. Keep the same pool-allocation ceilings and test costs first.
 
 The first equities to develop entry/risk tests around are SPY, IWM and XLV; QQQ is the growth comparator. AAPL/JPM/XOM are the individual-stock comparisons. GLD/NVDA require additional volatility review. BTC/ETH stay research candidates pending fee-aware execution tests. SH has no assigned budget. Pool labels express research suitability, not permission to buy.
 
