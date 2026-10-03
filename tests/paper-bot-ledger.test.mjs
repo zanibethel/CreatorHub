@@ -74,6 +74,7 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
     if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id: "default-diverse", broker_order_id: "private-order" }]);
     if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id: "default-diverse", fill_activity_id: "private-fill", transaction_time: stamp, ledger_applied_at: stamp }]);
     if (url.includes("paper_bot_orders")) return Response.json([{ bot_id: "default-diverse", symbol: "QQQ", asset_class: "etf", status: "prepared", requested_notional: "10", requested_quantity: null, pool_id: "multi-day", entry_trigger: "750", max_entry_price: "755", protective_stop: "730", planned_risk_dollars: "1", expires_at: stamp, stage_reason: "fixture", take_profit_price: "790", take_profit_fraction: "0.5", take_profit_r: "2", protect_winner_at_r: "1", trail_remainder: true }]);
+    if (url.includes("paper_bot_trade_metrics")) return Response.json([{ bot_id:"default-diverse", symbol:"SOL/USD", status:"open", opened_at:stamp, closed_at:null, entry_price:"120", initial_protective_stop:"119", initial_risk_dollars:"0.2", peak_mark_price:"121", trough_mark_price:"119.5", last_mark_price:"119.9", last_mark_at:stamp, mark_count:"4", mfe_r:"1", mae_r:"-0.5", exit_price:null, realized_pl:null, r_multiple:null, estimated_fees:null, exit_reason:null }]);
     throw new Error("Unexpected request");
   });
   const response = await route.GET();
@@ -94,7 +95,10 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.stagedOrders["default-diverse"][0].symbol, "QQQ");
   assert.equal(body.positionPlans["default-diverse"][0].exit_manager_state.plannedAction, "hold");
   assert.equal(body.positionPlans["default-diverse"][0].initial_protective_stop, 119);
-  assert.equal(requested.length, 7);
+  assert.equal(body.tradeMetrics["default-diverse"][0].mfe_r, 1);
+  assert.equal(body.tradeMetrics["default-diverse"][0].mae_r, -0.5);
+  assert.equal(body.tradeMetrics["default-diverse"][0].mark_count, 4);
+  assert.equal(requested.length, 8);
   assert.doesNotMatch(JSON.stringify(body), /private-value|database-secret|metadata|private-order|private-fill/);
 });
 
