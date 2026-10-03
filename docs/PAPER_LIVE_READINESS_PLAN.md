@@ -36,7 +36,7 @@ The goal is not merely to place successful orders. The system must demonstrate t
 ### Still blocked before live money
 
 - Staged-action exit planner is live; broker-action execution/verification still needs promotion and paper validation.
-- Same-session swing readiness and the privileged PAPER submission endpoint are implemented; submission is still disabled by the execution kill switch.
+- Same-session swing readiness and the privileged PAPER submission endpoint are implemented; the swing PAPER execution kill switch is now armed, while market/session/readiness gates still control whether submission is allowed.
 - Broker-hosted stock bracket construction and bracket-child reconciliation are implemented; the first real market-hours PAPER bracket fill/exit rehearsal remains.
 - Official crypto CFEE reconciliation against estimated fees.
 - Correlation/sector exposure calculation.
@@ -70,7 +70,7 @@ Crypto v1 uses broker stop-limit protection because Alpaca crypto does not expos
 
 ### 2. Monday Swing Revalidation Executor
 
-Status: deterministic read-only revalidation engine and Bot Lab readiness panel implemented; PAPER submission remains separate.
+Status: deterministic revalidation engine and Bot Lab readiness panel implemented. The privileged PAPER submission endpoint is deployed and the PAPER execution kill switch is armed; submission still requires a fresh same-session readiness selection.
 
 Before any prepared QQQ/NVDA/MSFT PAPER order is submitted:
 
@@ -92,7 +92,9 @@ A prepared plan is not a broker order. If multiple correlated plans become ready
 
 ### 3. Broker-Hosted Stock Protection
 
-For accepted stock/ETF swing entries, prefer Alpaca bracket/OCO-style paper orders so stop and profit protection remain at the broker if CreatorHub or Supabase is temporarily unavailable.
+For accepted stock/ETF swing entries, Alpaca PAPER bracket orders are the required broker-hosted protection path so stop and profit legs remain at the broker if CreatorHub or Supabase is temporarily unavailable.
+
+A closed-market smoke test on 2026-10-03 proved Alpaca accepted a stock bracket with both take-profit and stop child legs. The parent and both children were then canceled before any fill. Broker-generated child legs are now attributed back to the tagged parent bot plan so later child fills can reconcile to the same $100 virtual ledger.
 
 ### 4. Exact Fee Reconciliation
 
