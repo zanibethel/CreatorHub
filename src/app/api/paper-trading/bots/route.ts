@@ -11,18 +11,35 @@ const historyRow = z.object({
   collected_at: timestamp,
   equity: z.coerce.number().finite().nonnegative(),
 });
+const exitManagerState = z.object({
+  version: z.string().optional(),
+  mode: z.string().optional(),
+  plannedAction: z.enum(["hold","repair_stop","partial_profit","tighten_stop_trail","tighten_stop_breakeven"]).optional(),
+  rMultiple: z.coerce.number().finite().optional(),
+  markPrice: z.coerce.number().finite().positive().optional(),
+  evaluatedAt: timestamp.optional(),
+  hasActiveStop: z.boolean().optional(),
+  reason: z.string().max(240).optional(),
+  desiredStop: z.coerce.number().finite().positive().optional(),
+  partialFraction: z.coerce.number().finite().positive().max(1).optional(),
+  partialProfitState: z.string().max(40).optional(),
+});
+
 const positionRow = z.object({
   bot_id: z.string().min(1).max(64),
   symbol: z.string().min(1).max(32),
   quantity: z.coerce.number().finite().positive(),
   average_entry: z.coerce.number().finite().positive().nullable(),
   protective_stop: z.coerce.number().finite().positive().nullable(),
+  initial_protective_stop: z.coerce.number().finite().positive().nullable(),
   planned_risk_dollars: z.coerce.number().finite().nonnegative().nullable(),
   take_profit_price: z.coerce.number().finite().positive().nullable(),
   take_profit_fraction: z.coerce.number().finite().positive().max(1).nullable(),
   take_profit_r: z.coerce.number().finite().positive().nullable(),
   protect_winner_at_r: z.coerce.number().finite().positive().nullable(),
   trail_remainder: z.boolean(),
+  last_exit_manager_at: timestamp.nullable(),
+  exit_manager_state: exitManagerState,
 });
 const journalCountRow = z.object({ bot_id: z.string().min(1).max(64), id: z.coerce.number().int().positive() });
 const brokerOrderRow = z.object({ bot_id: z.string().min(1).max(64), broker_order_id: z.string().min(1).max(80) });
@@ -69,7 +86,7 @@ export async function GET() {
     const [ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw] = await Promise.all([
       read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source,pool_usage&order=bot_id.asc"),
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
-      read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&limit=5000"),
+      read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,initial_protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,last_exit_manager_at,exit_manager_state&limit=5000"),
       read("paper_bot_journal?select=id,bot_id&limit=10000"),
       read("paper_bot_broker_orders?select=bot_id,broker_order_id&limit=10000"),
       read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
