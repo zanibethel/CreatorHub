@@ -6,6 +6,7 @@ import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import useAccountReport from "./useAccountReport";
 import usePaperBotLedgers, { type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
 import useSwingReadiness from "./useSwingReadiness";
+import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
@@ -101,6 +102,7 @@ export default function PaperBotLab() {
   const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
   const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
   const { report: swingReadiness, error: swingReadinessError } = useSwingReadiness();
+  const { report: weekendCrypto, error: weekendCryptoError } = useWeekendCryptoReadiness();
   const ledgerFor = (botId: string) => ledgerReport?.bots.find(bot => bot.botId === botId) ?? null;
   const stagedFor = (botId: string) => ledgerReport?.stagedOrders?.[botId] ?? [];
   const positionsFor = (botId: string) => ledgerReport?.positionPlans?.[botId] ?? [];
@@ -127,6 +129,7 @@ export default function PaperBotLab() {
     {ledgerError ? <p role="status" className={styles.error}>Bot ledger: {ledgerError}</p> : null}
     {accountError ? <p role="status" className={styles.error}>Alpaca audit feed: {accountError}</p> : null}
     {swingReadinessError ? <p role="status" className={styles.error}>Swing readiness: {swingReadinessError}</p> : null}
+    {weekendCryptoError ? <p role="status" className={styles.error}>Weekend crypto readiness: {weekendCryptoError}</p> : null}
 
     <section className={styles.botCompare}>
       <div className={styles.cardHeader}>
@@ -155,6 +158,48 @@ export default function PaperBotLab() {
           {plan.executionPreview ? <small>Bracket preview: {plan.executionPreview.quantity.toFixed(9)} shares · {money(plan.executionPreview.estimatedNotional)} · stop {money(plan.executionPreview.stopLoss)} · target {money(plan.executionPreview.takeProfit)}</small> : null}
           {plan.waitingOn.length ? <small>Waiting: {plan.waitingOn.join(" · ")}</small> : null}
           {plan.blockers.length ? <small>Blocked: {plan.blockers.join(" · ")}</small> : null}
+        </div>)}
+      </div>
+    </section>
+
+    <section className={styles.botCompare}>
+      <div className={styles.cardHeader}>
+        <div>
+          <h2>Weekend crypto day readiness</h2>
+          <p>BTC / ETH / SOL proof-of-concept scanner using Alpaca quotes plus completed 5-minute and 15-minute bars.</p>
+        </div>
+        <span className={styles.meta}>{weekendCrypto ? `PAPER ONLY · EXECUTOR ${weekendCrypto.executionEnabled ? "ARMED" : "DISABLED"}` : "PAPER ONLY"}</span>
+      </div>
+      <div className={styles.botOverview}>
+        <div><span>Session</span><strong>{weekendCrypto ? `${weekendCrypto.session.localWeekday} ${weekendCrypto.session.localTime}` : "—"}</strong></div>
+        <div><span>BTC regime</span><strong>{weekendCrypto ? (weekendCrypto.broadCryptoSupportive ? "Supportive" : "Waiting") : "—"}</strong></div>
+        <div><span>Entries left today</span><strong>{weekendCrypto?.dailyEntriesRemaining ?? "—"}</strong></div>
+        <div><span>Selected</span><strong>{weekendCrypto?.selectedSymbol ?? "None"}</strong></div>
+      </div>
+      <p className={styles.meta}>
+        Entry window {weekendCrypto?.session.entriesOpen ? "open" : "closed"} · one-position slots {weekendCrypto?.openPositionSlotsRemaining ?? "—"} · submission gate {weekendCrypto?.submissionReady ? "ready" : "closed"}
+        {weekendCrypto?.occupiedByOtherBots.length ? ` · held by other bots: ${weekendCrypto.occupiedByOtherBots.join(", ")}` : ""}
+      </p>
+      <div className={styles.botRuleGrid}>
+        {(weekendCrypto?.candidates ?? []).map(candidate => <div key={candidate.symbol}>
+          <span>{candidate.symbol}</span>
+          <strong className={candidate.state === "ready" ? styles.fresh : candidate.state === "blocked" ? styles.stale : styles.meta}>
+            {candidate.state.toUpperCase()}{candidate.selectedForSubmission ? " · SELECTED" : ""} · {candidate.score}/100
+          </strong>
+          <small>
+            Bid {money(candidate.bid)} · ask {money(candidate.ask)} · spread {candidate.spreadPct === null ? "—" : `${candidate.spreadPct.toFixed(3)}%`} · quote age {candidate.quoteAgeSeconds === null ? "—" : `${Math.round(candidate.quoteAgeSeconds)}s`}
+          </small>
+          <small>
+            5m momentum {percent(candidate.fastMomentumPct)} · 15m momentum {percent(candidate.slowMomentumPct)} · 5m ATR {percent(candidate.atrPct)}
+          </small>
+          <small>
+            Trigger {money(candidate.trigger)} · max chase {money(candidate.maxEntry)} · stop {money(candidate.protectiveStop)} · target {money(candidate.takeProfit)}
+          </small>
+          <small>
+            Planned {money(candidate.plannedNotional)} · risk {money(candidate.plannedRiskDollars)} ({percent(candidate.plannedRiskPct)}) · est. round-trip fees {money(candidate.estimatedRoundTripFees)} · target/fees {candidate.feeCoverageMultiple === null ? "—" : `${candidate.feeCoverageMultiple.toFixed(2)}×`}
+          </small>
+          {candidate.waitingOn.length ? <small>Waiting: {candidate.waitingOn.join(" · ")}</small> : null}
+          {candidate.blockers.length ? <small>Blocked: {candidate.blockers.join(" · ")}</small> : null}
         </div>)}
       </div>
     </section>
