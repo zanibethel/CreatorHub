@@ -16,7 +16,7 @@ This is a separate $100 challenge. It does not share capital, positions, P/L, or
 - Starting virtual equity: $100
 - Execution venue: Alpaca Paper
 - Live-money execution: disabled
-- PAPER execution: currently disabled while the scanner is validated
+- PAPER execution: currently disabled while the automated execution/exit loop is validated
 
 ## Universe
 
@@ -137,20 +137,25 @@ Implemented:
 - Deterministic fee-aware readiness engine.
 - Cross-bot same-symbol occupancy block.
 - Live Bot Lab readiness panel.
-- Strategy/readiness tests committed.
-- PAPER execution remains disabled.
+- Service-only atomic entry claim with duplicate/risk guards.
+- Guarded PAPER crypto entry route using a max-chase limit price.
+- Immediate broker protective stop-limit after a confirmed fill.
+- Fail-closed emergency flatten if protection cannot be attached.
+- Broker-action exit manager for repair/tighten/+2R partial/trailing protection.
+- Deterministic 23:45 America/Chicago session flatten.
+- Vercel runner scheduled every five minutes on weekend-relevant UTC days; the route itself enforces the America/Chicago weekend window.
+- Server-only Cron and weekend-execution secrets configured in Vercel Production.
+- PAPER execution remains disabled until the deployed loop is smoke-verified.
 
 ## Next implementation sequence
 
-1. Verify the live scanner output against current weekend market data.
-2. Add a privileged PAPER crypto submission endpoint for this bot.
-3. Re-run readiness immediately before submission.
-4. Atomically claim a generated/prepared order so duplicate calls cannot double-enter.
-5. Submit only Alpaca PAPER crypto orders using `wkd` attribution.
-6. Attach broker-hosted protective stop-limit immediately after the confirmed fill.
-7. Extend the exit manager from staged-action planning to PAPER broker actions for +1R protection, 50% +2R partial, and trailing remainder.
-8. Enforce the 23:45 America/Chicago flat-by rule.
-9. Validate several complete weekend PAPER round trips including fee reconciliation before changing any risk parameters.
+1. Confirm the latest Production build is green with the entry, manager, flatten, and cron routes.
+2. Verify the cron invokes safely while `executionEnabled=false`.
+3. Run a controlled PAPER smoke of the weekend executor/protection path without weakening readiness rules.
+4. Arm `executionEnabled=true` for this bot only after the smoke passes.
+5. Let the scanner wait for a genuine BTC/ETH/SOL setup instead of forcing a trade.
+6. Validate complete PAPER round trips including +1R protection, +2R partial, trailing remainder, 23:45 flatten, and fee reconciliation.
+7. Tune only from documented evidence; do not loosen thresholds merely to create activity.
 
 ## Promotion rule
 
