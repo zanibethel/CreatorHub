@@ -3,9 +3,9 @@ import type { PaperWatchlist } from "./paper-watchlist";
 
 export type Candidate = PaperWatchlist["stocks"][number];
 export const RESEARCH_POOLS = [
-  { id: "day", label: "Day", allocationPct: 20 },
-  { id: "multi-day", label: "Multi-day", allocationPct: 40 },
-  { id: "multi-week", label: "Multi-week", allocationPct: 40 },
+  { id: "day", label: "Day", cap: 20 },
+  { id: "multi-day", label: "Multi-day", cap: 40 },
+  { id: "multi-week", label: "Multi-week", cap: 40 },
 ] as const;
 
 // Descriptive data checks only. No strategy thresholds or order authorization.
