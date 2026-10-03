@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { card, colors, secondaryButton } from "@/lib/ui";
 
+type Candle = { time: string; close: number };
+
 type StockQuote = {
   bid: number | null;
   bidSize: number | null;
@@ -18,15 +20,45 @@ type CryptoBook = {
   bestAsk: { price: number; size: number } | null;
   bids: Array<{ price: number; size: number }>;
   asks: Array<{ price: number; size: number }>;
+  candles: Candle[];
 };
 
 type MarketSnapshot = {
   collectedAt: string;
   sources: { stocks: string | null; crypto: string | null };
   stocks: Record<string, StockQuote>;
+  stockBars: Record<string, Candle[]>;
   crypto: CryptoBook[];
   note: string;
 };
+
+function Sparkline({ candles, label }: { candles: Candle[]; label: string }) {
+  const values = candles.map((candle) => candle.close).filter(Number.isFinite);
+  if (values.length < 2) {
+    return <div style={{ minHeight: 62, display: "grid", placeItems: "center", color: colors.muted, fontSize: 11 }}>Chart appears when history is available</div>;
+  }
+  const min = Math.min(...values);
+  const max = Math.max(...values);
+  const spread = max - min || Math.max(Math.abs(max) * 0.01, 0.01);
+  const points = values.map((value, index) => {
+    const x = (index / (values.length - 1)) * 240;
+    const y = 54 - ((value - min) / spread) * 46;
+    return `${x},${y}`;
+  }).join(" ");
+  const first = values[0];
+  const last = values[values.length - 1];
+  return (
+    <div>
+      <svg viewBox="0 0 240 60" role="img" aria-label={label} style={{ width: "100%", height: 62, display: "block" }}>
+        <line x1="0" y1="56" x2="240" y2="56" stroke={colors.border} strokeWidth="1" />
+        <polyline points={points} fill="none" stroke={last >= first ? "#62d9aa" : "#ff8888"} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" />
+      </svg>
+      <div style={{ display: "flex", justifyContent: "space-between", color: colors.muted, fontSize: 10 }}>
+        <span>{candles.length} data points</span><span>{((last / first - 1) * 100).toFixed(2)}% over shown period</span>
+      </div>
+    </div>
+  );
+}
 
 const formatPrice = (value: number | null | undefined) => value == null
   ? "—"
@@ -104,6 +136,14 @@ export default function MarketDataPanel() {
                 ))}</tbody>
               </table>
             </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 8, marginTop: 8 }}>
+              {Object.entries(snapshot.stockBars).map(([symbol, candles]) => (
+                <article key={symbol} style={{ border: "1px solid " + colors.border, borderRadius: 11, padding: 11 }}>
+                  <strong>{symbol} · 30 daily closes</strong>
+                  <Sparkline candles={candles} label={symbol + " daily closing price history"} />
+                </article>
+              ))}
+            </div>
           </div>
           <div>
             <strong style={{ fontSize: 13 }}>Crypto order books · {snapshot.sources.crypto ?? "not requested"}</strong>
@@ -114,6 +154,7 @@ export default function MarketDataPanel() {
                   <div style={{ color: colors.muted, fontSize: 12, marginTop: 6 }}>Best bid <span style={{ color: colors.text }}>{formatPrice(book.bestBid?.price)}</span></div>
                   <div style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>Best ask <span style={{ color: colors.text }}>{formatPrice(book.bestAsk?.price)}</span></div>
                   <div style={{ color: colors.muted, fontSize: 11, marginTop: 6 }}>Top {Math.min(book.bids.length, book.asks.length)} levels · fetched {new Date(book.timestamp).toLocaleTimeString()}</div>
+                  <div style={{ marginTop: 8 }}><Sparkline candles={book.candles} label={book.product + " hourly closing price history"} /></div>
                 </article>
               ))}
             </div>
