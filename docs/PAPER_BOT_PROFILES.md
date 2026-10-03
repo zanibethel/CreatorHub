@@ -8,7 +8,7 @@ The paper-trading project supports multiple isolated strategy bots so different 
 
 - Profile ID: `default-diverse`
 - Status: active
-- Starting challenge capital: $1,000
+- Starting challenge capital: $100
 - Strategy: `paper-medium-high-v1`
 - Universe: diversified stocks, ETFs, and crypto from the persisted shared watchlist
 - Style: medium-to-high opportunity aggressiveness with deterministic downside controls
@@ -51,7 +51,7 @@ Exact holding-period, score, sizing, and exit parameters remain to be designed a
 
 ## Isolation rules
 
-Every bot must have its own virtual ledger.
+Every bot must have its own $100 virtual ledger. The Alpaca paper account is a shared execution venue and independent audit source, not a shared strategy bankroll.
 
 Bots do not:
 - Share positions.
@@ -61,7 +61,7 @@ Bots do not:
 - Transfer virtual capital to rescue another strategy.
 - Count another bot's activity toward their trade-frequency limits.
 
-Market data and common analytical infrastructure may be shared, but every decision must retain the bot/profile ID and strategy version that produced it.
+Market data, the Alpaca paper venue, and common analytical infrastructure may be shared, but every decision/order must retain the bot/profile ID and strategy version that produced it. Only bot-attributed fills may change that bot's virtual ledger.
 
 This avoids contaminating the experiment. A strong result from one bot must not hide losses from another.
 
@@ -121,9 +121,9 @@ The comparison dashboard is available at `/paper-trading/bots`.
 Current behavior:
 - Shows all registered paper bot profiles as separate challenge cards.
 - Displays Active vs Planned status and each challenge's isolated starting capital.
-- Reads live Default Diverse paper equity, account history, and open-position count from the existing account-report feed.
-- Calculates displayed Default Diverse total return against its $1,000 challenge baseline and drawdown from the saved equity history.
-- Shows planned bots at their untouched $100 starting ledgers without fabricating returns.
+- Reads each bot's equity, cash, risk state, position count, and history from its isolated virtual ledger.
+- Every challenge starts at the same $100 baseline.
+- Displays the Alpaca paper-account balance separately as the execution sandbox/audit trail; broker equity is never substituted for bot equity.
 - Includes a common comparison board for return, drawdown, expectancy/average R, profit factor, MFE/MAE, and kill-switch events.
 - Metrics that do not yet have authoritative persisted data are explicitly shown as awaiting journal/risk data.
 - Planned bots remain disabled and cannot submit orders.
