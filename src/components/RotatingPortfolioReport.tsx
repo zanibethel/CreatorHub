@@ -93,7 +93,7 @@ export default function RotatingPortfolioReport() {
         ))}
       </nav>
 
-      <div aria-live="polite">
+      <div aria-live="polite" onFocusCapture={() => setRotating(false)}>
         {SLIDES.map(([id, label]) => (
           <div key={id} hidden={active !== id} aria-label={label}>
             {id === "watchlist" ? <MarketDataPanel /> : null}
