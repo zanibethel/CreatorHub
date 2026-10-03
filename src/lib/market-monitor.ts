@@ -1,4 +1,4 @@
-export type Candle = { time: string; close: number };
+export type Candle = { time: string; close: number; high?: number; low?: number; volume?: number };
 export type MarketSnapshot = {
   collectedAt: string;
   stocks: Record<string, { bid: number | null; ask: number | null; timestamp: string | null } | null>;
