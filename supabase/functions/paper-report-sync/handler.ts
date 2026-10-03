@@ -72,10 +72,7 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
           db("paper_bot_ledgers?select=bot_id,broker_tag&status=eq.active"),
         ]);
         const exitResults = await managePaperCryptoExits({
-          key,
-          secret,
           db,
-          fetcher,
           positions: Array.isArray(exitPositions) ? exitPositions : [],
           orders: Array.isArray(exitOrders) ? exitOrders : [],
           ledgers: Array.isArray(exitLedgers) ? exitLedgers : [],
