@@ -3,9 +3,26 @@
 import { useEffect, useState } from "react";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 
+export type StagedPaperOrder = {
+  bot_id: string;
+  symbol: string;
+  asset_class: "stock" | "etf" | "crypto" | "unknown";
+  status: string;
+  requested_notional: number | null;
+  requested_quantity: number | null;
+  pool_id: "day" | "multi-day" | "multi-week" | null;
+  entry_trigger: number | null;
+  max_entry_price: number | null;
+  protective_stop: number | null;
+  planned_risk_dollars: number | null;
+  expires_at: string | null;
+  stage_reason: string | null;
+};
+
 export type PaperBotLedgerReport = {
   collectedAt: string;
   bots: PaperBotSummary[];
+  stagedOrders: Record<string, StagedPaperOrder[]>;
   history: Record<string, Array<{ time: string; equity: number }>>;
   accountingModel: {
     challengeStartingCash: number;
