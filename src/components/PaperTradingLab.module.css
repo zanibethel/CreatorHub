@@ -117,3 +117,16 @@
 .recordList { display:grid; gap:16px; }
 .record { border:1px solid var(--border); border-radius:12px; padding:20px; display:grid; gap:16px; }
 @media (max-width:650px) { .record { padding:18px; } .chartRange { flex-direction:column; gap:4px; } .accountStats { display:grid; grid-template-columns:1fr 1fr; gap:12px; } }
+
+.sharedWatchlist { width:100%; display:flex; align-items:center; gap:10px; min-width:0; font-size:12px; }
+.sharedWatchlist > span { color:var(--muted); flex-shrink:0; }
+.sharedWatchlist > div { display:flex; gap:6px; overflow-x:auto; min-width:0; flex:1; padding:3px; }
+.sharedWatchlist button { min-height:32px; padding:6px 9px; font-size:12px; white-space:nowrap; }
+.sharedWatchlist a,.watchActions a,.dialog a { color:#c4b5fd; white-space:nowrap; }
+.research { max-width:1100px; margin:auto; padding:24px; color:#f7f2ff; }
+.research a { color:#c4b5fd; }
+.research section { margin-top:20px; height:auto; overflow:visible; }
+.researchTable { overflow-x:auto; }
+.research table { width:100%; border-collapse:collapse; font-variant-numeric:tabular-nums; }
+.research th,.research td { text-align:left; padding:12px; border-bottom:1px solid var(--border,#312442); white-space:nowrap; }
+@media(max-width:650px) { .sharedWatchlist { flex-wrap:wrap; } .sharedWatchlist > div { flex-basis:calc(100% - 80px); } .research { padding:16px; } }
