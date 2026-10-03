@@ -1,243 +1,147 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
-import { card, colors, secondaryButton } from "@/lib/ui";
-import RotatingPortfolioReport from "@/components/RotatingPortfolioReport";
+import { useEffect, useRef, useState } from "react";
+import RotatingPortfolioReport, { REPORT_VIEWS, type ReportView } from "./RotatingPortfolioReport";
+import { type MarketSnapshot } from "./MarketDataPanel";
+import TradingSponsorCard, { SPONSOR_SLOTS, safeDestination, type SponsorLinks } from "./TradingSponsorCard";
+import styles from "./PaperTradingLab.module.css";
+import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
 
-type Pool = { id: string; name: string; horizon: string; allocation: number; note?: string };
-type Tab = "overview" | "orders" | "history" | "rules";
-
-const INITIAL_CASH = 100;
-const POOLS: Pool[] = [
-  { id: "day", name: "Day trades", horizon: "Same session", allocation: 20 },
-  { id: "multi-day", name: "Multi-day swings", horizon: "Several days", allocation: 40 },
-  { id: "multi-week", name: "Multi-week swings", horizon: "Several weeks", allocation: 40 },
-  { id: "inverse", name: "Inverse ETF sleeve", horizon: "Daily reset monitoring", allocation: 0, note: "Allocation not set" },
-];
-
-const money = (value: number) => new Intl.NumberFormat("en-US", {
-  style: "currency", currency: "USD", maximumFractionDigits: 2,
-}).format(value);
-
-function localDateKey(date: Date) {
-  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"), String(date.getDate()).padStart(2, "0")].join("-");
+function dateKey(date: Date) {
+  return [date.getFullYear(), String(date.getMonth() + 1).padStart(2,"0"), String(date.getDate()).padStart(2,"0")].join("-");
 }
-
-function challengeDay(startDate: string | null) {
-  if (!startDate) return null;
-  const [startYear, startMonth, startDay] = startDate.split("-").map(Number);
-  if (!startYear || !startMonth || !startDay) return null;
-  const today = new Date();
-  const start = Date.UTC(startYear, startMonth - 1, startDay);
-  const current = Date.UTC(today.getFullYear(), today.getMonth(), today.getDate());
-  return Math.max(1, Math.floor((current - start) / 86_400_000) + 1);
+function challengeDay(start: string | null, today: string) {
+  if (!start || !/^\d{4}-\d{2}-\d{2}$/.test(start)) return null;
+  const a = Date.parse(start), b = Date.parse(today);
+  return Number.isFinite(a) && Number.isFinite(b) && a <= b ? Math.floor((b - a) / 86400000) + 1 : null;
 }
 
 export default function PaperTradingLab({ userId }: { userId: string }) {
-  const [activeTab, setActiveTab] = useState<Tab>("overview");
-  const [startedOn, setStartedOn] = useState<string | null>(null);
-  const [storageReady, setStorageReady] = useState(false);
-  const storageKey = "creatorhub:paper-trading:challenge-started-on:" + userId;
-  const day = challengeDay(startedOn);
+  const [view,setView] = useState<ReportView>("portfolio");
+  const [rotating,setRotating] = useState(true);
+  const [sponsorIndex,setSponsorIndex] = useState(0);
+  const [startedOn,setStartedOn] = useState<string | null>(null);
+  const [today,setToday] = useState("");
+  const [ready,setReady] = useState(false);
+  const [storageError,setStorageError] = useState("");
+  const [links,setLinks] = useState<SponsorLinks>({});
+  const [draftLinks,setDraftLinks] = useState<SponsorLinks>({});
+  const [stocks,setStocks] = useState("SPY,QQQ");
+  const [crypto,setCrypto] = useState("BTC-USD,ETH-USD");
+  const [draftStocks,setDraftStocks] = useState(stocks);
+  const [draftCrypto,setDraftCrypto] = useState(crypto);
+  const [snapshot,setSnapshot] = useState<MarketSnapshot | null>(null);
+  const [loading,setLoading] = useState(false);
+  const [error,setError] = useState("");
+  const dialog = useRef<HTMLDialogElement>(null);
+  const request = useRef<AbortController | null>(null);
+  const startKey = `creatorhub:paper-trading:challenge-started-on:${userId}`;
+  const settingsKey = `creatorhub:paper-trading:stream-settings:${userId}`;
+  const day = challengeDay(startedOn,today);
 
   useEffect(() => {
-    const saved = window.localStorage.getItem(storageKey);
-    setStartedOn(saved);
-    setStorageReady(true);
-  }, [storageKey]);
+    try {
+      setStartedOn(window.localStorage.getItem(startKey));
+      const parsed = JSON.parse(window.localStorage.getItem(settingsKey) ?? "{}");
+      const saved = parsed && typeof parsed === "object" ? parsed : {};
+      const clean: SponsorLinks = {};
+      SPONSOR_SLOTS.forEach(slot => { clean[slot.id] = safeDestination(typeof saved.links?.[slot.id] === "string" ? saved.links[slot.id] : ""); });
+      setLinks(clean);
+      if (typeof saved.stocks === "string") setStocks(saved.stocks);
+      if (typeof saved.crypto === "string") setCrypto(saved.crypto);
+    } catch { setStorageError("Browser settings could not be restored."); }
+    setToday(dateKey(new Date()));
+    setReady(true);
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) setRotating(false);
+    const timer = window.setInterval(() => setToday(dateKey(new Date())),30000);
+    return () => { window.clearInterval(timer); request.current?.abort(); };
+  }, [startKey,settingsKey]);
 
-  function startDayCounter() {
-    const date = localDateKey(new Date());
-    window.localStorage.setItem(storageKey, date);
-    setStartedOn(date);
+  useEffect(() => {
+    if (!rotating) return;
+    const pages = window.setInterval(() => {
+      if (!document.hidden) setView(current => REPORT_VIEWS[(REPORT_VIEWS.findIndex(([id]) => id === current) + 1) % REPORT_VIEWS.length][0]);
+    },12000);
+    const sponsors = window.setInterval(() => { if (!document.hidden) setSponsorIndex(i => i + 1); },24000);
+    return () => { window.clearInterval(pages); window.clearInterval(sponsors); };
+  },[rotating]);
+
+  function choose(next: ReportView) { setView(next); setRotating(false); }
+  function move() { choose(REPORT_VIEWS[(REPORT_VIEWS.findIndex(([id]) => id === view) + 1) % REPORT_VIEWS.length][0]); }
+  function openSettings() {
+    setRotating(false); setDraftLinks({...links}); setDraftStocks(stocks); setDraftCrypto(crypto); setError(""); dialog.current?.showModal();
+  }
+  function startCounter() {
+    const date = dateKey(new Date());
+    try { window.localStorage.setItem(startKey,date); setStartedOn(date); setStorageError(""); }
+    catch { setStorageError("Allow browser storage to save the day counter."); }
+  }
+  function saveSettings() {
+    const clean: SponsorLinks = {};
+    for (const slot of SPONSOR_SLOTS) {
+      const value = (draftLinks[slot.id] ?? "").trim();
+      if (value && !safeDestination(value)) { setError(`${slot.title}: enter an HTTPS link of at most 256 characters without embedded login details.`); return; }
+      clean[slot.id] = safeDestination(value);
+    }
+    try {
+      window.localStorage.setItem(settingsKey,JSON.stringify({ version:1, links:clean, stocks:draftStocks, crypto:draftCrypto }));
+      request.current?.abort(); setLoading(false);
+      if (stocks !== draftStocks || crypto !== draftCrypto) setSnapshot(null);
+      setStocks(draftStocks); setCrypto(draftCrypto); setLinks(clean); setSponsorIndex(0); setStorageError(""); dialog.current?.close();
+    } catch { setError("Allow browser storage to save your stream settings."); }
+  }
+  async function refresh() {
+    request.current?.abort();
+    const controller = new AbortController(); request.current = controller;
+    setLoading(true); setError("");
+    try {
+      const query = new URLSearchParams({stocks:draftStocks,crypto:draftCrypto});
+      const response = await fetch(`/api/paper-trading/market-data?${query}`,{ cache:"no-store",signal:controller.signal });
+      const result = await response.json();
+      if (!response.ok) throw new Error(result.error ?? "Could not load quotes.");
+      if (controller.signal.aborted) return;
+      setSnapshot(result); setStocks(draftStocks); setCrypto(draftCrypto);
+    } catch (caught) {
+      if (!controller.signal.aborted) { setSnapshot(null); setError(caught instanceof Error ? caught.message : "Could not load quotes."); }
+    } finally { if (!controller.signal.aborted) setLoading(false); }
   }
 
-  const pools = POOLS.map((pool) => ({
-    ...pool,
-    budget: INITIAL_CASH * pool.allocation / 100,
-    tradeCap: INITIAL_CASH * pool.allocation / 100 * 0.09,
-  }));
-
-  const tabs: Array<[Tab, string]> = [
-    ["overview", "Overview"],
-    ["orders", "Open orders"],
-    ["history", "Trade history"],
-    ["rules", "Strategy rules"],
-  ];
-
-  return (
-    <main style={{ maxWidth: 1180, margin: "0 auto", padding: "24px 18px 52px" }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12, flexWrap: "wrap", marginBottom: 22 }}>
-        <div>
-          <Link href="/" style={{ color: colors.muted, textDecoration: "none", fontSize: 13 }}>← CreatorHub</Link>
-          <h1 style={{ margin: "10px 0 5px", fontSize: "clamp(30px,5vw,44px)", letterSpacing: "-.04em" }}>
-            Day {day ?? "—"} of $100 Bot Trader
-          </h1>
-          <div style={{ color: colors.muted }}>A $100 virtual paper-trading challenge · no real orders</div>
-        </div>
-        <div style={{ display: "flex", alignItems: "center", gap: 9, flexWrap: "wrap" }}>
-          <span style={{ border: "1px solid #855c23", color: "#f4c67b", background: "#241b12", borderRadius: 999, padding: "8px 12px", fontWeight: 800, fontSize: 12 }}>
-            PAPER ONLY
-          </span>
-          <button type="button" onClick={startDayCounter} disabled={!storageReady || Boolean(startedOn)}
-            style={{ ...secondaryButton, opacity: !storageReady || startedOn ? 0.6 : 1, cursor: !storageReady || startedOn ? "not-allowed" : "pointer" }}
-            title={startedOn ? "Challenge day counter has started" : "Starts the day counter only; it does not activate trading"}>
-            {startedOn ? "Counter started" : "Start day counter"}
-          </button>
-        </div>
-      </header>
-
-      <section style={{ ...card, borderColor: "#7256a6", marginBottom: 14 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, flexWrap: "wrap", alignItems: "center" }}>
-          <div>
-            <div style={{ color: colors.purpleBright, fontWeight: 900, letterSpacing: ".08em", textTransform: "uppercase", fontSize: 11 }}>
-              {startedOn ? "Challenge day counter active" : "Paper simulator not started"}
-            </div>
-            <p style={{ margin: "7px 0 0", color: colors.text, lineHeight: 1.55 }}>
-              {startedOn
-                ? "Day counting began " + startedOn + ". This preview counter is saved in this browser; it does not mean the simulator has been running."
-                : "Start the counter when you want to begin the challenge. This only records the start date; it does not generate signals or orders."}
-            </p>
-          </div>
-          <div style={{ color: colors.muted, fontSize: 13 }}>Market data: <strong style={{ color: colors.text }}>Manual refresh only</strong></div>
-        </div>
-      </section>
-
-      <nav aria-label="Paper trading views" style={{ display: "flex", gap: 8, marginBottom: 14, flexWrap: "wrap" }}>
-        {tabs.map(([id, label]) => (
-          <button key={id} type="button" onClick={() => setActiveTab(id)} aria-pressed={activeTab === id}
-            style={{ ...secondaryButton, borderColor: activeTab === id ? colors.purpleBright : colors.border, background: activeTab === id ? colors.purpleSoft : "transparent" }}>
-            {label}
-          </button>
-        ))}
-      </nav>
-
-      {activeTab === "overview" ? (
-        <>
-          <section style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(180px,1fr))", gap: 10, marginBottom: 14 }}>
-            {[
-              ["Virtual starting balance", money(INITIAL_CASH)],
-              ["Available to simulate", money(INITIAL_CASH)],
-              ["Open paper positions", "0"],
-              ["Return", "—"],
-            ].map(([label, value]) => (
-              <div key={label} style={{ ...card, padding: 15 }}>
-                <div style={{ color: colors.muted, fontSize: 12 }}>{label}</div>
-                <div style={{ fontWeight: 900, fontSize: 24, marginTop: 6 }}>{value}</div>
-              </div>
-            ))}
-          </section>
-
-          <section style={{ ...card, marginBottom: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 8, flexWrap: "wrap", alignItems: "baseline", marginBottom: 14 }}>
-              <div>
-                <h2 style={{ margin: 0, fontSize: 20 }}>Capital pools</h2>
-                <p style={{ margin: "5px 0 0", color: colors.muted, fontSize: 13 }}>Virtual budgets use the $100 challenge balance. Maximum position is 9% of each pool.</p>
-              </div>
-              <span style={{ color: colors.muted, fontSize: 12 }}>Current allocation: {pools.reduce((sum, pool) => sum + pool.allocation, 0)}%</span>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(205px,1fr))", gap: 9 }}>
-              {pools.map((pool) => (
-                <article key={pool.id} style={{ border: "1px solid " + colors.border, background: "rgba(7,5,11,.35)", borderRadius: 14, padding: 14 }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 8, alignItems: "start" }}>
-                    <strong>{pool.name}</strong>
-                    <span style={{ color: colors.purpleBright, fontWeight: 900 }}>{pool.allocation}%</span>
-                  </div>
-                  <div style={{ color: colors.muted, fontSize: 12, marginTop: 4 }}>{pool.horizon}</div>
-                  <div style={{ marginTop: 13, fontSize: 21, fontWeight: 900 }}>{money(pool.budget)}</div>
-                  <div style={{ color: colors.muted, fontSize: 12, marginTop: 3 }}>Per-trade cap: {money(pool.tradeCap)}</div>
-                  {pool.note ? <div style={{ color: "#f4c67b", fontSize: 11, marginTop: 8 }}>{pool.note}; percentage must be assigned before simulation.</div> : null}
-                </article>
-              ))}
-            </div>
-            <p style={{ color: colors.muted, fontSize: 12, lineHeight: 1.5, margin: "12px 0 0" }}>
-              Crypto assets can compete for room in any pool; they do not receive a separate allocation. The inverse ETF sleeve is currently unallocated, so the shown 20/40/40 split remains the full 100% allocation until revised.
-            </p>
-          </section>
-
-          <RotatingPortfolioReport />
-
-          <section style={{ ...card, marginBottom: 14 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-              <h2 style={{ margin: 0, fontSize: 20 }}>Signals</h2>
-              <span style={{ color: colors.muted, fontSize: 12 }}>Paper signal engine not active</span>
-            </div>
-            <div style={{ marginTop: 12, border: "1px dashed " + colors.border, borderRadius: 13, padding: "22px 14px", color: colors.muted, textAlign: "center", lineHeight: 1.6 }}>
-              Once data storage and the simulator are connected, this area will show qualified entry alerts, evidence scores, and the reasons a setup passed or failed.
-            </div>
-          </section>
-        </>
-      ) : activeTab === "orders" ? (
-        <section style={{ ...card, marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: 20 }}>Open orders and positions</h2>
-              <p style={{ margin: "5px 0 0", color: colors.muted, fontSize: 13 }}>
-                Current simulator state at the latest report update. Pending and partial entries stay distinct from filled positions.
-              </p>
-            </div>
-            <span style={{ color: colors.muted, fontSize: 12 }}>No order ledger connected</span>
-          </div>
-          <div style={{ overflowX: "auto", marginTop: 13 }}>
-            <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", textAlign: "left", fontSize: 12 }}>
-              <thead><tr style={{ color: colors.muted }}>
-                {["Placed", "Asset", "Pool", "Status", "Limit / average fill", "Filled / requested", "Stop / target"].map((heading) => (
-                  <th key={heading} scope="col" style={{ padding: "9px 8px", borderBottom: "1px solid " + colors.border, fontWeight: 700 }}>{heading}</th>
-                ))}
-              </tr></thead>
-              <tbody><tr><td colSpan={7} style={{ padding: "20px 8px", color: colors.muted, textAlign: "center", lineHeight: 1.6 }}>
-                No open orders or positions yet. This view will populate when the paper simulator records pending, partially filled, or filled orders.
-              </td></tr></tbody>
-            </table>
-          </div>
+  return <main className={styles.dashboard}>
+    <header className={styles.header}>
+      <div className={styles.brand}><Link href="/">CreatorHub</Link><h1>Day {day ?? "—"} of $1,000 Bot Trader</h1><span className={styles.pill}>PAPER ONLY · simulator inactive</span></div>
+      <div className={styles.metrics}>
+        <div className={styles.metric}><span>Virtual starting cash</span><strong>{formatPaperMoney(PAPER_STARTING_CASH)}</strong><small className={styles.meta}>Account ledger not connected</small></div>
+        <div className={styles.metric}><span>Today’s P/L</span><strong>—</strong><small className={styles.meta}>Not recorded</small></div>
+      </div>
+    </header>
+    <div className={styles.toolbar}>
+      <nav className={styles.tabs} aria-label="Report screens">{REPORT_VIEWS.map(([id,label]) => <button key={id} aria-pressed={view === id} onClick={() => choose(id)}>{label}</button>)}</nav>
+      <div className={styles.controls}>
+        <button onClick={() => setRotating(v => !v)} aria-pressed={rotating}>{rotating ? "Pause" : "Resume"}</button>
+        <button onClick={move}>Next</button><button onClick={openSettings}>Stream settings</button>
+      </div>
+    </div>
+    <div className={styles.stage} onFocusCapture={() => setRotating(false)}>
+      <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} />
+      <TradingSponsorCard links={links} index={sponsorIndex} onSetup={openSettings} />
+    </div>
+    <footer className={styles.footer}><span>{storageError || "Manual quotes · no real orders · no account history recorded"}</span><span>{REPORT_VIEWS.findIndex(([id]) => id === view) + 1}/3 · {rotating ? "Rotates every 12s" : "Paused"}</span></footer>
+    <dialog ref={dialog} className={styles.dialog} aria-labelledby="paper-settings-title" onClose={() => { request.current?.abort(); setLoading(false); }}>
+      <h2 id="paper-settings-title">Stream settings</h2>
+      <form onSubmit={event => { event.preventDefault(); saveSettings(); }}>
+        <section><h3>Challenge counter</h3><p>{startedOn ? `Started ${startedOn}.` : "Choose when day one begins."} The counter and settings are saved in this browser. Starting it does not run the simulator.</p><button type="button" disabled={!ready || !!startedOn} onClick={startCounter}>{startedOn ? "Counter started" : "Start day counter"}</button></section>
+        <section><h3>Market snapshots</h3><p>Sample symbols are editable. Stocks require Alpaca keys on the server; leave stocks blank to check crypto only. Prices are manual snapshots, not streaming quotes.</p>
+          <label>Stocks / ETFs<input value={draftStocks} maxLength={120} onChange={e => setDraftStocks(e.target.value)} placeholder="SPY,QQQ" /></label>
+          <label>USD crypto pairs<input value={draftCrypto} maxLength={180} onChange={e => setDraftCrypto(e.target.value)} placeholder="BTC-USD,ETH-USD" /></label>
+          <button type="button" disabled={loading} onClick={refresh}>{loading ? "Fetching…" : "Refresh quotes"}</button>
         </section>
-      ) : activeTab === "history" ? (
-        <section style={{ ...card, marginBottom: 14 }}>
-          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
-            <div>
-              <h2 style={{ margin: 0, fontSize: 20 }}>Previous trades</h2>
-              <p style={{ margin: "5px 0 0", color: colors.muted, fontSize: 13 }}>
-                Closed paper trades with entry, exit, costs, realized result, and the strategy rationale.
-              </p>
-            </div>
-            <span style={{ color: colors.muted, fontSize: 12 }}>No trade history connected</span>
-          </div>
-          <div style={{ overflowX: "auto", marginTop: 13 }}>
-            <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", textAlign: "left", fontSize: 12 }}>
-              <thead><tr style={{ color: colors.muted }}>
-                {["Closed", "Asset", "Pool", "Side", "Entry → exit", "Net P/L", "Signal / exit reason"].map((heading) => (
-                  <th key={heading} scope="col" style={{ padding: "9px 8px", borderBottom: "1px solid " + colors.border, fontWeight: 700 }}>{heading}</th>
-                ))}
-              </tr></thead>
-              <tbody><tr><td colSpan={7} style={{ padding: "20px 8px", color: colors.muted, textAlign: "center", lineHeight: 1.6 }}>
-                No completed trades yet. Closed trades will appear here once the simulator records them.
-              </td></tr></tbody>
-            </table>
-          </div>
+        <section><h3>QR destinations</h3><p>Blank links stay out of rotation. Add CoOperative when ready. Each code opens that exact destination; donation and ad checkout pages must already exist.</p>
+          {SPONSOR_SLOTS.map(slot => <label key={slot.id}>{slot.title}<input type="url" placeholder="https://…" maxLength={256} value={draftLinks[slot.id] ?? ""} onChange={e => setDraftLinks(current => ({...current,[slot.id]:e.target.value}))} /></label>)}
         </section>
-      ) : (
-        <section style={{ ...card }}>
-          <h2 style={{ margin: "0 0 12px", fontSize: 20 }}>Entry and exit rules</h2>
-          <div style={{ display: "grid", gap: 9 }}>
-            {[
-              ["Setup evidence", "Price and volume conditions, volatility, related assets, and timestamped news update a calibrated score. Evidence can raise or lower it."],
-              ["Order-book check", "Spread, depth, persistent displayed liquidity, and executed trades may confirm or reject an entry when a supported feed is available."],
-              ["Limit entry", "A paper limit order is created only after setup, risk, and book gates pass. It expires or is reassessed if it does not fill."],
-              ["Linked exits", "Only after a simulated fill, attach the configured stop and profit target. Simulated fills include spread and slippage assumptions."],
-              ["Hard limits", "At most 9% of the assigned pool per trade, with a separate maximum-loss budget and a portfolio-wide exposure limit."],
-            ].map(([title, description]) => (
-              <div key={title} style={{ borderLeft: "3px solid " + colors.purple, padding: "4px 0 4px 12px" }}>
-                <strong>{title}</strong><div style={{ color: colors.muted, fontSize: 13, lineHeight: 1.55, marginTop: 3 }}>{description}</div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      <footer style={{ color: colors.muted, fontSize: 11, marginTop: 14, lineHeight: 1.5 }}>
-        Virtual $100 challenge only. Starting the counter does not run the simulator. Market snapshots are manual and no real orders are placed.
-      </footer>
-    </main>
-  );
+        {error || storageError ? <p role="alert" className={styles.error}>{error || storageError}</p> : null}
+        <div className={styles.dialogActions}><button type="button" onClick={() => dialog.current?.close()}>Close</button><button type="submit">Save settings</button></div>
+      </form>
+    </dialog>
+  </main>;
 }

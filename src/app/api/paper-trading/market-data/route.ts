@@ -46,10 +46,26 @@ export async function GET(request: Request) {
   const stockBarsPromise = stockSymbols.length
     ? fetchStockBars(stockSymbols)
     : Promise.resolve({});
-  const cryptoPromise = Promise.all(cryptoProducts.map(fetchKrakenMarketData));
-
-  try {
-    const [stocks, stockBars, crypto] = await Promise.all([stocksPromise, stockBarsPromise, cryptoPromise]);
+  const [stocksResult, barsResult, ...cryptoResults] = await Promise.allSettled([
+    stocksPromise, stockBarsPromise, ...cryptoProducts.map(fetchKrakenMarketData),
+  ] as const);
+  const errors: Record<string, string> = {};
+  const message = (reason: unknown) => reason instanceof Error ? reason.message : "Market-data request failed.";
+  if (stocksResult.status === "rejected") errors.stocks = message(stocksResult.reason);
+  if (barsResult.status === "rejected") errors.stockBars = message(barsResult.reason);
+  const crypto = cryptoResults.flatMap((result, index) => {
+    if (result.status === "fulfilled") return [result.value];
+    errors[cryptoProducts[index]] = message(result.reason);
+    return [];
+  });
+  const stocks = stocksResult.status === "fulfilled" ? stocksResult.value : {};
+  const stockBars = barsResult.status === "fulfilled" ? barsResult.value : {};
+  const hasQuotes = Object.values(stocks).some(Boolean) || crypto.some(book => book.bestBid || book.bestAsk);
+  if (!hasQuotes) {
+    return NextResponse.json({ error: "No quotes available from the requested sources.", errors }, {
+      status: 502, headers: { "Cache-Control": "no-store" },
+    });
+  }
     return NextResponse.json({
       collectedAt: new Date().toISOString(),
       sources: {
@@ -59,12 +75,9 @@ export async function GET(request: Request) {
       stocks,
       stockBars,
       crypto,
+      errors,
       note: "Read-only market data snapshot. It is not a trade signal or a simulated fill.",
     }, { headers: { "Cache-Control": "no-store" } });
-  } catch (error) {
-    const message = error instanceof Error ? error.message : "Market-data request failed.";
-    return NextResponse.json({ error: message }, { status: 502 });
-  }
 }
 
 async function fetchStockQuotes(symbols: string[]) {
@@ -76,6 +89,7 @@ async function fetchStockQuotes(symbols: string[]) {
   const response = await fetch(`https://data.alpaca.markets/v2/stocks/quotes/latest?${query.toString()}`, {
     headers: { "APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret },
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) throw new Error(`Alpaca returned HTTP ${response.status}.`);
 
@@ -99,19 +113,33 @@ async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[
   const secret = process.env.ALPACA_API_SECRET_KEY;
   if (!key || !secret) throw new Error("Alpaca data keys are not configured on the server.");
 
-  const query = new URLSearchParams({ symbols: symbols.join(","), timeframe: "1Day", limit: "30", feed: "iex" });
-  const response = await fetch(`https://data.alpaca.markets/v2/stocks/bars?${query.toString()}`, {
-    headers: { "APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret },
-    cache: "no-store",
+  // Alpaca's page limit is across symbols; always follow pagination so later
+  // symbols are not silently omitted. An explicit start retrieves chart history.
+  const query = new URLSearchParams({
+    symbols: symbols.join(","), timeframe: "1Day", limit: "1000", feed: "iex",
+    start: new Date(Date.now() - 60 * 86_400_000).toISOString(),
+    adjustment: "split", sort: "asc",
   });
-  if (!response.ok) throw new Error(`Alpaca history request returned HTTP ${response.status}.`);
-
-  const payload = await response.json() as {
-    bars?: Record<string, Array<{ t: string; c: number }>>;
-  };
+  const bars: Record<string, Array<{ t: string; c: number }>> = {};
+  const signal = AbortSignal.timeout(10_000);
+  for (let page = 0; page < 10; page++) {
+    const response = await fetch(`https://data.alpaca.markets/v2/stocks/bars?${query.toString()}`, {
+      headers: { "APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret },
+      cache: "no-store", signal,
+    });
+    if (!response.ok) throw new Error(`Alpaca history request returned HTTP ${response.status}.`);
+    const payload = await response.json() as {
+      bars?: Record<string, Array<{ t: string; c: number }>>;
+      next_page_token?: string | null;
+    };
+    for (const symbol of symbols) bars[symbol] = [...(bars[symbol] ?? []), ...(payload.bars?.[symbol] ?? [])];
+    if (!payload.next_page_token) break;
+    if (page === 9) throw new Error("Stock history exceeded the page limit; retry with fewer symbols.");
+    query.set("page_token", payload.next_page_token);
+  }
   return Object.fromEntries(symbols.map((symbol) => [
     symbol,
-    (payload.bars?.[symbol] ?? []).map(({ t, c }) => ({ time: t, close: c })),
+    (bars[symbol] ?? []).filter(({ c }) => Number.isFinite(c) && c > 0).slice(-30).map(({ t, c }) => ({ time: t, close: c })),
   ]));
 }
 
@@ -126,6 +154,7 @@ async function fetchKrakenCandles(product: string): Promise<Candle[]> {
   const query = new URLSearchParams({ pair: `${krakenBase}${quote}`, interval: "60" });
   const response = await fetch(`https://api.kraken.com/0/public/OHLC?${query.toString()}`, {
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) throw new Error(`Kraken history request returned HTTP ${response.status} for ${product}.`);
 
@@ -136,7 +165,8 @@ async function fetchKrakenCandles(product: string): Promise<Candle[]> {
   if (payload.error?.length) throw new Error(`Kraken could not load history for ${product}: ${payload.error.join(", ")}`);
   const result = payload.result ?? {};
   const pairKey = Object.keys(result).find((key) => key !== "last");
-  return pairKey ? (result[pairKey] ?? []).map(([timestamp, , , , close]) => ({
+  // Kraken's last OHLC row is the current, uncommitted interval.
+  return pairKey ? (result[pairKey] ?? []).slice(0, -1).map(([timestamp, , , , close]) => ({
     time: new Date(timestamp * 1000).toISOString(),
     close: Number(close),
   })) : [];
@@ -149,6 +179,7 @@ async function fetchKrakenBook(product: string) {
   const response = await fetch(`https://api.kraken.com/0/public/PreTrade?${query.toString()}`, {
     headers: { Accept: "application/json" },
     cache: "no-store",
+    signal: AbortSignal.timeout(10_000),
   });
   if (!response.ok) throw new Error(`Kraken returned HTTP ${response.status} for ${product}.`);
 
@@ -159,11 +190,12 @@ async function fetchKrakenBook(product: string) {
   if (payload.error?.length) throw new Error(`Kraken could not load ${product}: ${payload.error.join(", ")}`);
 
   const book = payload.result;
-  const bids = (book?.bids ?? []).map(({ price, qty, publication_ts }) => ({ price: Number(price), size: Number(qty), timestamp: publication_ts }));
-  const asks = (book?.asks ?? []).map(({ price, qty, publication_ts }) => ({ price: Number(price), size: Number(qty), timestamp: publication_ts }));
+  const validLevel = (level: { price: number; size: number }) => Number.isFinite(level.price) && level.price > 0 && Number.isFinite(level.size) && level.size > 0;
+  const bids = (book?.bids ?? []).map(({ price, qty, publication_ts }) => ({ price: Number(price), size: Number(qty), timestamp: publication_ts })).filter(validLevel).sort((a,b) => b.price - a.price);
+  const asks = (book?.asks ?? []).map(({ price, qty, publication_ts }) => ({ price: Number(price), size: Number(qty), timestamp: publication_ts })).filter(validLevel).sort((a,b) => a.price - b.price);
   return {
     product,
-    timestamp: bids[0]?.timestamp ?? asks[0]?.timestamp ?? new Date().toISOString(),
+    timestamp: bids[0]?.timestamp ?? asks[0]?.timestamp ?? null,
     bestBid: bids[0] ?? null,
     bestAsk: asks[0] ?? null,
     bids,

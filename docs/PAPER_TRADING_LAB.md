@@ -6,12 +6,12 @@ CreatorHub's Paper Trading Lab is a private, paper-only portfolio report and str
 
 ## Agreed initial model
 
-- Start the challenge with **$100 virtual cash**; report no performance until data and simulated fills exist.
+- Start the challenge with **$1,000 virtual cash**; report no performance until data and simulated fills exist.
 - The initial challenge counter begins only after the user selects Start day counter. In this preview the date is stored per signed-in user in that browser's local storage; it does not claim the simulator was running. Move the start date to private user-scoped persistence before treating this as a cross-device account setting.
 - Initial holding-period allocations: **20% day trades, 40% multi-day swings, and 40% multi-week swings**.
 - Maintain a separate inverse ETF sleeve that is monitored daily. Its allocation has not been chosen, so it is currently shown as unallocated. Any final configuration must sum to 100% of the virtual account.
 - Crypto assets are eligible within the same pools. They do not receive a separate capital allocation.
-- One trade may use no more than **9% of its assigned pool's budget**. With a $100 challenge, that means example position caps of $1.80, $3.60, and $3.60 for the 20%, 40%, and 40% pools. This is a position-size ceiling, not a loss limit; a separate loss budget is required.
+- One trade may use no more than **9% of its assigned pool's budget**. With a $1,000 challenge, that means example position caps of $18, $36, and $36 for the 20%, 40%, and 40% pools. This is a position-size ceiling, not a loss limit; a separate loss budget is required.
 - An unfilled candidate may move to another pool before entry. A filled trade remains attributed to the pool that owns it until closed.
 
 ## Entry and exit lifecycle
@@ -36,10 +36,16 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 
 ## Rotating dashboard behavior
 
-- The overview cycles through **Watchlist**, **Orders & trades**, **Portfolio growth**, and **Upcoming targets** every 12 seconds. Users can choose a section, pause/resume rotation, or move back/forward.
-- Watchlist lines use actual historical closes from the selected providers. Stock history uses Alpaca IEX daily bars; crypto history uses Kraken hourly candles. Keep provider and timeframe labels visible.
-- Portfolio growth must use saved paper-account value snapshots only. Market price charts are not account-performance charts. Until the private ledger exists, show an empty state with the $100 starting amount and do not draw invented returns.
-- Upcoming targets show actual pending simulated limit entries and linked stop/profit exits only after the simulator creates them. Do not present thresholds as accepted or filled orders.
+- Three report screens: **Portfolio & watchlist**, **Trades & rules**, and **Upcoming orders**, advancing every 12 seconds. Manual selection, report interaction, and settings pause both report and sponsor rotation. Reduced-motion preference starts paused.
+- A persistent top bar shows the challenge day, virtual starting cash, and daily P/L. The current $1,000 is the initial virtual amount; P/L stays unrecorded until a private ledger exists.
+- Desktop/livestream layouts fill the viewport with all report cards visible. The watchlist pages through four symbols at a time. Very short screens (under 561px high) allow vertical scrolling to keep content readable.
+- Portfolio screen reserves the top card for saved account value since day one, with the watchlist grid below. Watchlist prices show fetched bid/ask snapshots with venue/timeframe labels and real provider closing-price charts.
+- Trades screen reserves space for the 10 most recent completed trades and their purchase/fill/cost/rationale reports, alongside the pool and entry/exit rules. Until private persistence exists, no fictional records appear.
+- Upcoming screen distinguishes pending/partial entries from filled positions and linked target/stop sell orders.
+- One sponsor/QR card occupies the same position on every screen. Its destination rotates every 24 seconds independently of screen changes, so a code remains visible through two screen transitions.
+- Stream settings accept exact HTTPS destinations for creator donations, ad booking, RaiseHub, and CoOperative. Blank destinations are excluded; CoOperative is added only when ready. Codes are generated locally with a four-module quiet zone and link to the displayed destination. No external QR service receives the links.
+- These links and symbols are per-user browser settings, not a persisted ad inventory or payment system. Donation and ad checkout pages must already exist. Donations do not modify the virtual bankroll. No public dashboard access or livestream broadcast is implemented.
+- Growth uses saved paper-account snapshots only. Market price charts are not account performance. Until snapshots exist, display the virtual starting amount without a fabricated curve.
 
 ## Report views
 
@@ -52,7 +58,7 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 - The future hourly job updates snapshots and paper-trade state; it does **not** rewrite or commit website source code every hour.
 - The report page reads the latest stored snapshot on refresh and shows separate timestamps for equity and crypto data.
 - Crypto is monitored around the clock. Equity checks follow the equity market session and clearly show when quotes are stale.
-- Real portfolio data requires an authorized data connection. The current preview has no live quote, broker, or Level II feed and generates no trades.
+- Real portfolio data requires an authorized data connection. The preview can manually fetch market quotes and crypto depth, but it has no brokerage connection, persisted portfolio history, or trading worker and generates no trades.
 - Do not connect real order routing in this project. Start with paper simulation and an explicit data-source adapter.
 
 ## Open before live-data paper runs
@@ -61,3 +67,10 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 - Choose the inverse ETF sleeve's percentage so pool allocations total 100%.
 - Define the initial watchlist, paper fill methodology, score threshold, maximum portfolio loss, and risk per trade through backtesting.
 - Implement private persistence with row-level user ownership and verify access controls before storing account-linked holdings.
+
+## Preview verification
+
+- Run `npm run test:paper` for access-control, watchlist-validation, partial-provider-failure, order-book sorting, and stock-history pagination checks with mocked provider responses.
+- Provider requests time out after 10 seconds. Missing stock credentials and unsupported crypto pairs are reported individually so other sources can still load. A refresh with no usable quotes fails explicitly.
+- Stock charts request 60 calendar days of split-adjusted daily bars, follow pagination, and display the latest 30 bars. Crypto charts omit the current incomplete hourly candle.
+- Source timestamps include the date so older quotes are not mistaken for current quotes. Manual snapshots are not evidence of order-book persistence or trade execution.
