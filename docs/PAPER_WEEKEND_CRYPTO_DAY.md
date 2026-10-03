@@ -1,6 +1,6 @@
 # Weekend Crypto Day Bot — PAPER Proof of Concept
 
-Status: live scanner / execution disabled.
+Status: live scanner + automated PAPER execution armed; live money disabled.
 
 ## Purpose
 
@@ -16,7 +16,7 @@ This is a separate $100 challenge. It does not share capital, positions, P/L, or
 - Starting virtual equity: $100
 - Execution venue: Alpaca Paper
 - Live-money execution: disabled
-- PAPER execution: currently disabled while the automated execution/exit loop is validated
+- PAPER execution: armed under deterministic scanner/risk/cron gates
 
 ## Universe
 
@@ -145,17 +145,15 @@ Implemented:
 - Deterministic 23:45 America/Chicago session flatten.
 - Vercel runner scheduled every five minutes on weekend-relevant UTC days; the route itself enforces the America/Chicago weekend window.
 - Server-only Cron and weekend-execution secrets configured in Vercel Production.
-- PAPER execution remains disabled until the deployed loop is smoke-verified.
+- PAPER execution is armed after a controlled broker smoke verified marketable-limit entry, fee-adjusted sellable quantity, protective stop-limit acceptance, cancellation, and immediate flatten with no residual BTC position.
 
 ## Next implementation sequence
 
-1. Confirm the latest Production build is green with the entry, manager, flatten, and cron routes.
-2. Verify the cron invokes safely while `executionEnabled=false`.
-3. Run a controlled PAPER smoke of the weekend executor/protection path without weakening readiness rules.
-4. Arm `executionEnabled=true` for this bot only after the smoke passes.
-5. Let the scanner wait for a genuine BTC/ETH/SOL setup instead of forcing a trade.
-6. Validate complete PAPER round trips including +1R protection, +2R partial, trailing remainder, 23:45 flatten, and fee reconciliation.
-7. Tune only from documented evidence; do not loosen thresholds merely to create activity.
+1. Let the armed scanner wait for a genuine BTC/ETH/SOL setup instead of forcing a trade.
+2. Validate the first complete tagged `wkd` PAPER round trip through entry, protection, mark-to-market, exit management, and ledger reconciliation.
+3. Verify +1R protection, +2R 50% partial, trailing remainder, and 23:45 flatten under actual broker state.
+4. Reconcile official Alpaca CFEE activity against the immediate fee estimate.
+5. Tune only from documented evidence; do not loosen thresholds merely to create activity.
 
 ## Promotion rule
 
