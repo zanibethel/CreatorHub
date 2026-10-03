@@ -50,7 +50,7 @@ function BotCard({ profile, currentEquity, drawdown, positions, brokerOrders, br
       <div><span>Max drawdown</span><strong>{active ? percent(drawdown) : "Not started"}</strong></div>
       <div><span>Open positions</span><strong>{active ? positions ?? "Awaiting data" : "0"}</strong></div>
       <div><span>Tagged broker orders</span><strong>{brokerOrders}</strong></div>
-      <div><span>Tracked fills</span><strong>{brokerFills}</strong></div>
+      <div><span>Ledger-applied fills</span><strong>{brokerFills}</strong></div>
     </div>
 
     <div className={styles.botRuleGrid}>
@@ -124,7 +124,7 @@ export default function PaperBotLab() {
             <tr><td>Current equity</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{profile.id === defaultProfile.id ? money(equity) : "Not started"}</td>)}</tr>
             <tr><td>Total return</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{profile.id === defaultProfile.id && equity !== null ? percent((equity / profile.challengeStartingCash - 1) * 100) : "Not started"}</td>)}</tr>
             <tr><td>Max drawdown</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{profile.id === defaultProfile.id ? percent(drawdown) : "Not started"}</td>)}</tr>
-            <tr><td>Tagged broker fills</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{ledgerFor(profile.id)?.brokerFillCount ?? 0}</td>)}</tr>
+            <tr><td>Ledger-applied fills</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{ledgerFor(profile.id)?.brokerFillCount ?? 0}</td>)}</tr>
             <tr><td>Expectancy / avg R</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>Awaiting journal</td>)}</tr>
             <tr><td>Profit factor</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>Awaiting journal</td>)}</tr>
             <tr><td>MFE / MAE</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>Awaiting journal</td>)}</tr>
