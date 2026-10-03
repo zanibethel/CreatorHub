@@ -22,8 +22,6 @@ export type StagedPaperOrder = {
   take_profit_r: number | null;
   protect_winner_at_r: number | null;
   trail_remainder: boolean;
-  last_exit_manager_at: string | null;
-  exit_manager_state: ExitManagerState;
 };
 
 export type ExitManagerState = {
@@ -53,6 +51,8 @@ export type PaperPositionPlan = {
   take_profit_r: number | null;
   protect_winner_at_r: number | null;
   trail_remainder: boolean;
+  last_exit_manager_at: string | null;
+  exit_manager_state: ExitManagerState;
 };
 
 export type PaperBotLedgerReport = {
