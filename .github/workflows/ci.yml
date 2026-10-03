@@ -26,5 +26,8 @@ jobs:
       - name: Lint
         run: npm run lint
 
+      - name: Paper monitor tests
+        run: npm run test:paper
+
       - name: Build
         run: npm run build

@@ -401,6 +401,9 @@ export default function Dashboard({ userId }: { userId: string }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 7 }}>
+          <a href="/paper-trading" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            Paper Trading Lab
+          </a>
           {activeCreator ? (
             <button type="button" style={secondaryButton} onClick={() => setEditingLayout((current) => !current)}>
               {editingLayout ? "Done" : "Edit"}
