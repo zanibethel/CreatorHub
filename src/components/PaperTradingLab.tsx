@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { card, colors, secondaryButton } from "@/lib/ui";
+import MarketDataPanel from "@/components/MarketDataPanel";
 
 type Pool = { id: string; name: string; horizon: string; allocation: number; note?: string };
 
@@ -105,6 +106,8 @@ export default function PaperTradingLab() {
               Crypto assets can compete for room in any pool; they do not receive a separate allocation. The inverse ETF sleeve is currently unallocated, so the shown 20/40/40 split remains the full 100% allocation until revised.
             </p>
           </section>
+
+          <MarketDataPanel />
 
           <section style={{ ...card, marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
