@@ -32,6 +32,17 @@ function OrderPlan({ order }: { order: StagedPaperOrder }) {
   </div>;
 }
 
+function ExitManagerRow({ position }: { position: PaperPositionPlan }) {
+  const manager = position.exit_manager_state;
+  const rMultiple = manager.rMultiple;
+  return <div>
+    <span>{position.symbol}</span>
+    <strong>{(manager.plannedAction ?? "hold").replaceAll("_", " ")}{rMultiple !== undefined ? ` · ${rMultiple >= 0 ? "+" : ""}${rMultiple.toFixed(2)}R` : ""}</strong>
+    <small>Mark {money(manager.markPrice ?? null)} · stop {money(position.protective_stop)}{manager.desiredStop ? ` · planned stop ${money(manager.desiredStop)}` : ""}</small>
+    <small>{manager.reason ?? "Waiting for evaluation."}</small>
+  </div>;
+}
+
 function BotCard({ profile, ledger, history, staged, positions }: {
   profile: PaperBotProfile;
   ledger: PaperBotSummary | null;
@@ -71,12 +82,7 @@ function BotCard({ profile, ledger, history, staged, positions }: {
 
     {positions.length ? <div>
       <h3>Exit manager</h3>
-      <div className={styles.botRuleGrid}>{positions.map(position => <div key={position.symbol}>
-        <span>{position.symbol}</span>
-        <strong>{(position.exit_manager_state.plannedAction ?? "hold").replaceAll("_", " ")}{position.exit_manager_state.rMultiple !== undefined ? ` · ${position.exit_manager_state.rMultiple >= 0 ? "+" : ""}${position.exit_manager_state.rMultiple.toFixed(2)}R` : ""}</strong>
-        <small>Mark {money(position.exit_manager_state.markPrice ?? null)} · stop {money(position.protective_stop)}{position.exit_manager_state.desiredStop ? ` · planned stop ${money(position.exit_manager_state.desiredStop)}` : ""}</small>
-        <small>{position.exit_manager_state.reason ?? "Waiting for evaluation."}</small>
-      </div>)}</div>
+      <div className={styles.botRuleGrid}>{positions.map(position => <ExitManagerRow key={position.symbol} position={position} />)}</div>
     </div> : null}
 
     {staged.length ? <div>
