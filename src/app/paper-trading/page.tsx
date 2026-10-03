@@ -10,5 +10,5 @@ export default async function PaperTradingPage() {
 
   if (!user || user.is_anonymous) redirect("/");
 
-  return <PaperTradingLab />;
+  return <PaperTradingLab userId={user.id} />;
 }
