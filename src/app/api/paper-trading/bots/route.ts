@@ -14,7 +14,7 @@ const historyRow = z.object({
 const positionRow = z.object({ bot_id: z.string().min(1).max(64), symbol: z.string().min(1).max(32) });
 const journalCountRow = z.object({ bot_id: z.string().min(1).max(64), id: z.coerce.number().int().positive() });
 const brokerOrderRow = z.object({ bot_id: z.string().min(1).max(64), broker_order_id: z.string().min(1).max(80) });
-const brokerFillRow = z.object({ bot_id: z.string().min(1).max(64), fill_activity_id: z.string().min(1).max(160), transaction_time: timestamp });
+const brokerFillRow = z.object({ bot_id: z.string().min(1).max(64), fill_activity_id: z.string().min(1).max(160), transaction_time: timestamp, ledger_applied_at: timestamp.nullable() });
 
 export async function GET() {
   const secret = process.env.SUPABASE_SECRET_KEY;
@@ -40,7 +40,7 @@ export async function GET() {
       read("paper_bot_positions?select=bot_id,symbol&limit=5000"),
       read("paper_bot_journal?select=id,bot_id&limit=10000"),
       read("paper_bot_broker_orders?select=bot_id,broker_order_id&limit=10000"),
-      read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time&order=transaction_time.desc&limit=10000"),
+      read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
     ]);
 
     const ledgers = z.array(paperBotLedgerRowSchema).parse(ledgerRaw);
@@ -57,8 +57,8 @@ export async function GET() {
         positions.filter(position => position.bot_id === row.bot_id).length,
         journals.filter(event => event.bot_id === row.bot_id).length,
         brokerOrders.filter(order => order.bot_id === row.bot_id).length,
-        brokerFills.filter(fill => fill.bot_id === row.bot_id).length,
-        brokerFills.find(fill => fill.bot_id === row.bot_id)?.transaction_time ?? null,
+        brokerFills.filter(fill => fill.bot_id === row.bot_id && fill.ledger_applied_at !== null).length,
+        brokerFills.find(fill => fill.bot_id === row.bot_id && fill.ledger_applied_at !== null)?.transaction_time ?? null,
       )),
       history: Object.fromEntries(ledgers.map(row => [
         row.bot_id,
