@@ -7,6 +7,7 @@ export type PaperBotProfile = {
   name: string;
   status: PaperBotStatus;
   challengeStartingCash: number;
+  brokerTag: string;
   strategyId: string | null;
   style: string;
   universe: {
@@ -33,6 +34,7 @@ export const DEFAULT_DIVERSE_BOT: PaperBotProfile = {
   name: "Default Diverse Bot",
   status: "active",
   challengeStartingCash: 100,
+  brokerTag: "div",
   strategyId: PAPER_STRATEGY_V1.id,
   style: "Diversified medium-to-high opportunity strategy with deterministic downside controls",
   universe: {
@@ -59,6 +61,7 @@ export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
   name: "$100 Penny Volatility Day Bot",
   status: "planned",
   challengeStartingCash: 100,
+  brokerTag: "pny",
   strategyId: null,
   style: "Higher-volatility intraday penny-stock experiment",
   universe: {
@@ -87,6 +90,7 @@ export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
   name: "$100 Three-Trade Weekly Swing Bot",
   status: "planned",
   challengeStartingCash: 100,
+  brokerTag: "sw3",
   strategyId: null,
   style: "Selective swing-trading experiment with intentionally low trade frequency",
   universe: {
