@@ -43,6 +43,8 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
       await db("rpc/paper_bot_reconcile_broker_activity", { p_orders: brokerActivity.orders, p_fills: brokerActivity.fills, p_collected_at: report.collectedAt });
       phase = "prepared order linkage";
       await db("rpc/paper_bot_link_prepared_orders", { p_collected_at: report.collectedAt });
+      phase = "virtual ledger fill application";
+      await db("rpc/paper_bot_apply_unapplied_fills", { p_collected_at: report.collectedAt });
       phase = "snapshot save";
       await db("rpc/paper_report_save_snapshot", { p_source_key: sourceKey, p_payload: report });
       return reply({ ok: true, collectedAt: report.collectedAt, partial: Object.keys(report.errors).length > 0 });
