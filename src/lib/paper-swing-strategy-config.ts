@@ -1,0 +1,36 @@
+export const THREE_TRADE_SWING_STRATEGY_V1 = {
+  id: "three-trade-weekly-swing-v1",
+  botProfileId: "three-trade-weekly-swing-100",
+  displayName: "$100 Three-Trade Weekly Swing Bot",
+  version: 1,
+  mode: "paper-only",
+  cadence: {
+    maximumNewEntriesPerWeek: 3,
+    maximumOpenPositions: 3,
+    stageExpiry: "same-session",
+  },
+  setup: {
+    fastAveragePeriod: 10,
+    slowAveragePeriod: 20,
+    momentumLookback: 5,
+    breakoutLookback: 20,
+    entryBufferPct: 0.10,
+    maximumChaseAtr: 0.50,
+  },
+  risk: {
+    riskPerTradePct: 1.00,
+    maximumPositionAllocationPct: 30,
+    maximumOpenRiskPct: 3.00,
+    atrStopMultiplier: 1.75,
+    structureLookback: 10,
+    structureBufferAtr: 0.10,
+    minimumRewardR: 2.00,
+    weeklyDrawdownLimitPct: 5.00,
+  },
+  execution: {
+    requiresFreshRevalidation: true,
+    submitAtMarketOpen: false,
+    allowGapChase: false,
+    paperOnly: true,
+  },
+} as const;
