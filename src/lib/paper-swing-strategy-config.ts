@@ -25,6 +25,10 @@ export const THREE_TRADE_SWING_STRATEGY_V1 = {
     structureLookback: 10,
     structureBufferAtr: 0.10,
     minimumRewardR: 2.00,
+    firstTakeProfitR: 2.00,
+    firstTakeProfitFraction: 0.50,
+    protectWinnerAtR: 1.00,
+    trailRemainder: true,
     weeklyDrawdownLimitPct: 5.00,
   },
   execution: {
