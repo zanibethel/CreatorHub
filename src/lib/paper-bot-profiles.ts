@@ -32,7 +32,7 @@ export const DEFAULT_DIVERSE_BOT: PaperBotProfile = {
   id: "default-diverse",
   name: "Default Diverse Bot",
   status: "active",
-  challengeStartingCash: 1_000,
+  challengeStartingCash: 100,
   strategyId: PAPER_STRATEGY_V1.id,
   style: "Diversified medium-to-high opportunity strategy with deterministic downside controls",
   universe: {
@@ -48,7 +48,7 @@ export const DEFAULT_DIVERSE_BOT: PaperBotProfile = {
     shareRiskBudgetWithOtherBots: false,
   },
   notes: [
-    "This is the default profile for the current paper decision engine.",
+    "This is the default profile for the current paper decision engine and uses the same $100 challenge baseline as every comparison bot.",
     "Current strategy logic remains PAPER_STRATEGY_V1 and is not duplicated here.",
     "The profile is paper-only; a trade-ready score is not itself order permission.",
   ],
