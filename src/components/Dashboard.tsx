@@ -404,6 +404,9 @@ export default function Dashboard({ userId }: { userId: string }) {
           <a href="/paper-trading" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
             Paper Trading Lab
           </a>
+          <a href="/paper-trading/bots" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            Bot Lab
+          </a>
           {activeCreator ? (
             <button type="button" style={secondaryButton} onClick={() => setEditingLayout((current) => !current)}>
               {editingLayout ? "Done" : "Edit"}
