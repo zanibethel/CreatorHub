@@ -39,7 +39,7 @@ test('collector uses only GETs on the fixed paper host and strips broker identif
   const {report,sourceKey} = await collector.collectPaperReport('test-key','test-secret',(url, options) => {
     requests.push({url,options}); return alpaca(url);
   });
-  assert.equal(report.account.equity,100000,'does not scale the broker balance to $1,000');
+  assert.equal(report.account.equity,100000,'does not scale the broker balance to the $100 virtual challenge');
   assert.equal(report.orders[0].status,'partially_filled');
   assert.equal(report.fills[0].quantity,0.2);
   assert.equal(report.orders[0].stop,null);
