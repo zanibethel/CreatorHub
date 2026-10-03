@@ -2,6 +2,28 @@
 
 Status: approved design specification for the CreatorHub paper-trading bot. This document defines the intended decision and risk architecture before automated order execution is enabled.
 
+## Implementation status — 2026-10-03
+
+Implemented:
+- Versioned Default Diverse strategy configuration and deterministic 0–100 scoring.
+- Regime, quote freshness, spread, ATR/volatility, stop-distance, portfolio-heat, correlation, daily-loss, and weekly-drawdown veto logic.
+- ATR + structure stop calculation, 2R reference, and risk-based sizing from **virtual bot equity**.
+- Equal $100 isolated virtual ledgers for all registered challenges.
+- Persisted bot equity history, positions table, and normalized decision/trade journal schema.
+- Service-role-only ledger/journal storage with RLS and a schema-validated read-only public bot-ledger projection.
+- Bot Lab comparison UI showing virtual challenge equity separately from the Alpaca paper-account audit balance.
+- Dry-run decision endpoint with no order-routing capability.
+- 20/40/40 Default Diverse portfolio allocation ceilings ($20/$40/$40 at the initial $100 baseline), replacing the legacy fixed position-cap interpretation.
+
+Still intentionally blocked:
+- Live pool-usage/capacity calculation has not yet been fed into final authorization.
+- Decision/rejection events have a persisted journal target, but the live evaluator is not yet writing every event into it.
+- No Alpaca paper-order adapter exists yet.
+- Bot-specific client-order tagging and fill reconciliation must be in place before a broker fill can modify a virtual ledger.
+- Broker-hosted protective orders, active exit management, and MFE/MAE outcome analytics remain pending.
+- Planned experimental bots remain disabled.
+
+
 ## Objective
 
 The engine should pursue consistent portfolio growth with medium-to-high opportunity aggressiveness while tightly controlling downside. Aggressiveness comes from acting quickly on strong setups and allowing winners to run, not from oversized positions or removing protection.
@@ -331,21 +353,21 @@ Before promoting a material strategy change:
 
 ## Implementation sequence
 
-1. Add versioned strategy configuration.
-2. Build deterministic market-regime calculation.
-3. Build score components with explainable evidence.
-4. Add risk/portfolio governor and correlation checks.
-5. Add stop/target calculation.
-6. Add risk-based position sizing.
-7. Add decision journal/rejection logging.
-8. Add dry-run decision endpoint that cannot place orders.
-9. Validate dry-run outputs against live market snapshots.
-10. Add Alpaca paper-only order adapter.
-11. Require broker-hosted protection where supported.
-12. Add active position/exit manager.
-13. Add daily/weekly kill switches.
-14. Add outcome/R/MFE/MAE analytics.
-15. Add adaptive recommendation layer.
-16. Tune only from documented paper evidence.
+1. ✅ Add versioned strategy configuration.
+2. ✅ Build deterministic market-regime calculation.
+3. ✅ Build score components with explainable evidence.
+4. ◐ Add risk/portfolio governor and correlation checks — thresholds and persisted bot risk fields exist; live pool/correlation calculation still needs wiring.
+5. ✅ Add stop/target calculation for analysis.
+6. ✅ Add risk-based position sizing from virtual challenge equity.
+7. ◐ Add decision journal/rejection logging — schema/RPC exist; evaluator writes are not wired yet.
+8. ✅ Add dry-run decision endpoint that cannot place orders.
+9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
+10. ☐ Add bot-tagged Alpaca paper-only order adapter.
+11. ☐ Require broker-hosted protection where supported.
+12. ☐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management.
+13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
+14. ☐ Add outcome/R/MFE/MAE analytics.
+15. ☐ Add adaptive recommendation layer.
+16. ☐ Tune only from documented paper evidence.
 
 Each bot ledger starts at $100 and is authoritative for strategy buying power and risk calculations. The larger Alpaca paper-account balance is only an execution sandbox and audit trail. Bot-attributed orders/fills must be reconciled to the matching virtual ledger; untagged broker activity must never silently change a bot's performance. The read-only public report remains separate from privileged order execution. Public endpoints must never expose broker credentials, private order identifiers, or internal authorization state.
