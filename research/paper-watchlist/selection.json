@@ -1,8 +1,8 @@
 {
-  "version": 2,
+  "version": 3,
   "reviewedAt": "2026-10-03T15:16:00.266Z",
   "dataThrough": "2026-10-02",
-  "model": "20/40/40 pools; position cap 9% of its pool; inverse allocation 0%; selection is a monitoring universe, not an entry signal.",
+  "model": "Each bot challenge starts at $100. Default Diverse uses 20/40/40 day/multi-day/multi-week portfolio allocation ceilings; individual position size is determined by the risk engine; inverse allocation remains 0%; the watchlist is a monitoring universe, not an entry signal.",
   "stocks": [
     {
       "symbol": "SPY",
