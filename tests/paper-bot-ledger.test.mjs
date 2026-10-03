@@ -65,6 +65,8 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
     ]);
     if (url.includes("paper_bot_positions")) return Response.json([]);
     if (url.includes("paper_bot_journal")) return Response.json([]);
+    if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id: "default-diverse", broker_order_id: "private-order" }]);
+    if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id: "default-diverse", fill_activity_id: "private-fill", transaction_time: stamp }]);
     throw new Error("Unexpected request");
   });
   const response = await route.GET();
@@ -77,9 +79,12 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.bots[0].buyingPower, 100);
   assert.equal(body.bots[0].positionCount, 0);
   assert.equal(body.bots[0].journalCount, 0);
+  assert.equal(body.bots[0].brokerOrderCount, 1);
+  assert.equal(body.bots[0].brokerFillCount, 1);
+  assert.equal(body.bots[0].lastBrokerFillAt, stamp);
   assert.equal(body.history["default-diverse"][0].equity, 100);
-  assert.equal(requested.length, 4);
-  assert.doesNotMatch(JSON.stringify(body), /private-value|database-secret|metadata/);
+  assert.equal(requested.length, 6);
+  assert.doesNotMatch(JSON.stringify(body), /private-value|database-secret|metadata|private-order|private-fill/);
 });
 
 test("paper bot ledger endpoint requires server-side storage credentials", async () => {
