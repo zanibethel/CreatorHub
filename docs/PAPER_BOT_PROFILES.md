@@ -139,6 +139,13 @@ The code registry lives in `src/lib/paper-bot-profiles.ts`.
 Current registry:
 1. `default-diverse` — active.
 2. `penny-volatility-day-100` — planned.
-3. `three-trade-weekly-swing-100` — planned.
+3. `three-trade-weekly-swing-100` — active for paper staging under `three-trade-weekly-swing-v1`; prepared entries require same-session revalidation before broker submission.
 
 New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
+
+
+### Current swing staging
+
+As of 2026-10-03, the Three-Trade Weekly Swing Bot is active for PAPER staging with a $100 isolated virtual ledger. It has three prepared Monday plans (QQQ, NVDA and MSFT). Prepared plans are visible in Bot Lab but are not broker orders. Each plan stores its breakout trigger, maximum chase price, protective stop, planned risk and expiry, and must be freshly revalidated before any paper submission.
+
+Default Diverse also completed a controlled weekend SOL/USD paper smoke test through the bot-attribution and virtual-ledger reconciliation path. The crypto position uses fee-aware virtual accounting and a separate broker-hosted stop-limit protection order.
