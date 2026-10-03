@@ -17,12 +17,32 @@ export type StagedPaperOrder = {
   planned_risk_dollars: number | null;
   expires_at: string | null;
   stage_reason: string | null;
+  take_profit_price: number | null;
+  take_profit_fraction: number | null;
+  take_profit_r: number | null;
+  protect_winner_at_r: number | null;
+  trail_remainder: boolean;
+};
+
+export type PaperPositionPlan = {
+  bot_id: string;
+  symbol: string;
+  quantity: number;
+  average_entry: number | null;
+  protective_stop: number | null;
+  planned_risk_dollars: number | null;
+  take_profit_price: number | null;
+  take_profit_fraction: number | null;
+  take_profit_r: number | null;
+  protect_winner_at_r: number | null;
+  trail_remainder: boolean;
 };
 
 export type PaperBotLedgerReport = {
   collectedAt: string;
   bots: PaperBotSummary[];
   stagedOrders: Record<string, StagedPaperOrder[]>;
+  positionPlans: Record<string, PaperPositionPlan[]>;
   history: Record<string, Array<{ time: string; equity: number }>>;
   accountingModel: {
     challengeStartingCash: number;
