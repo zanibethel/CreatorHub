@@ -149,3 +149,8 @@ New bots should be added to this registry with a unique ID, unique short broker 
 As of 2026-10-03, the Three-Trade Weekly Swing Bot is active for PAPER staging with a $100 isolated virtual ledger. It has three prepared Monday plans (QQQ, NVDA and MSFT). Prepared plans are visible in Bot Lab but are not broker orders. Each plan stores its breakout trigger, maximum chase price, protective stop, planned risk and expiry, and must be freshly revalidated before any paper submission.
 
 Default Diverse also completed a controlled weekend SOL/USD paper smoke test through the bot-attribution and virtual-ledger reconciliation path. The crypto position uses fee-aware virtual accounting and a separate broker-hosted stop-limit protection order.
+
+
+## Execution-readiness source of truth
+
+See `docs/PAPER_LIVE_READINESS_PLAN.md` for the ordered paper-to-live readiness sequence. Current priority is crypto Exit Manager v1, followed by Monday swing revalidation and broker-hosted stock bracket/OCO protection. No current bot has real-money execution permission.
