@@ -25,7 +25,7 @@ The report rotates every 12 seconds. Manual view selection, report interaction, 
 - Mobile watchlists show two symbols per page in full-width cards. Desktop shows up to four in a two-column grid. Chart and timestamp areas have room to remain readable.
 - Pause/resume and Next remain visible. Report settings, quote pause/resume, and Refresh now live under Controls.
 - A sponsor without configured destinations uses a compact setup card. Configured QR cards keep their real destinations and independent 24-second rotation. Donation and ad checkout pages must already exist. Donation proceeds do not modify the starting amount.
-- Settings and the report day counter are browser-local. Starting the counter sets the displayed report day only.
+- Display/QR settings and the report day counter are browser-local. Symbol selection is centrally persisted and shared across devices. Starting the counter sets the displayed report day only.
 
 ## Near-live market monitor
 
@@ -38,7 +38,9 @@ The public quote endpoint accepts up to 10 stock symbols and 10 USD crypto pairs
 - Quote ages and full provider timestamps remain visible. Quotes older than 60 seconds, missing timestamps, or timestamps more than 60 seconds ahead are marked stale. Collection time is separate from quote time.
 - Provider calls time out after 10 seconds; browser refreshes after 20 seconds. Partial failures are isolated, including historical-chart failures. Quote-only updates preserve old charts, not missing current quotes.
 
-The initial SPY/QQQ and BTC-USD/ETH-USD watchlists are integration examples. The page does not generate trade signals or fabricate fills.
+The reviewed shared list is SPY, QQQ, IWM, XLV, AAPL, JPM, XOM, GLD, NVDA, SH and BTC-USD/ETH-USD. SH remains monitor-only with zero allocation. See `PAPER_WATCHLIST_REVIEW.md` and `/paper-trading/research` for data, methodology and selection rationale. The page does not generate trade signals or fabricate fills.
+
+`paper_report_watchlist` has RLS and service-only grants. `/api/paper-trading/watchlist` exposes a schema-validated read-only projection. Every report view shows a compact shared-symbol strip; fresh browsers derive their symbols from the same saved selection. Legacy browser-local symbol overrides are ignored. Global edits are managed centrally, never accepted from anonymous report viewers. Stored changes are checked every minute while visible; failures preserve the last known/published selection with a status message.
 
 ## Hosted paper account collection
 

@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { quoteAge, type Candle, type MarketSnapshot } from "@/lib/market-monitor";
+import Link from "next/link";
+import type { PaperWatchlist } from "@/lib/paper-watchlist";
 import styles from "./PaperTradingLab.module.css";
 
 export type { MarketSnapshot } from "@/lib/market-monitor";
@@ -20,7 +22,7 @@ function Sparkline({ candles, label }: { candles: Candle[]; label: string }) {
 const price = (v: number | null | undefined) => v == null || !Number.isFinite(v) || v <= 0 ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: v < 1 ? 6 : 2 }).format(v);
 const symbols = (value: string) => [...new Set(value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean))].slice(0,10);
 
-export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup }: { snapshot: MarketSnapshot | null; stocks: string; crypto: string; onSetup: () => void }) {
+export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup, watchlist }: { snapshot: MarketSnapshot | null; stocks: string; crypto: string; onSetup: () => void; watchlist: PaperWatchlist }) {
   const [page, setPage] = useState(0);
   const [pageSize, setPageSize] = useState(4);
   const [now, setNow] = useState(0);
@@ -40,16 +42,18 @@ export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup }: {
       return { symbol, quote: book ? { bid: book.bestBid?.price ?? null, ask: book.bestAsk?.price ?? null } : null, candles: book?.candles ?? [], source: "Kraken · hourly chart", time: book?.timestamp };
     }),
   ];
+  const selection = (symbol: string) => [...watchlist.stocks,...watchlist.crypto].find(item => item.symbol === symbol);
   const pages = Math.max(1, Math.ceil(entries.length / pageSize));
   const current = Math.min(page, pages - 1);
   return <section className={styles.card} aria-label="Watchlist quotes">
     <div className={styles.cardHeader}><h2>Watchlist</h2><div className={styles.watchActions}>
       {pages > 1 ? <button onClick={() => setPage((current + 1) % pages)}>Symbols {current + 1}/{pages}</button> : null}
-      <button onClick={onSetup}>Edit symbols</button>
+      <button onClick={onSetup}>Shared list</button><Link href="/paper-trading/research">Selection report</Link>
     </div></div>
     <div className={styles.watchGrid}>
       {entries.slice(current * pageSize, current * pageSize + pageSize).map(entry => <article key={entry.symbol} className={styles.symbol}>
         <strong>{entry.symbol}</strong>
+        <span className={styles.priceLabel}>{selection(entry.symbol)?.role}</span>
         <div className={styles.price}>{price(entry.quote?.bid)}</div>
         <span className={styles.priceLabel}>Bid · ask {price(entry.quote?.ask)}</span>
         <Sparkline candles={entry.candles} label={`${entry.symbol} ${entry.source} closing prices`} />

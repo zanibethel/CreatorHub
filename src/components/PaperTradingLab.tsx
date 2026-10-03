@@ -5,6 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import RotatingPortfolioReport, { REPORT_VIEWS, type ReportView } from "./RotatingPortfolioReport";
 import useMarketMonitor from "./useMarketMonitor";
 import useAccountReport from "./useAccountReport";
+import useSharedWatchlist from "./useSharedWatchlist";
 import TradingSponsorCard, { SPONSOR_SLOTS, safeDestination, type SponsorLinks } from "./TradingSponsorCard";
 import styles from "./PaperTradingLab.module.css";
 import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
@@ -28,10 +29,9 @@ export default function PaperTradingLab() {
   const [storageError,setStorageError] = useState("");
   const [links,setLinks] = useState<SponsorLinks>({});
   const [draftLinks,setDraftLinks] = useState<SponsorLinks>({});
-  const [stocks,setStocks] = useState("SPY,QQQ");
-  const [crypto,setCrypto] = useState("BTC-USD,ETH-USD");
-  const [draftStocks,setDraftStocks] = useState(stocks);
-  const [draftCrypto,setDraftCrypto] = useState(crypto);
+  const { watchlist, error: watchlistError } = useSharedWatchlist();
+  const stocks = watchlist.stocks.map(item => item.symbol).join(",");
+  const crypto = watchlist.crypto.map(item => item.symbol).join(",");
   const [error,setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const { snapshot, loading, error: feedError, status, enabled, setEnabled, refresh } = useMarketMonitor(stocks, crypto, ready);
@@ -50,8 +50,6 @@ export default function PaperTradingLab() {
       const clean: SponsorLinks = {};
       SPONSOR_SLOTS.forEach(slot => { clean[slot.id] = safeDestination(typeof saved.links?.[slot.id] === "string" ? saved.links[slot.id] : ""); });
       setLinks(clean);
-      if (typeof saved.stocks === "string") setStocks(saved.stocks);
-      if (typeof saved.crypto === "string") setCrypto(saved.crypto);
     } catch { setStorageError("Browser settings could not be restored."); }
     setToday(dateKey(new Date()));
     setReady(true);
@@ -72,7 +70,7 @@ export default function PaperTradingLab() {
   function choose(next: ReportView) { setView(next); setRotating(false); }
   function move() { choose(REPORT_VIEWS[(REPORT_VIEWS.findIndex(([id]) => id === view) + 1) % REPORT_VIEWS.length][0]); }
   function openSettings() {
-    setRotating(false); setDraftLinks({...links}); setDraftStocks(stocks); setDraftCrypto(crypto); setError(""); dialog.current?.showModal();
+    setRotating(false); setDraftLinks({...links}); setError(""); dialog.current?.showModal();
   }
   function startCounter() {
     const date = dateKey(new Date());
@@ -87,8 +85,8 @@ export default function PaperTradingLab() {
       clean[slot.id] = safeDestination(value);
     }
     try {
-      window.localStorage.setItem(settingsKey,JSON.stringify({ version:1, links:clean, stocks:draftStocks, crypto:draftCrypto }));
-      setStocks(draftStocks); setCrypto(draftCrypto); setLinks(clean); setSponsorIndex(0); setStorageError(""); dialog.current?.close();
+      window.localStorage.setItem(settingsKey,JSON.stringify({ version:2, links:clean }));
+      setLinks(clean); setSponsorIndex(0); setStorageError(""); dialog.current?.close();
     } catch { setError("Allow browser storage to save your report settings."); }
   }
   const monitorLabel = {
@@ -119,9 +117,11 @@ export default function PaperTradingLab() {
           </div>
         </details>
       </div>
+      <div className={styles.sharedWatchlist} aria-label="Persistent shared watchlist"><span>Watching</span><div>{[...watchlist.stocks,...watchlist.crypto].map(item => <button key={item.symbol} onClick={() => choose("watchlist")} title={`${item.role}: ${item.rationale}`}>{item.symbol}</button>)}</div><Link href="/paper-trading/research">Selection report</Link></div>
+      {watchlistError ? <p role="status" className={styles.error}>{watchlistError}</p> : null}
     </div>
     <div className={styles.stage} onFocusCapture={() => setRotating(false)} onPointerDown={() => setRotating(false)}>
-      <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} accountReport={accountReport} accountError={accountError} />
+      <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} accountReport={accountReport} accountError={accountError} watchlist={watchlist} />
       <TradingSponsorCard links={links} index={sponsorIndex} onSetup={openSettings} />
     </div>
     <footer className={styles.footer}><span role="status" title={feedError || storageError || monitorLabel}>{feedError ? `${monitorLabel}: ${feedError}` : storageError || `${monitorLabel} · read-only report`}</span><span>{REPORT_VIEWS.findIndex(([id]) => id === view) + 1}/{REPORT_VIEWS.length} · {rotating ? "Rotates every 12s" : "Paused"}</span></footer>
@@ -129,10 +129,7 @@ export default function PaperTradingLab() {
       <h2 id="paper-settings-title">Report settings</h2>
       <form onSubmit={event => { event.preventDefault(); saveSettings(); }}>
         <section><h3>Challenge counter</h3><p>{startedOn ? `Started ${startedOn}.` : "Choose when day one begins."} The counter and settings are saved in this browser. This sets the report day only.</p><button type="button" disabled={!ready || !!startedOn} onClick={startCounter}>{startedOn ? "Counter started" : "Start day counter"}</button></section>
-        <section><h3>Market monitor</h3><p>Save symbols to apply your watchlist. Quotes refresh every 15 seconds while this page is visible; charts refresh every five minutes. Stocks require Alpaca keys on the server. Crypto uses the public Kraken feed. Monitoring pauses when the page is closed.</p>
-          <label>Stocks / ETFs<input value={draftStocks} maxLength={120} onChange={e => setDraftStocks(e.target.value)} placeholder="SPY,QQQ" /></label>
-          <label>USD crypto pairs<input value={draftCrypto} maxLength={180} onChange={e => setDraftCrypto(e.target.value)} placeholder="BTC-USD,ETH-USD" /></label>
-        </section>
+        <section><h3>Shared watchlist</h3><p>One saved selection across every report screen and device. Historical review through {watchlist.dataThrough}; watching is not an entry signal.</p><p>Stocks / ETFs: {stocks}</p><p>Crypto: {crypto}</p><Link href="/paper-trading/research">Read the history review and selection rationale</Link><p>Quotes refresh every 15 seconds while visible; market charts refresh every five minutes. Crypto quotes use Kraken. Display settings and QR destinations stay local to this browser.</p></section>
         <section><h3>Account reporting</h3><p>Account data updates about every 30 seconds in the background. This page checks for the latest saved report every 15 seconds. Chart checkpoints are recorded each minute. Refresh now reads that saved report; it does not place orders or force a broker update.</p></section>
         <section><h3>QR destinations</h3><p>Blank links stay out of rotation. Add CoOperative when ready. Each code opens that exact destination; donation and ad checkout pages must already exist.</p>
           {SPONSOR_SLOTS.map(slot => <label key={slot.id}>{slot.title}<input type="url" placeholder="https://…" maxLength={256} value={draftLinks[slot.id] ?? ""} onChange={e => setDraftLinks(current => ({...current,[slot.id]:e.target.value}))} /></label>)}
