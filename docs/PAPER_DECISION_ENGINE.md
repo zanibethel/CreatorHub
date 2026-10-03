@@ -13,13 +13,15 @@ Implemented:
 - Service-role-only ledger/journal storage with RLS and a schema-validated read-only public bot-ledger projection.
 - Bot Lab comparison UI showing virtual challenge equity separately from the Alpaca paper-account audit balance.
 - Dry-run decision endpoint with no order-routing capability.
+- Stable bot-specific Alpaca client-order attribution plus service-only prepared-order, observed-order, and fill audit tables.
+- Idempotent fill-to-ledger reconciliation: only fills that match a prepared bot order can change the bot ledger; buys update cash/quantity/cost basis, sells update realized P/L, and equity history is checkpointed.
 - 20/40/40 Default Diverse portfolio allocation ceilings ($20/$40/$40 at the initial $100 baseline), replacing the legacy fixed position-cap interpretation.
 
 Still intentionally blocked:
 - Live pool-usage/capacity calculation has not yet been fed into final authorization.
 - Decision/rejection events have a persisted journal target, but the live evaluator is not yet writing every event into it.
 - No Alpaca paper-order adapter exists yet.
-- Bot-specific client-order tagging and fill reconciliation must be in place before a broker fill can modify a virtual ledger.
+- Live mark-to-market refresh for open virtual positions is still pending, so unrealized P/L/equity currently refresh from the latest ledger-applied fill rather than every quote tick.
 - Broker-hosted protective orders, active exit management, and MFE/MAE outcome analytics remain pending.
 - Planned experimental bots remain disabled.
 
@@ -364,7 +366,7 @@ Before promoting a material strategy change:
 9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
 10. ☐ Add bot-tagged Alpaca paper-only order adapter.
 11. ☐ Require broker-hosted protection where supported.
-12. ☐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management.
+12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — fill reconciliation is implemented and idempotent; live mark-to-market and active exits remain.
 13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
 14. ☐ Add outcome/R/MFE/MAE analytics.
 15. ☐ Add adaptive recommendation layer.
