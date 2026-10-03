@@ -80,12 +80,18 @@ export type PaperBotSummary = {
   source: string;
   positionCount: number;
   journalCount: number;
+  brokerOrderCount: number;
+  brokerFillCount: number;
+  lastBrokerFillAt: string | null;
 };
 
 export function projectPaperBotSummary(
   row: PaperBotLedgerRow,
   positionCount = 0,
   journalCount = 0,
+  brokerOrderCount = 0,
+  brokerFillCount = 0,
+  lastBrokerFillAt: string | null = null,
 ): PaperBotSummary {
   return {
     botId: row.bot_id,
@@ -109,5 +115,8 @@ export function projectPaperBotSummary(
     source: row.source,
     positionCount,
     journalCount,
+    brokerOrderCount,
+    brokerFillCount,
+    lastBrokerFillAt,
   };
 }
