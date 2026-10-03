@@ -50,7 +50,7 @@ function evaluate(overrides = {}) {
     candles: candles(),
     benchmarkCandles: candles({ step: 0.05 }),
     now,
-    risk: { accountEquity: 1000, openRiskPct: 0, correlatedRiskPct: 0, dailyRealizedLossPct: 0, weeklyDrawdownPct: 0 },
+    risk: { accountEquity: 100, openRiskPct: 0, correlatedRiskPct: 0, dailyRealizedLossPct: 0, weeklyDrawdownPct: 0 },
     ...overrides,
   });
 }
@@ -72,10 +72,10 @@ test("strong bullish setup is scored but dry-run never authorizes an order", () 
   assert.ok(result.score >= 85, `expected trade-ready score, got ${result.score}`);
   assert.equal(result.qualification, "trade-ready");
   assert.equal(result.regime, "bullish");
-  assert.equal(result.riskPlan.riskDollars, result.score >= 92 ? 10 : 7.5);
+  assert.equal(result.riskPlan.riskDollars, result.score >= 92 ? 1 : 0.75);
   assert.equal(result.orderSubmission, false);
   assert.equal(result.eligibleUnderAvailableRules, false);
-  assert.ok(result.blockers.some(reason => /Legacy pool-position cap policy/.test(reason)));
+  assert.ok(result.blockers.some(reason => /pool allocation capacity/i.test(reason)));
 });
 
 test("stale quotes and bearish regime independently veto a candidate", () => {
@@ -89,7 +89,7 @@ test("stale quotes and bearish regime independently veto a candidate", () => {
 
 test("portfolio loss and heat limits veto new risk", () => {
   const result = evaluate({
-    risk: { accountEquity: 1000, openRiskPct: 3.5, correlatedRiskPct: 1.5, dailyRealizedLossPct: 2.5, weeklyDrawdownPct: 6 },
+    risk: { accountEquity: 100, openRiskPct: 3.5, correlatedRiskPct: 1.5, dailyRealizedLossPct: 2.5, weeklyDrawdownPct: 6 },
   });
   assert.ok(result.blockers.some(reason => /open-risk ceiling/i.test(reason)));
   assert.ok(result.blockers.some(reason => /correlated-risk ceiling/i.test(reason)));
