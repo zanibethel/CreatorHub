@@ -144,3 +144,47 @@
 .poolOptions > div { border:1px solid var(--border); padding:12px; border-radius:8px; display:grid; gap:4px; }
 .poolOptions strong { font-size:14px; }
 .watchGrid { flex:none; align-items:start; }
+
+
+.botLab { --border:#312442; --muted:#b6a8c6; max-width:1500px; margin:0 auto; padding:28px; color:#f7f2ff; display:grid; gap:20px; }
+.botLab * { box-sizing:border-box; }
+.botLab a { color:#c4b5fd; }
+.botLab button { color:inherit; background:#24173a; border:1px solid var(--border); border-radius:10px; padding:10px 14px; cursor:pointer; min-height:42px; font:inherit; }
+.botLabHeader { display:flex; align-items:end; justify-content:space-between; gap:24px; }
+.botLabHeader h1 { margin:6px 0 8px; font-size:clamp(30px,4vw,54px); letter-spacing:-.04em; }
+.botLabHeader p { margin:0; max-width:760px; color:var(--muted); line-height:1.55; }
+.botLabActions { flex-shrink:0; }
+.botOverview { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:12px; }
+.botOverview>div { border:1px solid var(--border); border-radius:14px; padding:16px; background:linear-gradient(160deg,#1c1429,#151020); display:grid; gap:6px; }
+.botOverview span,.botMetrics span,.botRuleGrid span { color:var(--muted); font-size:12px; }
+.botOverview strong { font-size:24px; font-variant-numeric:tabular-nums; }
+.botGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:16px; align-items:start; }
+.botCard { min-width:0; border:1px solid var(--border); border-radius:18px; background:linear-gradient(160deg,#1c1429,#151020); padding:22px; display:grid; gap:18px; }
+.botCardHeader { display:flex; justify-content:space-between; gap:16px; align-items:flex-start; }
+.botCardHeader h2 { margin:8px 0 0; font-size:22px; letter-spacing:-.025em; }
+.botCard p { margin:0; color:var(--muted); line-height:1.55; }
+.botStatusActive,.botStatusPlanned { display:inline-flex; padding:5px 8px; border-radius:999px; font-size:10px; font-weight:800; letter-spacing:.08em; }
+.botStatusActive { color:#62d9aa; background:#18392f; border:1px solid #2f6f5d; }
+.botStatusPlanned { color:#f4c67b; background:#392f1d; border:1px solid #6b592e; }
+.botCapital { font-size:22px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+.botMetrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.botMetrics>div { border:1px solid var(--border); border-radius:12px; padding:12px; display:grid; gap:5px; min-width:0; }
+.botMetrics strong { font-size:18px; overflow-wrap:anywhere; font-variant-numeric:tabular-nums; }
+.botRuleGrid { display:grid; gap:10px; }
+.botRuleGrid>div { display:grid; gap:4px; padding-top:10px; border-top:1px solid var(--border); }
+.botRuleGrid strong { font-size:14px; text-transform:capitalize; }
+.botRuleGrid small { color:var(--muted); line-height:1.45; }
+.botNotes { margin:0; padding-left:18px; color:var(--muted); line-height:1.5; font-size:12px; display:grid; gap:7px; }
+.botLink,.botDisabled { display:inline-flex; align-items:center; justify-content:center; min-height:42px; border-radius:10px; padding:10px 14px; text-decoration:none; }
+.botLink { background:#3a2358; border:1px solid #a78bfa; color:#f7f2ff!important; }
+.botDisabled { border:1px dashed var(--border); color:var(--muted); }
+.botCompare { border:1px solid var(--border); border-radius:18px; background:linear-gradient(160deg,#1c1429,#151020); padding:22px; display:grid; gap:16px; }
+.botCompare h2 { margin:0 0 5px; font-size:24px; }
+.botCompare p { margin:0; color:var(--muted); line-height:1.5; }
+.botTableWrap { overflow-x:auto; }
+.botCompare table { width:100%; border-collapse:collapse; min-width:820px; font-variant-numeric:tabular-nums; }
+.botCompare th,.botCompare td { text-align:left; padding:12px; border-bottom:1px solid var(--border); vertical-align:top; }
+.botCompare th { color:#f7f2ff; }
+.botCompare td:first-child { color:var(--muted); font-weight:700; }
+@media(max-width:1050px) { .botGrid { grid-template-columns:1fr; } .botOverview { grid-template-columns:repeat(2,minmax(0,1fr)); } }
+@media(max-width:650px) { .botLab { padding:18px 12px 28px; gap:16px; } .botLabHeader { align-items:stretch; flex-direction:column; } .botLabHeader h1 { font-size:36px; } .botOverview { grid-template-columns:repeat(2,minmax(0,1fr)); } .botOverview>div { padding:13px; } .botOverview strong { font-size:20px; } .botCard { padding:18px 16px; } .botCardHeader { flex-direction:column; } .botCapital { font-size:20px; } .botCompare { padding:18px 16px; } }
