@@ -1,5 +1,7 @@
 export const PAPER_STRATEGY_V1 = {
   id: "paper-medium-high-v1",
+  botProfileId: "default-diverse",
+  displayName: "Default Diverse Bot",
   version: 1,
   mode: "paper-only",
   objective: "medium-high opportunity aggressiveness with deterministic downside controls",
