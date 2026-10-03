@@ -2,6 +2,7 @@ import { z } from "zod";
 
 const finiteNumber = z.coerce.number().finite();
 const nullableFinite = z.coerce.number().finite().nullable();
+const timestamp = z.string().max(64).refine(value => Number.isFinite(Date.parse(value)), "Invalid timestamp");
 
 export const paperBotLedgerRowSchema = z.object({
   bot_id: z.string().min(1).max(64),
@@ -21,7 +22,7 @@ export const paperBotLedgerRowSchema = z.object({
   correlated_risk_pct: nullableFinite,
   daily_realized_loss_pct: nullableFinite,
   weekly_drawdown_pct: nullableFinite,
-  last_synced_at: z.string().datetime().nullable(),
+  last_synced_at: timestamp.nullable(),
   source: z.string().max(80),
 });
 
@@ -36,7 +37,7 @@ export const paperBotJournalPublicRowSchema = z.object({
   ]),
   symbol: z.string().nullable(),
   asset_class: z.enum(["stock", "etf", "crypto", "unknown"]).nullable(),
-  occurred_at: z.string().datetime(),
+  occurred_at: timestamp,
   score: nullableFinite,
   qualification: z.enum(["unqualified", "watch", "qualified", "trade-ready"]).nullable(),
   regime: z.enum(["bullish", "neutral", "bearish", "unknown"]).nullable(),
