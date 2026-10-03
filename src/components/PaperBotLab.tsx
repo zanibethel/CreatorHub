@@ -134,7 +134,7 @@ export default function PaperBotLab() {
           <h2>Monday swing readiness</h2>
           <p>Read-only revalidation. A READY result is permission for the future PAPER executor to consider a plan; it does not submit an order.</p>
         </div>
-        <span className={styles.meta}>{swingReadiness?.paperOnly === false ? "BLOCKED" : "PAPER ONLY"}</span>
+        <span className={styles.meta}>{swingReadiness?.paperOnly === false ? "BLOCKED" : `PAPER ONLY · EXECUTOR ${swingReadiness?.executionEnabled ? "ARMED" : "DISABLED"}`}</span>
       </div>
       <div className={styles.botOverview}>
         <div><span>Selected now</span><strong>{swingReadiness?.readyCount ?? 0}</strong></div>
@@ -143,6 +143,7 @@ export default function PaperBotLab() {
         <div><span>Broad market</span><strong>{swingReadiness ? (swingReadiness.broadMarketSupportive ? "Supportive" : "Blocked") : "—"}</strong></div>
       </div>
       {swingReadiness?.nextMarketOpen ? <p className={styles.meta}>Next market open: {new Date(swingReadiness.nextMarketOpen).toLocaleString()}</p> : null}
+      <p className={styles.meta}>Broker protection: {swingReadiness?.brokerProtection ?? "—"} · submission gate: {swingReadiness?.submissionReady ? "ready" : "closed"} · an execution preview is only generated after same-session selection.</p>
       <div className={styles.botRuleGrid}>
         {(swingReadiness?.plans ?? []).map(plan => <div key={plan.symbol}>
           <span>{plan.symbol}</span>
@@ -151,6 +152,7 @@ export default function PaperBotLab() {
           </strong>
           <small>Bid {money(plan.bid)} · ask {money(plan.ask)} · spread {plan.spreadPct === null ? "—" : `${plan.spreadPct.toFixed(3)}%`} · quote age {plan.quoteAgeSeconds === null ? "—" : `${Math.round(plan.quoteAgeSeconds)}s`}</small>
           <small>Allocation {percent(plan.allocationPct)} · planned risk {percent(plan.plannedRiskPct)}{plan.correlationGroup ? ` · ${plan.correlationGroup}` : ""}</small>
+          {plan.executionPreview ? <small>Bracket preview: {plan.executionPreview.quantity.toFixed(9)} shares · {money(plan.executionPreview.estimatedNotional)} · stop {money(plan.executionPreview.stopLoss)} · target {money(plan.executionPreview.takeProfit)}</small> : null}
           {plan.waitingOn.length ? <small>Waiting: {plan.waitingOn.join(" · ")}</small> : null}
           {plan.blockers.length ? <small>Blocked: {plan.blockers.join(" · ")}</small> : null}
         </div>)}
