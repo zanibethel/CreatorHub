@@ -160,3 +160,26 @@ Implemented:
 No real-money execution is authorized.
 
 PAPER execution should be armed only after the live scanner is verified and the privileged submission/protection path passes a controlled smoke test.
+
+
+## Controlled broker smoke — 2026-10-03
+
+A deliberately **untagged** Alpaca PAPER BTC smoke test was used so the isolated $100 bot ledgers would ignore the activity.
+
+Observed broker behavior:
+
+- Alpaca rejected an approximately $5 BTC order because crypto cost basis must be at least $10.
+- A roughly $12 BTC marketable-limit buy was accepted and filled.
+- Gross buy quantity: 0.00014155 BTC.
+- Fee-adjusted broker sellable quantity: 0.000141196 BTC.
+- A stop-limit sell using that exact broker sellable quantity was accepted.
+- The stop was canceled cleanly.
+- The full sellable BTC quantity was then flattened with a PAPER market sell.
+- The BTC position was confirmed gone afterward; only the pre-existing Default Diverse SOL position remained.
+- All smoke client-order IDs were intentionally untagged, so none of this test activity can change the Weekend Crypto Day virtual ledger.
+
+Implications for v1:
+
+- Planned weekend trades must remain above Alpaca's observed $10 crypto minimum. The current strategy typically sizes near $30, so the minimum is not expected to bind under normal $100-challenge conditions.
+- Protective orders must use Alpaca's actual post-fee `qty_available`, not gross fill quantity.
+- The guarded executor follows that broker quantity rather than estimating sellable units locally.
