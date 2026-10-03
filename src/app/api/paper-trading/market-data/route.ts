@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
 
@@ -25,13 +24,6 @@ function parseSymbols(value: string | null, pattern: RegExp) {
 }
 
 export async function GET(request: Request) {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user || user.is_anonymous) {
-    return NextResponse.json({ error: "Sign in to view paper-trading market data." }, { status: 401 });
-  }
-
   const requestUrl = new URL(request.url);
   const stockSymbols = parseSymbols(requestUrl.searchParams.get("stocks"), /^[A-Z][A-Z0-9.]{0,9}$/);
   const cryptoProducts = parseSymbols(requestUrl.searchParams.get("crypto"), /^[A-Z0-9]{2,12}-USD$/);

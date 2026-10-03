@@ -8,16 +8,13 @@ const source = readFileSync(new URL("../src/app/api/paper-trading/market-data/ro
 const compiled = ts.transpileModule(source, { compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 } }).outputText;
 const json = value => Response.json(value);
 
-function route({ user = { id: "test-user", is_anonymous: false }, env = {}, fetch } = {}) {
+function route({ env = {}, fetch } = {}) {
   const exports = {};
   vm.runInNewContext(compiled, {
     exports, Request, Response, URL, URLSearchParams, AbortSignal,
     process: { env }, fetch,
     require: name => {
       if (name === "next/server") return { NextResponse: Response };
-      if (name === "@/lib/supabase-server") return {
-        createServerSupabaseClient: async () => ({ auth: { getUser: async () => ({ data: { user } }) } }),
-      };
       throw new Error(`Unexpected import ${name}`);
     },
   });
@@ -39,11 +36,10 @@ function cryptoFetch(url) {
   throw new Error(`Unexpected network request ${url}`);
 }
 
-test("unauthenticated and anonymous users cannot fetch market data", async () => {
-  for (const user of [null, { id: "guest", is_anonymous: true }]) {
-    const get = route({ user, fetch: () => { throw new Error("Must not fetch"); } });
-    assert.equal((await get("crypto=BTC-USD")).status, 401);
-  }
+test("public report can fetch market data without a session or auth client", async () => {
+  const response = await route({ fetch: cryptoFetch })("crypto=BTC-USD");
+  assert.equal(response.status, 200);
+  assert.equal((await response.json()).crypto[0].bestBid.price, 99);
 });
 
 test("rejects malformed, empty, and oversized watchlists before fetching", async () => {

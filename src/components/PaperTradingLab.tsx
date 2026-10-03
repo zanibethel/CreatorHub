@@ -17,7 +17,7 @@ function challengeDay(start: string | null, today: string) {
   return Number.isFinite(a) && Number.isFinite(b) && a <= b ? Math.floor((b - a) / 86400000) + 1 : null;
 }
 
-export default function PaperTradingLab({ userId }: { userId: string }) {
+export default function PaperTradingLab() {
   const [view,setView] = useState<ReportView>("portfolio");
   const [rotating,setRotating] = useState(true);
   const [sponsorIndex,setSponsorIndex] = useState(0);
@@ -34,8 +34,8 @@ export default function PaperTradingLab({ userId }: { userId: string }) {
   const [error,setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const { snapshot, loading, error: feedError, status, enabled, setEnabled, refresh } = useMarketMonitor(stocks, crypto, ready);
-  const startKey = `creatorhub:paper-trading:challenge-started-on:${userId}`;
-  const settingsKey = `creatorhub:paper-trading:stream-settings:${userId}`;
+  const startKey = "creatorhub:paper-trading:challenge-started-on:public-report";
+  const settingsKey = "creatorhub:paper-trading:stream-settings:public-report";
   const day = challengeDay(startedOn,today);
 
   useEffect(() => {
@@ -90,7 +90,7 @@ export default function PaperTradingLab({ userId }: { userId: string }) {
   const monitorLabel = {
     off: "Quote monitor paused", connecting: "Fetching quotes…", monitoring: "Quotes refresh every 15s",
     partial: "Refreshing available feeds · some quotes unavailable", hidden: "Quotes paused while tab is hidden",
-    retrying: "Feed unavailable · slowing retries", blocked: "Check sign-in or symbols, then refresh",
+    retrying: "Feed unavailable · slowing retries", blocked: "Check feed access or symbols, then refresh",
   }[status];
 
   return <main className={styles.dashboard}>

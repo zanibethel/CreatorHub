@@ -1,14 +1,11 @@
-import { redirect } from "next/navigation";
+import type { Metadata } from "next";
 import PaperTradingLab from "@/components/PaperTradingLab";
-import { createServerSupabaseClient } from "@/lib/supabase-server";
 
-export const dynamic = "force-dynamic";
+export const metadata: Metadata = {
+  title: "$1,000 Paper Trading Report | CreatorHub",
+  description: "Interactive paper portfolio report and near-live market watchlist.",
+};
 
-export default async function PaperTradingPage() {
-  const supabase = await createServerSupabaseClient();
-  const { data: { user } } = await supabase.auth.getUser();
-
-  if (!user || user.is_anonymous) redirect("/");
-
-  return <PaperTradingLab userId={user.id} />;
+export default function PaperTradingPage() {
+  return <PaperTradingLab />;
 }
