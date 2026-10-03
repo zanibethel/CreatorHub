@@ -114,6 +114,22 @@ The multi-bot experiment is intended to answer questions with evidence, such as:
 
 The adaptive analysis layer may compare profiles and recommend changes, but it may not autonomously merge strategies, move virtual capital between bots, raise risk limits, disable stops, or activate a planned bot.
 
+## Bot Lab UI
+
+The comparison dashboard is available at `/paper-trading/bots`.
+
+Current behavior:
+- Shows all registered paper bot profiles as separate challenge cards.
+- Displays Active vs Planned status and each challenge's isolated starting capital.
+- Reads live Default Diverse paper equity, account history, and open-position count from the existing account-report feed.
+- Calculates displayed Default Diverse total return against its $1,000 challenge baseline and drawdown from the saved equity history.
+- Shows planned bots at their untouched $100 starting ledgers without fabricating returns.
+- Includes a common comparison board for return, drawdown, expectancy/average R, profit factor, MFE/MAE, and kill-switch events.
+- Metrics that do not yet have authoritative persisted data are explicitly shown as awaiting journal/risk data.
+- Planned bots remain disabled and cannot submit orders.
+
+The main Paper Trading Lab and CreatorHub dashboard both link to Bot Lab.
+
 ## Registry
 
 The code registry lives in `src/lib/paper-bot-profiles.ts`.
