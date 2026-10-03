@@ -31,6 +31,8 @@ type ComponentScore = { points: number; maximum: number; evidence: string[] };
 export type PaperDecision = {
   strategyId: string;
   strategyVersion: number;
+  botProfileId: string;
+  strategyName: string;
   mode: "paper-only";
   symbol: string;
   assetClass: "stock" | "crypto";
@@ -308,6 +310,8 @@ export function evaluatePaperCandidate(input: {
   return {
     strategyId: config.id,
     strategyVersion: config.version,
+    botProfileId: config.botProfileId,
+    strategyName: config.displayName,
     mode: "paper-only",
     symbol: input.candidate.symbol,
     assetClass: input.assetClass,
