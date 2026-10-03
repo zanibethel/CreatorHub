@@ -57,6 +57,7 @@ export const PAPER_STRATEGY_V1 = {
     minimumRewardR: 2.00,
     partialProfit: { triggerR: 1.75, fraction: 0.25 },
     protectWinnerAtR: 1.00,
+    trailRemainder: true,
   },
 } as const;
 
