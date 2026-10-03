@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { quoteAge, type Candle, type MarketSnapshot } from "@/lib/market-monitor";
 import Link from "next/link";
+import QualificationCard from "./QualificationCard";
 import type { PaperWatchlist } from "@/lib/paper-watchlist";
 import styles from "./PaperTradingLab.module.css";
 
@@ -50,6 +51,7 @@ export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup, wat
       {pages > 1 ? <button onClick={() => setPage((current + 1) % pages)}>Symbols {current + 1}/{pages}</button> : null}
       <button onClick={onSetup}>Shared list</button><Link href="/paper-trading/research">Selection report</Link>
     </div></div>
+    <p className={styles.meta}>All candidates remain watched. Open a card’s qualification details for possible pools, evidence and pending checks.</p>
     <div className={styles.watchGrid}>
       {entries.slice(current * pageSize, current * pageSize + pageSize).map(entry => <article key={entry.symbol} className={styles.symbol}>
         <strong>{entry.symbol}</strong>
@@ -58,6 +60,7 @@ export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup, wat
         <span className={styles.priceLabel}>Bid · ask {price(entry.quote?.ask)}</span>
         <Sparkline candles={entry.candles} label={`${entry.symbol} ${entry.source} closing prices`} />
         <span className={styles.priceLabel}>{entry.source}{entry.time ? ` · ${new Date(entry.time).toLocaleString()}` : " · no quote"}</span>
+        {selection(entry.symbol) ? <QualificationCard item={selection(entry.symbol)!} quote={entry.quote} timestamp={entry.time} candles={entry.candles} now={now} source={entry.source} dataThrough={watchlist.dataThrough} /> : null}
         {entry.quote ? <span className={quoteAge(entry.time, now).stale ? styles.stale : styles.fresh}>{quoteAge(entry.time, now).label}</span> : null}
       </article>)}
     </div>
