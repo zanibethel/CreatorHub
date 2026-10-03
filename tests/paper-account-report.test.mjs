@@ -16,8 +16,7 @@ function module(path, imports = {}, globals = {}) {
 }
 const collector = module('../supabase/functions/paper-report-sync/collector.ts');
 const marks = module('../supabase/functions/paper-report-sync/marks.ts');
-const exits = module('../supabase/functions/paper-report-sync/exits.ts');
-const handler = module('../supabase/functions/paper-report-sync/handler.ts', {'./collector.ts':collector,'./marks.ts':marks,'./exits.ts':exits});
+const handler = module('../supabase/functions/paper-report-sync/handler.ts', {'./collector.ts':collector,'./marks.ts':marks});
 const schemas = module('../src/lib/account-report.ts', {zod:{z}});
 const stamp = '2026-10-03T08:00:00Z';
 const json = value => Response.json(value);
