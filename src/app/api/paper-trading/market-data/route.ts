@@ -16,21 +16,21 @@ type KrakenBook = {
 
 type Candle = { time: string; close: number };
 
-function parseSymbols(value: string | null, pattern: RegExp) {
+function parseSymbols(value: string | null, pattern: RegExp, maximum = 10) {
   if (!value?.trim()) return [];
   const symbols = [...new Set(value.split(",").map((item) => item.trim().toUpperCase()).filter(Boolean))];
-  if (symbols.length > 10 || symbols.some((symbol) => !pattern.test(symbol))) return null;
+  if (symbols.length > maximum || symbols.some((symbol) => !pattern.test(symbol))) return null;
   return symbols;
 }
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
-  const stockSymbols = parseSymbols(requestUrl.searchParams.get("stocks"), /^[A-Z][A-Z0-9.]{0,9}$/);
+  const stockSymbols = parseSymbols(requestUrl.searchParams.get("stocks"), /^[A-Z][A-Z0-9.]{0,9}$/, 20);
   const cryptoProducts = parseSymbols(requestUrl.searchParams.get("crypto"), /^[A-Z0-9]{2,12}-USD$/);
   const includeHistory = requestUrl.searchParams.get("history") !== "0";
 
   if (stockSymbols === null || cryptoProducts === null || (!stockSymbols.length && !cryptoProducts.length)) {
-    return NextResponse.json({ error: "Provide up to 10 comma-separated stock symbols and/or USD crypto pairs." }, { status: 400 });
+    return NextResponse.json({ error: "Provide up to 20 comma-separated stock symbols and/or 10 USD crypto pairs." }, { status: 400 });
   }
 
   const stocksPromise = stockSymbols.length

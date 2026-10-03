@@ -20,7 +20,7 @@ function Sparkline({ candles, label }: { candles: Candle[]; label: string }) {
 }
 
 const price = (v: number | null | undefined) => v == null || !Number.isFinite(v) || v <= 0 ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD", maximumFractionDigits: v < 1 ? 6 : 2 }).format(v);
-const symbols = (value: string) => [...new Set(value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean))].slice(0,10);
+const symbols = (value: string) => [...new Set(value.split(",").map(v => v.trim().toUpperCase()).filter(Boolean))].slice(0,20);
 
 export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup, watchlist }: { snapshot: MarketSnapshot | null; stocks: string; crypto: string; onSetup: () => void; watchlist: PaperWatchlist }) {
   const [page, setPage] = useState(0);
@@ -53,7 +53,7 @@ export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup, wat
     <div className={styles.watchGrid}>
       {entries.slice(current * pageSize, current * pageSize + pageSize).map(entry => <article key={entry.symbol} className={styles.symbol}>
         <strong>{entry.symbol}</strong>
-        <span className={styles.priceLabel}>{selection(entry.symbol)?.role}</span>
+        <span className={styles.priceLabel}>{selection(entry.symbol)?.tier === "reserve" ? "Reserve · watched · " : "Initial list · "}{selection(entry.symbol)?.role}</span>
         <div className={styles.price}>{price(entry.quote?.bid)}</div>
         <span className={styles.priceLabel}>Bid · ask {price(entry.quote?.ask)}</span>
         <Sparkline candles={entry.candles} label={`${entry.symbol} ${entry.source} closing prices`} />

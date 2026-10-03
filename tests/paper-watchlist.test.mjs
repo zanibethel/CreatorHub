@@ -11,11 +11,11 @@ function module(path,imports,globals={}) {
 }
 const schema=module('../src/lib/paper-watchlist.ts',{zod:{z},'../../research/paper-watchlist/selection.json':{default:selection}});
 test('shared list respects quote limits and records zero inverse allocation',()=>{
- const p=schema.watchlistSchema.parse(selection);assert.equal(p.stocks.length,10);assert.equal(p.crypto.length,2);
+ const p=schema.watchlistSchema.parse(selection);assert.equal(p.stocks.length,16);assert.equal(p.crypto.length,3);
  assert.equal(p.stocks.find(x=>x.symbol==='SH').pools.length,0);assert.ok(p.stocks.every(x=>x.fractionable));
 });
 test('shared list rejects invalid symbols, oversized lists and nonfinite research metrics',()=>{
- for(const bad of [{...selection,stocks:[{...selection.stocks[0],symbol:'SPY&select=secret'}]},{...selection,stocks:[...selection.stocks,selection.stocks[0]]},{...selection,crypto:[{...selection.crypto[0],volatility:Infinity}]}])assert.equal(schema.watchlistSchema.safeParse(bad).success,false);
+ for(const bad of [{...selection,stocks:[{...selection.stocks[0],symbol:'SPY&select=secret'}]},{...selection,stocks:Array.from({length:21},()=>selection.stocks[0])},{...selection,crypto:[{...selection.crypto[0],volatility:Infinity}]}])assert.equal(schema.watchlistSchema.safeParse(bad).success,false);
 });
 test('public shared watchlist strips private fields and only reads the fixed report',async()=>{
  let requested;
