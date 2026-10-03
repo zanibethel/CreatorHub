@@ -116,6 +116,7 @@ test('authorized collection saves only the sanitized snapshot while reconciling 
     if (url.includes('paper_report_state')) return json([{cron_token_hash:hash}]);
     if (url.endsWith('paper_report_claim_refresh')) return json(true);
     if (url.endsWith('paper_bot_reconcile_broker_activity')) {reconciled = JSON.parse(options.body); return json({ordersSeen:1,fillsAdded:1});}
+    if (url.endsWith('paper_bot_link_prepared_orders')) return json(1);
     if (url.endsWith('paper_report_save_snapshot')) {saved = JSON.parse(options.body); return new Response(null,{status:204});}
     throw new Error('Unexpected database call');
   });
