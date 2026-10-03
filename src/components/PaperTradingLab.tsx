@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { card, colors, secondaryButton } from "@/lib/ui";
-import MarketDataPanel from "@/components/MarketDataPanel";
+import RotatingPortfolioReport from "@/components/RotatingPortfolioReport";
 
 type Pool = { id: string; name: string; horizon: string; allocation: number; note?: string };
 type Tab = "overview" | "orders" | "history" | "rules";
@@ -156,7 +156,7 @@ export default function PaperTradingLab({ userId }: { userId: string }) {
             </p>
           </section>
 
-          <MarketDataPanel />
+          <RotatingPortfolioReport />
 
           <section style={{ ...card, marginBottom: 14 }}>
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
