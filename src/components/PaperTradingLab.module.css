@@ -104,3 +104,16 @@
   .footer { gap:12px; }
 }
 @media (max-height:740px) and (min-width:651px) { .dashboard { height:auto; min-height:100dvh; } .stage { min-height:440px; } .watchGrid { flex:none; } }
+
+.accountValue { color:#f7f2ff; font-size:40px; }
+.accountChart { width:100%; max-width:760px; }
+.accountChart svg { display:block; width:100%; height:auto; max-height:220px; }
+.chartRange { display:flex; justify-content:space-between; gap:14px; font-size:11px; color:var(--muted); margin:8px 0; }
+.accountStats,.recordFields { display:flex; flex-wrap:wrap; gap:16px 28px; }
+.accountStats>div,.recordFields>span { display:grid; gap:6px; }
+.accountStats span,.recordFields span { font-size:12px; color:var(--muted); }
+.accountStats strong { font-size:22px; color:#f7f2ff; }
+.recordFields strong { color:#f7f2ff; font-size:16px; }
+.recordList { display:grid; gap:16px; }
+.record { border:1px solid var(--border); border-radius:12px; padding:20px; display:grid; gap:16px; }
+@media (max-width:650px) { .record { padding:18px; } .chartRange { flex-direction:column; gap:4px; } .accountStats { display:grid; grid-template-columns:1fr 1fr; gap:12px; } }

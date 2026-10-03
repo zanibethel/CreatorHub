@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import RotatingPortfolioReport, { REPORT_VIEWS, type ReportView } from "./RotatingPortfolioReport";
 import useMarketMonitor from "./useMarketMonitor";
+import useAccountReport from "./useAccountReport";
 import TradingSponsorCard, { SPONSOR_SLOTS, safeDestination, type SponsorLinks } from "./TradingSponsorCard";
 import styles from "./PaperTradingLab.module.css";
 import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
@@ -34,6 +35,9 @@ export default function PaperTradingLab() {
   const [error,setError] = useState("");
   const dialog = useRef<HTMLDialogElement>(null);
   const { snapshot, loading, error: feedError, status, enabled, setEnabled, refresh } = useMarketMonitor(stocks, crypto, ready);
+  const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
+  const account = accountReport?.snapshot?.account;
+  const dayChange = account && account.previousCloseEquity !== null ? account.equity - account.previousCloseEquity : null;
   const startKey = "creatorhub:paper-trading:challenge-started-on:public-report";
   const settingsKey = "creatorhub:paper-trading:stream-settings:public-report";
   const day = challengeDay(startedOn,today);
@@ -97,8 +101,8 @@ export default function PaperTradingLab() {
     <header className={styles.header}>
       <div className={styles.brand}><Link href="/">CreatorHub</Link><h1>Day {day ?? "—"} of $1,000 Bot Trader</h1><span className={styles.pill}>INTERACTIVE REPORT</span></div>
       <div className={styles.metrics}>
-        <div className={styles.metric}><span>Starting amount</span><strong>{formatPaperMoney(PAPER_STARTING_CASH)}</strong><small className={styles.meta}>Account ledger not connected</small></div>
-        <div className={styles.metric}><span>Today’s P/L</span><strong>—</strong><small className={styles.meta}>Not recorded</small></div>
+        <div className={styles.metric}><span>{account ? "Paper account value" : "Challenge starting amount"}</span><strong>{formatPaperMoney(account?.equity ?? PAPER_STARTING_CASH)}</strong><small className={styles.meta}>{account ? "Recorded Alpaca paper balance" : "Awaiting account snapshots"}</small></div>
+        <div className={styles.metric}><span>Day equity change</span><strong>{dayChange === null ? "—" : formatPaperMoney(dayChange)}</strong><small className={styles.meta}>{account ? "Includes cashflows" : "Not recorded"}</small></div>
       </div>
     </header>
     <div className={styles.toolbar}>
@@ -111,13 +115,13 @@ export default function PaperTradingLab() {
           <div className={styles.controlOptions}>
             <button onClick={openSettings}>Report settings</button>
             <button onClick={() => setEnabled(value => !value)} aria-pressed={enabled}>{enabled ? "Pause quotes" : "Monitor quotes"}</button>
-            <button onClick={refresh} disabled={!ready || loading}>{loading ? "Fetching…" : "Refresh now"}</button>
+            <button onClick={() => { refresh(); refreshAccount(); }} disabled={!ready || loading}>{loading ? "Fetching…" : "Refresh now"}</button>
           </div>
         </details>
       </div>
     </div>
     <div className={styles.stage} onFocusCapture={() => setRotating(false)} onPointerDown={() => setRotating(false)}>
-      <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} />
+      <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} accountReport={accountReport} accountError={accountError} />
       <TradingSponsorCard links={links} index={sponsorIndex} onSetup={openSettings} />
     </div>
     <footer className={styles.footer}><span role="status" title={feedError || storageError || monitorLabel}>{feedError ? `${monitorLabel}: ${feedError}` : storageError || `${monitorLabel} · read-only report`}</span><span>{REPORT_VIEWS.findIndex(([id]) => id === view) + 1}/{REPORT_VIEWS.length} · {rotating ? "Rotates every 12s" : "Paused"}</span></footer>
@@ -129,6 +133,7 @@ export default function PaperTradingLab() {
           <label>Stocks / ETFs<input value={draftStocks} maxLength={120} onChange={e => setDraftStocks(e.target.value)} placeholder="SPY,QQQ" /></label>
           <label>USD crypto pairs<input value={draftCrypto} maxLength={180} onChange={e => setDraftCrypto(e.target.value)} placeholder="BTC-USD,ETH-USD" /></label>
         </section>
+        <section><h3>Account reporting</h3><p>Account snapshots are collected hourly in the background. This page checks for the latest saved report every minute. Refresh now reads that saved report; it does not place orders or force a broker update.</p></section>
         <section><h3>QR destinations</h3><p>Blank links stay out of rotation. Add CoOperative when ready. Each code opens that exact destination; donation and ad checkout pages must already exist.</p>
           {SPONSOR_SLOTS.map(slot => <label key={slot.id}>{slot.title}<input type="url" placeholder="https://…" maxLength={256} value={draftLinks[slot.id] ?? ""} onChange={e => setDraftLinks(current => ({...current,[slot.id]:e.target.value}))} /></label>)}
         </section>

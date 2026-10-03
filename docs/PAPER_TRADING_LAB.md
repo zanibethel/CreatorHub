@@ -4,15 +4,15 @@
 
 `/paper-trading` opens a public interactive report directly, without account setup or sign-in. The user requested a report, not a built-in paper-trade simulator. Do not add simulator controls or a simulator engine to this report. The page is read-only and never routes orders.
 
-The $1,000 starting amount is the challenge baseline. Until account snapshots and a ledger are connected, returns, trades, orders, and positions remain truthful empty states. Market charts are market history, not portfolio performance. Future account-linked data needs private storage and an explicitly selected public report projection; never expose private holdings simply by removing authentication.
+The $1,000 starting amount is the challenge baseline. Portfolio metrics show the actual Alpaca paper account balance without scaling it to that baseline. The equity chart uses saved account snapshots; watchlist charts use market history. The public report deliberately includes allowlisted paper balances and activity, excluding credentials, account identifiers, client order identifiers and personal details.
 
 ## Five report views
 
-1. **Portfolio**: starting amount and space for recorded portfolio history.
+1. **Portfolio**: actual paper equity, cash, equity change since the previous close (including cash flows), and recorded hourly equity history.
 2. **Watchlist**: provider quotes and market history only.
-3. **Trades**: the latest 10 completed trade reports, when recorded.
-4. **Orders**: pending and partially filled entries, when recorded.
-5. **Positions**: open positions and recorded planned exits, when recorded.
+3. **Trades**: the latest 10 fill executions, including partial fills. These are not completed round trips or calculated realized returns.
+4. **Orders**: open buy and sell orders with actual quantities, fills, limits and stops.
+5. **Positions**: actual open positions, entry prices, market values and unrealized P/L. No planned exits are invented.
 
 Each view has one main report card. Simulator status and strategy-rule panels are removed. Empty trade sections do not show unused table headers.
 
@@ -38,8 +38,27 @@ The public quote endpoint accepts up to 10 stock symbols and 10 USD crypto pairs
 - Quote ages and full provider timestamps remain visible. Quotes older than 60 seconds, missing timestamps, or timestamps more than 60 seconds ahead are marked stale. Collection time is separate from quote time.
 - Provider calls time out after 10 seconds; browser refreshes after 20 seconds. Partial failures are isolated, including historical-chart failures. Quote-only updates preserve old charts, not missing current quotes.
 
-The initial SPY/QQQ and BTC-USD/ETH-USD watchlists are integration examples. The page does not generate trade signals, fabricate fills, or record returns. Background collection and account-ledger reporting are separate future integrations.
+The initial SPY/QQQ and BTC-USD/ETH-USD watchlists are integration examples. The page does not generate trade signals or fabricate fills.
+
+## Hosted paper account collection
+
+The Supabase `paper-report-sync` Edge Function makes four read-only requests to the fixed Alpaca paper host: account, positions, open orders and the latest 10 FILL activities. An authenticated pg_cron heartbeat runs every five minutes; an atomic lease permits successful account collection once per hour. It continues with the Mac and report page closed. Failed collection retains the previous snapshot and retries after five minutes. Partial section failures remain unavailable rather than being reported as empty.
+
+Setup in [CreatorHub Edge Function Secrets](https://supabase.com/dashboard/project/yufptpfiwdbzzrvhkvux/functions/secrets):
+
+| Secret | Value |
+| --- | --- |
+| `ALPACA_PAPER_API_KEY_ID` | The key ID from the working Mac paper-account test |
+| `ALPACA_PAPER_API_SECRET_KEY` | The matching paper secret key |
+
+Save both. The next eligible heartbeat checks them; initial data should appear within about 5–7 minutes, including report refresh/cache time. Secret changes do not require an Edge Function redeploy. Vercel Preview must also have the server-only `SUPABASE_SECRET_KEY` to read saved report data. Its existing market quote credentials are separate.
+
+State and history tables have RLS enabled and no ordinary-user grants or policies. Only the service role can read/write them. The public `/api/paper-trading/account-report` endpoint validates and projects the fixed report, omitting private state and identifiers. It polls every minute while visible and caches the projection for one minute. Refresh now reads the saved snapshot and refreshes market data; it does not trigger an Alpaca account collection.
+
+The scheduler token is generated within Vault, stored as a hash in private state, and checked before collection. Never expose the `net` or `vault` schemas through the Data API, or print queued HTTP headers or decrypted secrets. Extension-owned pg_net tables can retain default grants despite a best-effort revoke by `postgres`; the live Data API rejects the `net` schema. The collector endpoint returns status only, never account data.
+
+History contains one equity point per collected hour. It starts with the first successful snapshot and separates history by a private account hash if credentials change. It does not reconstruct earlier performance, attribute returns to trades, or calculate fees/realized P/L. Open orders are capped at the provider’s 500-record response; the UI displays up to 50 orders/positions and indicates additional records. Missing keys produce an explicit setup state.
 
 ## Validation
 
-`npm run test:paper` covers public endpoint access, watchlist validation, provider isolation, order-book sorting, pagination, monitoring cadence, visibility changes, retry behavior, and quote freshness. Run a production build and lint changed components. Confirm the report opens without cookies. Visual verification must inspect card spacing on mobile and desktop; deployment build success alone does not verify layout.
+`npm run test:paper` covers public endpoint access, watchlist validation, provider isolation, order-book sorting, pagination, monitoring cadence, visibility changes, retry behavior, quote freshness, fixed paper-host GET-only collection, credential gating, partial failures, empty RPC responses, and public/private projection boundaries. Run a production build and lint changed components. Confirm the report opens without cookies. Visual verification must inspect card spacing on mobile and desktop; deployment build success alone does not verify layout.
