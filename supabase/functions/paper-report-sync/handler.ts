@@ -1,4 +1,5 @@
 import { collectPaperReport } from "./collector.ts";
+import { collectPaperBotMarks } from "./marks.ts";
 
 export function createHandler(env: (name: string) => string | undefined, fetcher: typeof fetch = fetch) {
   return async (request: Request) => {
@@ -45,6 +46,14 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
       await db("rpc/paper_bot_link_prepared_orders", { p_collected_at: report.collectedAt });
       phase = "virtual ledger fill application";
       await db("rpc/paper_bot_apply_unapplied_fills", { p_collected_at: report.collectedAt });
+      phase = "virtual position marks";
+      try {
+        const positions = await db("paper_bot_positions?select=symbol,asset_class&quantity=gt.0");
+        const marks = await collectPaperBotMarks(key, secret, Array.isArray(positions) ? positions : [], fetcher);
+        await db("rpc/paper_bot_mark_to_market", { p_prices: marks, p_collected_at: report.collectedAt });
+      } catch (markError) {
+        report.errors.virtualMarks = markError instanceof Error ? markError.message.slice(0, 180) : "Virtual position marks unavailable.";
+      }
       phase = "snapshot save";
       await db("rpc/paper_report_save_snapshot", { p_source_key: sourceKey, p_payload: report });
       return reply({ ok: true, collectedAt: report.collectedAt, partial: Object.keys(report.errors).length > 0 });
