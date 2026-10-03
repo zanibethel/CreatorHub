@@ -22,6 +22,22 @@ export type StagedPaperOrder = {
   take_profit_r: number | null;
   protect_winner_at_r: number | null;
   trail_remainder: boolean;
+  last_exit_manager_at: string | null;
+  exit_manager_state: ExitManagerState;
+};
+
+export type ExitManagerState = {
+  version?: string;
+  mode?: string;
+  plannedAction?: "hold" | "repair_stop" | "partial_profit" | "tighten_stop_trail" | "tighten_stop_breakeven";
+  rMultiple?: number;
+  markPrice?: number;
+  evaluatedAt?: string;
+  hasActiveStop?: boolean;
+  reason?: string;
+  desiredStop?: number;
+  partialFraction?: number;
+  partialProfitState?: string;
 };
 
 export type PaperPositionPlan = {
@@ -30,6 +46,7 @@ export type PaperPositionPlan = {
   quantity: number;
   average_entry: number | null;
   protective_stop: number | null;
+  initial_protective_stop: number | null;
   planned_risk_dollars: number | null;
   take_profit_price: number | null;
   take_profit_fraction: number | null;
