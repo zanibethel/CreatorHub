@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import useAccountReport from "./useAccountReport";
-import usePaperBotLedgers, { type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
+import usePaperBotLedgers, { type PaperPositionPlan, type PaperTradeMetric, type StagedPaperOrder } from "./usePaperBotLedgers";
 import useSwingReadiness from "./useSwingReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
@@ -34,7 +34,7 @@ function OrderPlan({ order }: { order: StagedPaperOrder }) {
   </div>;
 }
 
-function ExitManagerRow({ position }: { position: PaperPositionPlan }) {
+function ExitManagerRow({ position, metric }: { position: PaperPositionPlan; metric?: PaperTradeMetric }) {
   const manager = position.exit_manager_state;
   const rMultiple = manager.rMultiple;
   return <div>
@@ -42,15 +42,17 @@ function ExitManagerRow({ position }: { position: PaperPositionPlan }) {
     <strong>{(manager.plannedAction ?? "hold").replaceAll("_", " ")}{rMultiple !== undefined ? ` · ${rMultiple >= 0 ? "+" : ""}${rMultiple.toFixed(2)}R` : ""}</strong>
     <small>Mark {money(manager.markPrice ?? null)} · stop {money(position.protective_stop)}{manager.desiredStop ? ` · planned stop ${money(manager.desiredStop)}` : ""}</small>
     <small>{manager.reason ?? "Waiting for evaluation."}</small>
+    {metric ? <small>MFE {metric.mfe_r >= 0 ? "+" : ""}{metric.mfe_r.toFixed(2)}R · MAE {metric.mae_r >= 0 ? "+" : ""}{metric.mae_r.toFixed(2)}R · {metric.mark_count} marks</small> : null}
   </div>;
 }
 
-function BotCard({ profile, ledger, history, staged, positions }: {
+function BotCard({ profile, ledger, history, staged, positions, trades }: {
   profile: PaperBotProfile;
   ledger: PaperBotSummary | null;
   history: Array<{ time: string; equity: number }>;
   staged: StagedPaperOrder[];
   positions: PaperPositionPlan[];
+  trades: PaperTradeMetric[];
 }) {
   const active = (ledger?.status ?? profile.status) === "active";
   const equity = ledger?.equity ?? profile.challengeStartingCash;
@@ -84,7 +86,7 @@ function BotCard({ profile, ledger, history, staged, positions }: {
 
     {positions.length ? <div>
       <h3>Exit manager</h3>
-      <div className={styles.botRuleGrid}>{positions.map(position => <ExitManagerRow key={position.symbol} position={position} />)}</div>
+      <div className={styles.botRuleGrid}>{positions.map(position => <ExitManagerRow key={position.symbol} position={position} metric={trades.find(trade => trade.symbol === position.symbol && trade.status !== "closed")} />)}</div>
     </div> : null}
 
     {staged.length ? <div>
@@ -92,6 +94,20 @@ function BotCard({ profile, ledger, history, staged, positions }: {
       {staged.map(order => <OrderPlan key={`${order.symbol}-${order.entry_trigger}`} order={order} />)}
       <p className={styles.meta}>Staged means prepared only. These plans require fresh quote/spread/risk revalidation before paper submission.</p>
     </div> : null}
+
+    {trades.some(trade => trade.status === "closed") ? <div>
+      <h3>Recent trade outcomes</h3>
+      <div className={styles.botRuleGrid}>
+        {trades.filter(trade => trade.status === "closed").slice(0, 3).map(trade => <div key={`${trade.symbol}-${trade.opened_at}`}>
+          <span>{trade.symbol}</span>
+          <strong>{trade.r_multiple === null ? "R pending" : `${trade.r_multiple >= 0 ? "+" : ""}${trade.r_multiple.toFixed(2)}R`} · {money(trade.realized_pl)}</strong>
+          <small>Entry {money(trade.entry_price)} · exit {money(trade.exit_price)} · fees {money(trade.estimated_fees)}</small>
+          <small>MFE {trade.mfe_r >= 0 ? "+" : ""}{trade.mfe_r.toFixed(2)}R · MAE {trade.mae_r >= 0 ? "+" : ""}{trade.mae_r.toFixed(2)}R · {trade.mark_count} marks</small>
+          <small>{trade.exit_reason ?? "Broker exit"}{trade.closed_at ? ` · closed ${new Date(trade.closed_at).toLocaleString()}` : ""}</small>
+        </div>)}
+      </div>
+    </div> : null}
+
 
     <ul className={styles.botNotes}>{profile.notes.map(note => <li key={note}>{note}</li>)}</ul>
     {active ? <Link className={styles.botLink} href="/paper-trading">Open live report →</Link> : <span className={styles.botDisabled}>Execution disabled</span>}
@@ -106,6 +122,7 @@ export default function PaperBotLab() {
   const ledgerFor = (botId: string) => ledgerReport?.bots.find(bot => bot.botId === botId) ?? null;
   const stagedFor = (botId: string) => ledgerReport?.stagedOrders?.[botId] ?? [];
   const positionsFor = (botId: string) => ledgerReport?.positionPlans?.[botId] ?? [];
+  const tradesFor = (botId: string) => ledgerReport?.tradeMetrics?.[botId] ?? [];
   const historyFor = (botId: string) => ledgerReport?.history?.[botId] ?? [];
   const brokerEquity = accountReport?.snapshot?.account.equity ?? null;
 
@@ -212,6 +229,7 @@ export default function PaperBotLab() {
         history={historyFor(profile.id)}
         staged={stagedFor(profile.id)}
         positions={positionsFor(profile.id)}
+        trades={tradesFor(profile.id)}
       />)}
     </section>
 
