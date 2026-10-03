@@ -115,6 +115,62 @@ export default function PaperTradingLab() {
               When a data source is configured, this area will show qualified entry alerts, their evidence score, limit-order status, and simulated exits. No trades will be recorded from this preview.
             </div>
           </section>
+
+          <section style={{ ...card, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 20 }}>Open orders and positions</h2>
+                <p style={{ margin: "5px 0 0", color: colors.muted, fontSize: 13 }}>
+                  Current simulator state at the latest report update. Pending and partial entries stay distinct from filled positions.
+                </p>
+              </div>
+              <span style={{ color: colors.muted, fontSize: 12 }}>No order ledger connected</span>
+            </div>
+            <div style={{ overflowX: "auto", marginTop: 13 }}>
+              <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", textAlign: "left", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ color: colors.muted }}>
+                    {["Placed", "Asset", "Pool", "Status", "Limit / average fill", "Filled / requested", "Stop / target"].map((heading) => (
+                      <th key={heading} scope="col" style={{ padding: "9px 8px", borderBottom: `1px solid ${colors.border}`, fontWeight: 700 }}>{heading}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td colSpan={7} style={{ padding: "20px 8px", color: colors.muted, textAlign: "center", lineHeight: 1.6 }}>
+                    No open orders or positions yet. Once paper simulation is connected, this list will include pending, partially filled, and filled positions with their linked exit levels.
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
+
+          <section style={{ ...card, marginBottom: 14 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 8, flexWrap: "wrap" }}>
+              <div>
+                <h2 style={{ margin: 0, fontSize: 20 }}>Previous trades</h2>
+                <p style={{ margin: "5px 0 0", color: colors.muted, fontSize: 13 }}>
+                  Closed paper trades, with realized result and the reason the strategy entered and exited.
+                </p>
+              </div>
+              <span style={{ color: colors.muted, fontSize: 12 }}>No trade history connected</span>
+            </div>
+            <div style={{ overflowX: "auto", marginTop: 13 }}>
+              <table style={{ width: "100%", minWidth: 760, borderCollapse: "collapse", textAlign: "left", fontSize: 12 }}>
+                <thead>
+                  <tr style={{ color: colors.muted }}>
+                    {["Closed", "Asset", "Pool", "Side", "Entry → exit", "Net P/L", "Signal / exit reason"].map((heading) => (
+                      <th key={heading} scope="col" style={{ padding: "9px 8px", borderBottom: `1px solid ${colors.border}`, fontWeight: 700 }}>{heading}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr><td colSpan={7} style={{ padding: "20px 8px", color: colors.muted, textAlign: "center", lineHeight: 1.6 }}>
+                    No completed trades yet. Closed trades will appear here with timestamps, entry and exit prices, costs, net profit or loss, and the recorded signal rationale.
+                  </td></tr>
+                </tbody>
+              </table>
+            </div>
+          </section>
         </>
       ) : (
         <section style={{ ...card }}>
