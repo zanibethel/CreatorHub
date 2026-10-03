@@ -19,8 +19,8 @@ Implemented:
 
 Still intentionally blocked:
 - Decision/rejection events have a persisted journal target, but the live evaluator is not yet writing every event into it.
-- Monday stock/swing same-session revalidation is live and read-only; privileged PAPER submission remains disabled by the swing bot execution kill switch.
-- Stock bracket protection request construction is implemented and tested; end-to-end broker submission/fill/child-leg validation remains before automatic PAPER execution is armed.
+- Monday stock/swing same-session revalidation is live; the privileged PAPER submission endpoint is deployed and the PAPER execution kill switch is armed, but submission still requires a fresh selected setup during the valid session window.
+- Stock bracket protection request construction is implemented. A closed-market PAPER smoke test confirmed Alpaca bracket acceptance plus both child legs, then canceled cleanly with zero fills. Child-leg attribution back to the parent bot plan is implemented; the remaining rehearsal is a real market-hours PAPER fill/exit.
 - Official crypto CFEE true-up and longer-horizon R/MFE/MAE analytics remain pending.
 - Correlation/sector exposure calculation needs deeper asset linkage.
 - Real-money execution remains completely disabled.
@@ -364,8 +364,8 @@ Before promoting a material strategy change:
 7. ◐ Add decision journal/rejection logging — schema/RPC exist; evaluator writes are not wired yet.
 8. ✅ Add dry-run decision endpoint that cannot place orders.
 9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
-10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution and a controlled crypto paper execution path are proven; swing bracket request construction is implemented, while privileged submission remains gated.
-11. ◐ Require broker-hosted protection where supported — crypto stop-limit protection is live in PAPER; stock bracket request construction is implemented and awaits end-to-end paper validation.
+10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution, controlled crypto paper execution, privileged swing submission, duplicate-claim protection, and PAPER-only bracket construction are implemented; market-hours fill/exit validation remains.
+11. ◐ Require broker-hosted protection where supported — crypto stop-limit protection is live in PAPER; stock bracket acceptance and both child legs have been smoke-tested off-hours, with market-hours fill/exit validation remaining.
 12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — reconciliation and live marking are implemented; crypto exit-manager v1 is being paper-validated.
 13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
 14. ☐ Add outcome/R/MFE/MAE analytics.
