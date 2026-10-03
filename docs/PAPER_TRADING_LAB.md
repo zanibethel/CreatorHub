@@ -64,3 +64,13 @@ History contains one equity checkpoint per collected minute, updating that minut
 ## Validation
 
 `npm run test:paper` covers public endpoint access, watchlist validation, provider isolation, order-book sorting, pagination, monitoring cadence, visibility changes, retry behavior, quote freshness, fixed paper-host GET-only collection, credential gating, partial failures, empty RPC responses, and public/private projection boundaries. Run a production build and lint changed components. Confirm the report opens without cookies. Visual verification must inspect card spacing on mobile and desktop; deployment build success alone does not verify layout.
+
+## Candidate qualification cards
+
+Each paginated watchlist card has expandable qualification details. All non-inverse candidates, including reserves, show the three possible funded pools and challenge position caps ($18/$36/$36). Pool suggestions in historical research are not eligibility gates. SH and PSQ show no allocation.
+
+Cards distinguish descriptive evidence from trade qualification: quote freshness (existing 60-second display policy), positive/non-crossed quotes, midpoint spread, chart-window close change, and dated historical volatility/drawdown. These checks never authorize orders. Stale stock quotes may reflect a closed market; no market-open inference is made. Invalid, nonfinite and future chart observations are excluded. Recent crypto charts are hourly and stock charts daily; they do not establish intraday entries. Kraken prices need verification against Alpaca at execution.
+
+Entry/stop/target/holding-period rules, transaction costs/minimums, daily-loss, pool capacity and correlated exposure remain explicitly pending. No scoring thresholds, order endpoints or trading automation are introduced. Opening details pauses report rotation through the existing interaction handler.
+
+Sources: https://docs.alpaca.markets/us/docs/market-data-faq ; https://www.proshares.com/our-etfs/leveraged-and-inverse/sh ; https://www.proshares.com/our-etfs/leveraged-and-inverse/psq
