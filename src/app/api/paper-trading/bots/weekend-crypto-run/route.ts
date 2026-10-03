@@ -74,6 +74,25 @@ export async function GET(request: Request) {
     return reply({ ok: true, action: "none", reason: "entry-window-closed" });
   }
 
+  if (readiness.executionEnabled) {
+    const manageResponse = await fetch(
+      new URL("/api/paper-trading/bots/weekend-crypto-manage", request.url),
+      {
+        method: "POST",
+        headers: { "x-paper-weekend-execution-token": executionToken },
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    const manage = await manageResponse.json().catch(() => ({ error: "Manager returned an invalid response." }));
+    if (!manageResponse.ok) {
+      return reply({ ok: false, action: "manager-error", result: manage }, 502);
+    }
+    if (!["none","hold"].includes(manage.action ?? "none")) {
+      return reply({ ok: true, action: "manage", result: manage });
+    }
+  }
+
   if (!readiness.executionEnabled) {
     return reply({ ok: true, action: "none", reason: "weekend-executor-disabled" });
   }
