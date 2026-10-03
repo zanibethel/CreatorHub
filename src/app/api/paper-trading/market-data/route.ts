@@ -14,7 +14,7 @@ type KrakenBook = {
   asks?: KrakenLevel[];
 };
 
-type Candle = { time: string; close: number };
+type Candle = { time: string; close: number; high?: number; low?: number; volume?: number };
 
 function parseSymbols(value: string | null, pattern: RegExp, maximum = 10) {
   if (!value?.trim()) return [];
@@ -117,7 +117,7 @@ async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[
     start: new Date(Date.now() - 60 * 86_400_000).toISOString(),
     adjustment: "split", sort: "asc",
   });
-  const bars: Record<string, Array<{ t: string; c: number }>> = {};
+  const bars: Record<string, Array<{ t: string; c: number; h?: number; l?: number; v?: number }>> = {};
   const signal = AbortSignal.timeout(10_000);
   for (let page = 0; page < 10; page++) {
     const response = await fetch(`https://data.alpaca.markets/v2/stocks/bars?${query.toString()}`, {
@@ -126,7 +126,7 @@ async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[
     });
     if (!response.ok) throw new Error(`Alpaca history request returned HTTP ${response.status}.`);
     const payload = await response.json() as {
-      bars?: Record<string, Array<{ t: string; c: number }>>;
+      bars?: Record<string, Array<{ t: string; c: number; h?: number; l?: number; v?: number }>>;
       next_page_token?: string | null;
     };
     for (const symbol of symbols) bars[symbol] = [...(bars[symbol] ?? []), ...(payload.bars?.[symbol] ?? [])];
@@ -136,7 +136,7 @@ async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[
   }
   return Object.fromEntries(symbols.map((symbol) => [
     symbol,
-    (bars[symbol] ?? []).filter(({ c }) => Number.isFinite(c) && c > 0).slice(-30).map(({ t, c }) => ({ time: t, close: c })),
+    (bars[symbol] ?? []).filter(({ c }) => Number.isFinite(c) && c > 0).slice(-30).map(({ t, c, h, l, v }) => ({\n      time: t, close: c,\n      ...(Number.isFinite(h) && h! > 0 ? { high: h } : {}),\n      ...(Number.isFinite(l) && l! > 0 ? { low: l } : {}),\n      ...(Number.isFinite(v) && v! >= 0 ? { volume: v } : {}),\n    })),
   ]));
 }
 
@@ -176,7 +176,7 @@ async function fetchKrakenCandles(product: string): Promise<Candle[]> {
   })) : [];
 }
 
-async function fetchKrakenBook(product: string) {
+function finiteCandle(candle: Candle) {\n  return finitePositive(candle.close) && finitePositive(candle.high) && finitePositive(candle.low) && typeof candle.volume === "number" && Number.isFinite(candle.volume) && candle.volume >= 0;\n}\n\nfunction finitePositive(value: unknown): value is number {\n  return typeof value === "number" && Number.isFinite(value) && value > 0;\n}\n\nasync function fetchKrakenBook(product: string) {
   const [base, quote] = product.split("-");
   const symbol = `${base}/${quote}`;
   const query = new URLSearchParams({ symbol });
