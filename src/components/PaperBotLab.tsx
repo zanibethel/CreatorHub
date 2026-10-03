@@ -20,11 +20,13 @@ function maxDrawdown(history: Array<{ time: string; equity: number }>) {
   return worst;
 }
 
-function BotCard({ profile, currentEquity, drawdown, positions }: {
+function BotCard({ profile, currentEquity, drawdown, positions, brokerOrders, brokerFills }: {
   profile: PaperBotProfile;
   currentEquity: number | null;
   drawdown: number | null;
   positions: number | null;
+  brokerOrders: number;
+  brokerFills: number;
 }) {
   const active = profile.status === "active";
   const returnPct = active && currentEquity !== null
@@ -47,13 +49,15 @@ function BotCard({ profile, currentEquity, drawdown, positions }: {
       <div><span>Total return</span><strong>{active ? percent(returnPct) : "Not started"}</strong></div>
       <div><span>Max drawdown</span><strong>{active ? percent(drawdown) : "Not started"}</strong></div>
       <div><span>Open positions</span><strong>{active ? positions ?? "Awaiting data" : "0"}</strong></div>
+      <div><span>Tagged broker orders</span><strong>{brokerOrders}</strong></div>
+      <div><span>Tracked fills</span><strong>{brokerFills}</strong></div>
     </div>
 
     <div className={styles.botRuleGrid}>
       <div><span>Universe</span><strong>{profile.universe.assetClasses.join(" · ")}</strong><small>{profile.universe.description}</small></div>
       <div><span>Cadence</span><strong>{profile.cadence.intradayOnly ? "Intraday only" : profile.cadence.swingOnly ? "Swing only" : "Opportunity driven"}</strong><small>{profile.cadence.description}</small></div>
       <div><span>Strategy</span><strong>{profile.strategyId ?? "Separate strategy pending"}</strong><small>{active ? "Current decision engine" : "Disabled until explicitly designed and validated"}</small></div>
-      <div><span>Ledger</span><strong>Isolated</strong><small>No shared positions, P/L, buying power, or risk budget.</small></div>
+      <div><span>Ledger</span><strong>Isolated</strong><small>No shared positions, P/L, buying power, or risk budget. Alpaca activity is attributed by bot-specific client order IDs.</small></div>
     </div>
 
     <ul className={styles.botNotes}>{profile.notes.map(note => <li key={note}>{note}</li>)}</ul>
@@ -70,6 +74,7 @@ export default function PaperBotLab() {
   const drawdown = maxDrawdown(ledgerReport?.history[defaultProfile.id] ?? []);
   const positions = defaultLedger?.positionCount ?? 0;
   const brokerEquity = accountReport?.snapshot?.account.equity ?? null;
+  const ledgerFor = (botId: string) => ledgerReport?.bots.find(bot => bot.botId === botId) ?? null;
 
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
@@ -101,6 +106,8 @@ export default function PaperBotLab() {
         currentEquity={profile.id === defaultProfile.id ? equity : null}
         drawdown={profile.id === defaultProfile.id ? drawdown : null}
         positions={profile.id === defaultProfile.id ? positions : null}
+        brokerOrders={ledgerFor(profile.id)?.brokerOrderCount ?? 0}
+        brokerFills={ledgerFor(profile.id)?.brokerFillCount ?? 0}
       />)}
     </section>
 
@@ -117,6 +124,7 @@ export default function PaperBotLab() {
             <tr><td>Current equity</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{profile.id === defaultProfile.id ? money(equity) : "Not started"}</td>)}</tr>
             <tr><td>Total return</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{profile.id === defaultProfile.id && equity !== null ? percent((equity / profile.challengeStartingCash - 1) * 100) : "Not started"}</td>)}</tr>
             <tr><td>Max drawdown</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{profile.id === defaultProfile.id ? percent(drawdown) : "Not started"}</td>)}</tr>
+            <tr><td>Tagged broker fills</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{ledgerFor(profile.id)?.brokerFillCount ?? 0}</td>)}</tr>
             <tr><td>Expectancy / avg R</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>Awaiting journal</td>)}</tr>
             <tr><td>Profit factor</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>Awaiting journal</td>)}</tr>
             <tr><td>MFE / MAE</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>Awaiting journal</td>)}</tr>
