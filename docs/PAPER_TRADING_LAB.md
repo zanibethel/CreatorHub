@@ -24,6 +24,15 @@ CreatorHub's Paper Trading Lab is a private, paper-only portfolio report and str
 
 The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a validated default.
 
+## Initial market-data wiring
+
+- The first manual check is read-only: Alpaca IEX latest stock quotes and Kraken public Level 2 order books for selected USD crypto pairs.
+- The dashboard accepts editable symbols; the initial SPY/QQQ and BTC-USD/ETH-USD values are test examples, not a recommended or approved strategy watchlist.
+- Alpaca keys are read from server-only `ALPACA_API_KEY_ID` and `ALPACA_API_SECRET_KEY` environment variables. Use market-data credentials only; never add keys to source control or expose them to browser code.
+- The refresh endpoint requires a signed-in, non-anonymous user, has no order placement methods, and returns a no-cache snapshot. It does not yet persist data, generate signals, simulate fills, or run hourly.
+- The free Alpaca stock feed is IEX only. Treat it as an integration test, not consolidated-market evidence. Upgrade only after we decide to test against full-market real-time data.
+- Kraken order-book depth describes Kraken's venue. Historical depth must be captured by our worker if we want to analyze book conditions later.
+
 ## Report views
 
 - Show **open orders and positions** as current state at the latest simulator update, including pending and partial limit entries, filled positions, fill quantity, assigned pool, timestamps, and linked stop/target levels where available.
