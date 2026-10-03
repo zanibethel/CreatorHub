@@ -5,6 +5,8 @@ import AccountReportPanels from "./AccountReportPanels";
 import type { AccountReport } from "@/lib/account-report";
 import type { PaperWatchlist } from "@/lib/paper-watchlist";
 import styles from "./PaperTradingLab.module.css";
+import usePaperBotLedgers from "./usePaperBotLedgers";
+import { PAPER_STARTING_CASH } from "@/lib/paper-trading-config";
 
 export type ReportView = "portfolio" | "watchlist" | "trades" | "orders" | "positions";
 export const REPORT_VIEWS: Array<[ReportView, string]> = [
@@ -22,7 +24,8 @@ export default function RotatingPortfolioReport({ view, snapshot, stocks, crypto
   accountError: string;
   watchlist: PaperWatchlist;
 }) {
-  const accountEquity = accountReport?.snapshot?.account.equity ?? null;
+  const { report: botLedgerReport } = usePaperBotLedgers();
+  const accountEquity = botLedgerReport?.bots.find(bot => bot.botId === "default-diverse")?.equity ?? PAPER_STARTING_CASH;
   return <div className={styles.report}>
     {view === "watchlist"
       ? <MarketDataPanel snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={onSetup} watchlist={watchlist} accountEquity={accountEquity} />
