@@ -245,16 +245,17 @@ export async function POST(request:Request){
       return reply({error:"Partial-profit order failed; protection restore attempted.",critical:!restored},502);
     }
 
-    if(partial?.id){
+    const partialBrokerId=partial?.id;
+    if(partialBrokerId){
       for(let index=0;index<10;index++){
-        if(["filled","canceled","rejected","expired"].includes(partial.status??""))break;
+        if(["filled","canceled","rejected","expired"].includes(partial?.status??""))break;
         await sleep(200);
-        try{partial=await alpaca(`orders/${encodeURIComponent(partial.id)}`) as BrokerOrder;}catch{break;}
+        try{partial=await alpaca(`orders/${encodeURIComponent(partialBrokerId)}`) as BrokerOrder;}catch{break;}
       }
     }
     const filled=num(partial?.filled_qty)??0;
     if(!(filled>0)){
-      if(partial?.id){try{await alpaca(`orders/${encodeURIComponent(partial.id)}`,{method:"DELETE"});}catch{}}
+      if(partialBrokerId){try{await alpaca(`orders/${encodeURIComponent(partialBrokerId)}`,{method:"DELETE"});}catch{}}
       await patchOrder(clientId,{status:"canceled"});
       const restored=await createProtection(position.protective_stop??position.average_entry,available,"Restore protection after unfilled partial profit.");
       if(!restored)await emergencyFlatten();
