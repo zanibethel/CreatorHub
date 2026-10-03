@@ -25,7 +25,7 @@ const profiles = module("../src/lib/paper-bot-profiles.ts", { "./paper-strategy-
 test("Default Diverse Bot is the only active default profile", () => {
   assert.equal(profiles.DEFAULT_DIVERSE_BOT.id, "default-diverse");
   assert.equal(profiles.DEFAULT_DIVERSE_BOT.status, "active");
-  assert.equal(profiles.DEFAULT_DIVERSE_BOT.challengeStartingCash, 1000);
+  assert.equal(profiles.DEFAULT_DIVERSE_BOT.challengeStartingCash, 100);
   assert.equal(profiles.DEFAULT_DIVERSE_BOT.strategyId, strategy.PAPER_STRATEGY_V1.id);
   assert.equal(profiles.ACTIVE_DEFAULT_PAPER_BOT.id, "default-diverse");
   assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length, 1);
