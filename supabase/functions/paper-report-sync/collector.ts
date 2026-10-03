@@ -49,7 +49,7 @@ const rows = (v: unknown) => {
   if (!Array.isArray(v)) throw new Error("Unexpected provider response.");
   return v.map(object);
 };
-const taggedClientOrderId = (value: string) => /^ch-[a-z0-9]{2,12}-v[0-9]+-[a-z0-9-]{8,80}$/.test(value);
+const taggedClientOrderId = (value: string) => /^chb-[a-z0-9]{2,12}-v[1-9][0-9]*-[a-z0-9]+-[a-z0-9]{6,24}$/.test(value);
 const assetClass = (value: unknown): "stock" | "crypto" | "unknown" => value === "crypto" ? "crypto" : value === "us_equity" ? "stock" : "unknown";
 
 export async function collectPaperReport(key: string, secret: string, fetcher: typeof fetch = fetch) {
