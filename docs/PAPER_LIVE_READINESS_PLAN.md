@@ -70,21 +70,25 @@ Crypto v1 uses broker stop-limit protection because Alpaca crypto does not expos
 
 ### 2. Monday Swing Revalidation Executor
 
+Status: deterministic read-only revalidation engine and Bot Lab readiness panel implemented; PAPER submission remains separate.
+
 Before any prepared QQQ/NVDA/MSFT PAPER order is submitted:
 
-- verify fresh quote and acceptable spread,
+- require the market to be open and wait at least 5 minutes after the open,
+- verify quote age ≤30 seconds and spread ≤0.25%,
 - verify the market/session state,
 - require price at/above the stored trigger,
 - reject if price is above the stored max-chase price,
 - recalculate quantity from current $100 bot equity,
 - enforce maximum three new entries per calendar week,
 - enforce maximum open positions,
-- enforce pool capacity and open-risk ceilings,
+- enforce ≤30% initial allocation per swing position and ≤3% total open planned risk,
+- enforce ≤2% correlated risk for the current QQQ/NVDA/MSFT mega-cap-tech group,
 - enforce daily/weekly kill switches,
-- recheck trend/setup validity,
+- require the broad SPY regime to remain supportive and recheck trend/setup validity,
 - expire invalid plans with a journal reason.
 
-A prepared plan is not a broker order.
+A prepared plan is not a broker order. If multiple correlated plans become ready simultaneously, current v1 priority is QQQ → NVDA → MSFT and the correlated-risk ceiling may leave lower-priority plans on standby even when a weekly trade slot remains.
 
 ### 3. Broker-Hosted Stock Protection
 
@@ -96,7 +100,9 @@ Continue reserving estimated crypto fees immediately, then reconcile the officia
 
 ### 5. Monday Readiness Panel
 
-Bot Lab should expose a compact readiness view such as:
+Status: implemented as a live read-only Bot Lab panel backed by `/api/paper-trading/bots/swing-readiness`.
+
+Bot Lab exposes:
 
 - Market data: ready / blocked
 - Ledger: ready / blocked
