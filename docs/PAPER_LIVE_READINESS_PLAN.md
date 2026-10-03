@@ -110,9 +110,9 @@ Current state:
 - One-position / three-entry-per-day / 1.50% daily-loss controls.
 - Same-symbol cross-bot occupancy block.
 - Live Bot Lab monitoring.
-- PAPER execution intentionally disabled until the scanner and privileged crypto submission/protection path are verified.
+- PAPER execution is armed after a controlled broker smoke verified limit-entry, fee-adjusted quantity, protective stop-limit, cancellation, and flatten behavior; live-money execution remains disabled.
 
-Next: controlled PAPER submission endpoint, immediate protective stop-limit after fill, broker-action exit management, and deterministic end-of-day flattening.
+Next: observe the first genuine tagged `wkd` setup/round trip and verify +1R/+2R/trailing/23:45 behavior plus exact fee reconciliation.
 
 ### 5. Exact Fee Reconciliation
 
