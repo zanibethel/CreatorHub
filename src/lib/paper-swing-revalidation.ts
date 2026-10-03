@@ -87,7 +87,7 @@ function currentCorrelatedRiskPct(input: SwingRevalidationInput, group: string |
 }
 
 export function evaluateSwingReadiness(input: SwingRevalidationInput) {
-  const base = input.plans.map(plan => {
+  const base: SwingPlanReadiness[] = input.plans.map(plan => {
     const quote = input.quotes[plan.symbol];
     const spread = spreadPct(quote);
     const age = quoteAgeSeconds(quote, input.now);
@@ -150,7 +150,7 @@ export function evaluateSwingReadiness(input: SwingRevalidationInput) {
   const weeklySlots = Math.max(0, strategy.cadence.maximumNewEntriesPerWeek - input.ledger.weeklyNewEntries);
   const positionSlots = Math.max(0, strategy.cadence.maximumOpenPositions - input.ledger.openPositions);
   const maximumSelections = Math.min(weeklySlots, positionSlots);
-  const priority = new Map(strategy.selection.simultaneousTriggerPriority.map((symbol, index) => [symbol, index]));
+  const priority = new Map<string, number>(strategy.selection.simultaneousTriggerPriority.map((symbol, index) => [symbol, index] as [string, number]));
   const groupRisk = new Map<string, number>();
 
   for (const position of input.currentRisk) {
