@@ -34,6 +34,13 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 - The free Alpaca stock feed is IEX only. Treat it as an integration test, not consolidated-market evidence. Upgrade only after we decide to test against full-market real-time data.
 - Kraken order-book depth describes Kraken's venue. Historical depth must be captured by our worker if we want to analyze book conditions later.
 
+## Rotating dashboard behavior
+
+- The overview cycles through **Watchlist**, **Orders & trades**, **Portfolio growth**, and **Upcoming targets** every 12 seconds. Users can choose a section, pause/resume rotation, or move back/forward.
+- Watchlist lines use actual historical closes from the selected providers. Stock history uses Alpaca IEX daily bars; crypto history uses Kraken hourly candles. Keep provider and timeframe labels visible.
+- Portfolio growth must use saved paper-account value snapshots only. Market price charts are not account-performance charts. Until the private ledger exists, show an empty state with the $100 starting amount and do not draw invented returns.
+- Upcoming targets show actual pending simulated limit entries and linked stop/profit exits only after the simulator creates them. Do not present thresholds as accepted or filled orders.
+
 ## Report views
 
 - Show **open orders and positions** as current state at the latest simulator update, including pending and partial limit entries, filled positions, fill quantity, assigned pool, timestamps, and linked stop/target levels where available.
