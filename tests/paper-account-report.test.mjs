@@ -15,7 +15,8 @@ function module(path, imports = {}, globals = {}) {
   return exports;
 }
 const collector = module('../supabase/functions/paper-report-sync/collector.ts');
-const handler = module('../supabase/functions/paper-report-sync/handler.ts', {'./collector.ts':collector});
+const marks = module('../supabase/functions/paper-report-sync/marks.ts');
+const handler = module('../supabase/functions/paper-report-sync/handler.ts', {'./collector.ts':collector,'./marks.ts':marks});
 const schemas = module('../src/lib/account-report.ts', {zod:{z}});
 const stamp = '2026-10-03T08:00:00Z';
 const json = value => Response.json(value);
@@ -118,6 +119,8 @@ test('authorized collection saves only the sanitized snapshot while reconciling 
     if (url.endsWith('paper_bot_reconcile_broker_activity')) {reconciled = JSON.parse(options.body); return json({ordersSeen:1,fillsAdded:1});}
     if (url.endsWith('paper_bot_link_prepared_orders')) return json(1);
     if (url.endsWith('paper_bot_apply_unapplied_fills')) return json({fillsApplied:1,botsUpdated:['default-diverse']});
+    if (url.includes('paper_bot_positions?select=symbol,asset_class')) return json([]);
+    if (url.endsWith('paper_bot_mark_to_market')) return json({botsMarked:0});
     if (url.endsWith('paper_report_save_snapshot')) {saved = JSON.parse(options.body); return new Response(null,{status:204});}
     throw new Error('Unexpected database call');
   });
