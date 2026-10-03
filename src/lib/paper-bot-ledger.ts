@@ -24,6 +24,11 @@ export const paperBotLedgerRowSchema = z.object({
   weekly_drawdown_pct: nullableFinite,
   last_synced_at: timestamp.nullable(),
   source: z.string().max(80),
+  pool_usage: z.object({
+    day: z.coerce.number().finite().nonnegative(),
+    "multi-day": z.coerce.number().finite().nonnegative(),
+    "multi-week": z.coerce.number().finite().nonnegative(),
+  }),
 });
 
 export const paperBotJournalPublicRowSchema = z.object({
@@ -83,6 +88,7 @@ export type PaperBotSummary = {
   brokerOrderCount: number;
   brokerFillCount: number;
   lastBrokerFillAt: string | null;
+  poolUsage: { day: number; "multi-day": number; "multi-week": number };
 };
 
 export function projectPaperBotSummary(
@@ -118,5 +124,6 @@ export function projectPaperBotSummary(
     brokerOrderCount,
     brokerFillCount,
     lastBrokerFillAt,
+    poolUsage: row.pool_usage,
   };
 }
