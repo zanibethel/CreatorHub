@@ -116,12 +116,15 @@ export function evaluateSwingReadiness(input: SwingRevalidationInput) {
     if (!input.marketOpen) waitingOn.push("Market is closed.");
     if (input.marketOpen && input.minutesSinceOpen !== null && input.minutesSinceOpen < strategy.execution.minimumMinutesAfterOpen) waitingOn.push("Waiting for the opening buffer.");
     if (input.marketOpen && input.minutesSinceOpen !== null && input.minutesSinceOpen > strategy.execution.maximumMinutesAfterOpen) blockers.push("Entry window has closed for this session.");
-    if (age === null || age > strategy.execution.maximumQuoteAgeSeconds) waitingOn.push("Waiting for a fresh quote.");
+    const freshQuote = age !== null && age <= strategy.execution.maximumQuoteAgeSeconds;
+    const acceptableSpread = spread !== null && spread <= strategy.execution.maximumSpreadPct;
+
+    if (!freshQuote) waitingOn.push("Waiting for a fresh quote.");
     if (spread === null) waitingOn.push("Waiting for a valid non-crossed quote.");
-    else if (spread > strategy.execution.maximumSpreadPct) waitingOn.push("Spread is wider than the entry limit.");
+    else if (!acceptableSpread) waitingOn.push("Spread is wider than the entry limit.");
 
     if (ask === null) waitingOn.push("Ask price is unavailable.");
-    else {
+    else if (input.marketOpen && freshQuote && acceptableSpread) {
       if (ask < plan.entryTrigger) waitingOn.push("Entry trigger has not been reached.");
       if (ask > plan.maxEntryPrice) blockers.push("Price exceeded the maximum chase level.");
     }
