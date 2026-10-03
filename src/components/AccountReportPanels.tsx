@@ -28,14 +28,17 @@ function ProfitPlan({ plan, botName }: { plan: PaperPositionPlan; botName: strin
   const quantity = plan.quantity * plan.take_profit_fraction;
   const proceeds = quantity * plan.take_profit_price;
   const remainder = Math.max(0, 1 - plan.take_profit_fraction);
+  const manager = plan.exit_manager_state;
+  const managerR = manager.rMultiple;
+  const managerAction = manager.plannedAction ?? "hold";
   return <div className={styles.botRuleGrid}>
     <div>
       <span>{botName} · planned profit management</span>
       <strong>Take profit {money(plan.take_profit_price)} · sell {pct(plan.take_profit_fraction)}</strong>
       <small>Approx. {quantity.toFixed(8)} units · {money(proceeds)} at that price</small>
       <small>{plan.protect_winner_at_r ? `Tighten protection around +${plan.protect_winner_at_r.toFixed(0)}R` : "Protection adjustment not set"}{plan.trail_remainder ? ` · trail remaining ${pct(remainder)}` : ""}</small>
-      <small>Exit manager: <strong>{(plan.exit_manager_state.plannedAction ?? "hold").replaceAll("_", " ")}</strong>{plan.exit_manager_state.rMultiple !== undefined ? ` · ${plan.exit_manager_state.rMultiple >= 0 ? "+" : ""}${plan.exit_manager_state.rMultiple.toFixed(2)}R` : ""}{plan.exit_manager_state.desiredStop ? ` · planned stop ${money(plan.exit_manager_state.desiredStop)}` : ""}</small>
-      <small>{plan.exit_manager_state.reason ?? "Waiting for the next marked exit evaluation."}{plan.last_exit_manager_at ? ` · evaluated ${stamp(plan.last_exit_manager_at)}` : ""}</small>
+      <small>Exit manager: <strong>{managerAction.replaceAll("_", " ")}</strong>{managerR !== undefined ? ` · ${managerR >= 0 ? "+" : ""}${managerR.toFixed(2)}R` : ""}{manager.desiredStop ? ` · planned stop ${money(manager.desiredStop)}` : ""}</small>
+      <small>{manager.reason ?? "Waiting for the next marked exit evaluation."}{plan.last_exit_manager_at ? ` · evaluated ${stamp(plan.last_exit_manager_at)}` : ""}</small>
       <small>Planned level only unless a separate take-profit order is shown as live above.</small>
     </div>
   </div>;
