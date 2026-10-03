@@ -4,11 +4,11 @@
 
 `/paper-trading` opens a public interactive report directly, without account setup or sign-in. The user requested a report, not a built-in paper-trade simulator. Do not add simulator controls or a simulator engine to this report. The page is read-only and never routes orders.
 
-The $1,000 starting amount is the challenge baseline. Portfolio metrics show the actual Alpaca paper account balance without scaling it to that baseline. The equity chart uses saved account snapshots; watchlist charts use market history. The public report deliberately includes allowlisted paper balances and activity, excluding credentials, account identifiers, client order identifiers and personal details.
+Every bot challenge starts with a $100 virtual ledger. The Default Diverse strategy must size risk from its virtual ledger, not from the larger Alpaca paper-account balance. The Alpaca account remains visible as the execution sandbox and independent audit trail. Bot-attributed fills will be reconciled into the appropriate virtual ledger; untagged broker activity must never silently change challenge performance. The public report deliberately excludes credentials, account identifiers, client order identifiers and personal details.
 
 ## Five report views
 
-1. **Portfolio**: actual paper equity, cash, equity change since the previous close (including cash flows), and recorded minute equity history.
+1. **Portfolio**: Alpaca paper-account equity/cash and broker history for audit; the header separately shows the Default Diverse $100 virtual challenge equity.
 2. **Watchlist**: provider quotes and market history only.
 3. **Trades**: the latest 10 fill executions, including partial fills. These are not completed round trips or calculated realized returns.
 4. **Orders**: open buy and sell orders with actual quantities, fills, limits and stops.
@@ -59,7 +59,7 @@ State and history tables have RLS enabled and no ordinary-user grants or policie
 
 The scheduler token is generated within Vault, stored as a hash in private state, and checked before collection. Never expose the `net` or `vault` schemas through the Data API, or print queued HTTP headers or decrypted secrets. Extension-owned pg_net tables can retain default grants despite a best-effort revoke by `postgres`; the live Data API rejects the `net` schema. The collector endpoint returns status only, never account data.
 
-History contains one equity checkpoint per collected minute, updating that minute’s point on the second collection. Existing hourly history is preserved. The public chart shows the latest 1,440 checkpoints. It starts with the first successful snapshot and separates history by a private account hash if credentials change. It does not reconstruct earlier performance, attribute returns to trades, or calculate fees/realized P/L. Open orders are capped at the provider’s 500-record response; the UI displays up to 50 orders/positions and indicates additional records. Missing keys produce an explicit setup state.
+Broker history contains one Alpaca account-equity checkpoint per collected minute, updating that minute’s point on the second collection. This broker history is an audit trail, not a bot equity curve. Separate `paper_bot_ledgers`, `paper_bot_equity_history`, `paper_bot_positions`, and `paper_bot_journal` tables hold isolated challenge accounting. All are RLS-protected and service-role only; `/api/paper-trading/bots` exposes a validated read-only projection. Open orders are capped at the provider’s 500-record response; the UI displays up to 50 orders/positions and indicates additional records. Missing keys produce an explicit setup state.
 
 ## Validation
 
@@ -67,10 +67,10 @@ History contains one equity checkpoint per collected minute, updating that minut
 
 ## Candidate qualification cards
 
-Each paginated watchlist card has expandable qualification details. All non-inverse candidates, including reserves, show the three possible funded pools and challenge position caps ($18/$36/$36). Pool suggestions in historical research are not eligibility gates. SH and PSQ show no allocation.
+Each paginated watchlist card has expandable qualification details. All non-inverse candidates, including reserves, show the three possible funded pools as 20% / 40% / 40% allocation ceilings. On a $100 challenge those ceilings are $20 / $40 / $40 of portfolio exposure, not fixed position sizes. Individual positions are sized by planned loss risk. SH and PSQ show no allocation.
 
 Cards distinguish descriptive evidence from trade qualification: quote freshness (existing 60-second display policy), positive/non-crossed quotes, midpoint spread, chart-window close change, and dated historical volatility/drawdown. These checks never authorize orders. Stale stock quotes may reflect a closed market; no market-open inference is made. Invalid, nonfinite and future chart observations are excluded. Recent crypto charts are hourly and stock charts daily; they do not establish intraday entries. Kraken prices need verification against Alpaca at execution.
 
-Entry/stop/target, scoring, risk sizing, portfolio heat, kill-switch, correlation, profit-management, journaling, and adaptive-analysis requirements are now specified in `PAPER_DECISION_ENGINE.md`. That specification is approved architecture only until each implementation stage is built and validated. The public report remains read-only; qualification cards do not authorize orders, and no public report control may bypass the privileged paper-only execution path. Opening details pauses report rotation through the existing interaction handler.
+Entry/stop/target, scoring, risk sizing, portfolio heat, kill-switch, correlation, profit-management, journaling, and adaptive-analysis requirements are specified in `PAPER_DECISION_ENGINE.md`. Versioned scoring, stop/risk drafts, the virtual-ledger schema, journal schema, and read-only bot ledger projection are implemented; order routing remains disabled until attribution, pool-capacity checks, and the remaining execution safeguards are wired and validated. The public report remains read-only; qualification cards do not authorize orders, and no public report control may bypass the privileged paper-only execution path. Opening details pauses report rotation through the existing interaction handler.
 
 Sources: https://docs.alpaca.markets/us/docs/market-data-faq ; https://www.proshares.com/our-etfs/leveraged-and-inverse/sh ; https://www.proshares.com/our-etfs/leveraged-and-inverse/psq
