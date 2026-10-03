@@ -6,11 +6,12 @@ CreatorHub's Paper Trading Lab is a private, paper-only portfolio report and str
 
 ## Agreed initial model
 
-- Start with **$1,000 virtual cash**; report no performance until data and simulated fills exist.
+- Start the challenge with **$100 virtual cash**; report no performance until data and simulated fills exist.
+- The initial challenge counter begins only after the user selects Start day counter. In this preview the date is stored per signed-in user in that browser's local storage; it does not claim the simulator was running. Move the start date to private user-scoped persistence before treating this as a cross-device account setting.
 - Initial holding-period allocations: **20% day trades, 40% multi-day swings, and 40% multi-week swings**.
 - Maintain a separate inverse ETF sleeve that is monitored daily. Its allocation has not been chosen, so it is currently shown as unallocated. Any final configuration must sum to 100% of the virtual account.
 - Crypto assets are eligible within the same pools. They do not receive a separate capital allocation.
-- One trade may use no more than **9% of its assigned pool's budget**. This is a position-size ceiling, not a loss limit; a separate loss budget is required.
+- One trade may use no more than **9% of its assigned pool's budget**. With a $100 challenge, that means example position caps of $1.80, $3.60, and $3.60 for the 20%, 40%, and 40% pools. This is a position-size ceiling, not a loss limit; a separate loss budget is required.
 - An unfilled candidate may move to another pool before entry. A filled trade remains attributed to the pool that owns it until closed.
 
 ## Entry and exit lifecycle
