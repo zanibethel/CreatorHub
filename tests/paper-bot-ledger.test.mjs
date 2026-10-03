@@ -63,7 +63,13 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
       { bot_id: "default-diverse", collected_at: stamp, equity: "100" },
       { bot_id: "penny-volatility-day-100", collected_at: stamp, equity: "100" },
     ]);
-    if (url.includes("paper_bot_positions")) return Response.json([]);
+    if (url.includes("paper_bot_positions")) return Response.json([{
+      bot_id:"default-diverse", symbol:"SOL/USD", quantity:"0.16", average_entry:"120",
+      protective_stop:"119", initial_protective_stop:"119", planned_risk_dollars:"0.2",
+      take_profit_price:"122", take_profit_fraction:"0.25", take_profit_r:"1.75",
+      protect_winner_at_r:"1", trail_remainder:true, last_exit_manager_at:stamp,
+      exit_manager_state:{version:"paper-exit-v1",mode:"staged-action",plannedAction:"hold",rMultiple:-0.1,markPrice:119.9,evaluatedAt:stamp,hasActiveStop:true,reason:"No exit-management threshold is active."}
+    }]);
     if (url.includes("paper_bot_journal")) return Response.json([]);
     if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id: "default-diverse", broker_order_id: "private-order" }]);
     if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id: "default-diverse", fill_activity_id: "private-fill", transaction_time: stamp, ledger_applied_at: stamp }]);
@@ -78,7 +84,7 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.accountingModel.brokerAccountIsExecutionVenueOnly, true);
   assert.equal(body.bots[0].equity, 100);
   assert.equal(body.bots[0].buyingPower, 100);
-  assert.equal(body.bots[0].positionCount, 0);
+  assert.equal(body.bots[0].positionCount, 1);
   assert.equal(body.bots[0].journalCount, 0);
   assert.equal(body.bots[0].brokerOrderCount, 1);
   assert.equal(body.bots[0].brokerFillCount, 1);
@@ -86,6 +92,8 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.history["default-diverse"][0].equity, 100);
   assert.equal(body.bots[0].poolUsage["multi-day"], 0);
   assert.equal(body.stagedOrders["default-diverse"][0].symbol, "QQQ");
+  assert.equal(body.positionPlans["default-diverse"][0].exit_manager_state.plannedAction, "hold");
+  assert.equal(body.positionPlans["default-diverse"][0].initial_protective_stop, 119);
   assert.equal(requested.length, 7);
   assert.doesNotMatch(JSON.stringify(body), /private-value|database-secret|metadata|private-order|private-fill/);
 });
