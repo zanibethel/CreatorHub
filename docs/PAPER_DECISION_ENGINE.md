@@ -161,18 +161,18 @@ risk dollars = account equity × risk-per-trade
 position value ≈ risk dollars / stop distance %
 ```
 
-Example for the $1,000 challenge:
-- Equity: $1,000
-- Risk per trade: 0.75% = $7.50
+Example for a $100 challenge:
+- Virtual bot equity: $100
+- Risk per trade: 0.75% = $0.75
 - Required stop distance: 3%
-- Approximate position value: $7.50 / 0.03 = $250
+- Approximate position value: $0.75 / 0.03 = $25
 
 This means wider-stop trades automatically receive smaller positions.
 
 Initial paper defaults:
 - Standard trade risk: 0.75% of current account equity.
 - Highest-quality trade-ready setup: up to 1.00%.
-- Position size must also respect any pool/asset caps and broker minimums.
+- Position size must also respect the bot's available buying power, 20/40/40 pool allocation ceilings, asset constraints, and broker minimums.
 
 No score may bypass the maximum risk-per-trade limit.
 
@@ -348,4 +348,4 @@ Before promoting a material strategy change:
 15. Add adaptive recommendation layer.
 16. Tune only from documented paper evidence.
 
-The read-only public report remains separate from privileged order execution. Public endpoints must never expose broker credentials, private order identifiers, or internal authorization state.
+Each bot ledger starts at $100 and is authoritative for strategy buying power and risk calculations. The larger Alpaca paper-account balance is only an execution sandbox and audit trail. Bot-attributed orders/fills must be reconciled to the matching virtual ledger; untagged broker activity must never silently change a bot's performance. The read-only public report remains separate from privileged order execution. Public endpoints must never expose broker credentials, private order identifiers, or internal authorization state.
