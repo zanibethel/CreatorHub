@@ -12,6 +12,8 @@ export type PaperBrokerActivity = {
   orders: Array<{
     brokerOrderId: string;
     clientOrderId: string;
+    attributionClientOrderId: string;
+    parentBrokerOrderId: string | null;
     symbol: string;
     assetClass: "stock" | "crypto" | "unknown";
     side: string;
@@ -67,7 +69,7 @@ export async function collectPaperReport(key: string, secret: string, fetcher: t
     read("account"),
     read("positions"),
     read("orders?status=open&limit=500&nested=false&direction=desc"),
-    read("orders?status=all&limit=500&nested=false&direction=desc"),
+    read("orders?status=all&limit=500&nested=true&direction=desc"),
     read("account/activities/FILL?direction=desc&page_size=100"),
   ]);
   if (accountResult.status !== "fulfilled") throw accountResult.reason;
@@ -101,21 +103,33 @@ export async function collectPaperReport(key: string, secret: string, fetcher: t
   let taggedOrders: PaperBrokerActivity["orders"] = [];
   if (brokerOrdersResult.status === "fulfilled") {
     try {
-      taggedOrders = rows(brokerOrdersResult.value).map(o => ({
-        brokerOrderId: text(o.id),
-        clientOrderId: text(o.client_order_id),
-        symbol: text(o.symbol),
-        assetClass: assetClass(o.asset_class),
-        side: text(o.side),
-        orderType: text(o.type),
-        orderClass: text(o.order_class),
-        status: text(o.status, "unknown"),
-        quantity: number(o.qty),
-        filledQuantity: number(o.filled_qty),
-        averageFillPrice: number(o.filled_avg_price),
-        submittedAt: time(o.submitted_at),
-        filledAt: time(o.filled_at),
-      })).filter(o => o.brokerOrderId && o.clientOrderId && o.symbol && taggedClientOrderId(o.clientOrderId));
+      const flatten = (root: Record<string, unknown>) => {
+        const rootClientOrderId = text(root.client_order_id);
+        if (!taggedClientOrderId(rootClientOrderId)) return [];
+        const convert = (order: Record<string, unknown>, attributionClientOrderId: string, parentBrokerOrderId: string | null) => ({
+          brokerOrderId: text(order.id),
+          clientOrderId: text(order.client_order_id),
+          attributionClientOrderId,
+          parentBrokerOrderId,
+          symbol: text(order.symbol),
+          assetClass: assetClass(order.asset_class),
+          side: text(order.side),
+          orderType: text(order.type),
+          orderClass: text(order.order_class),
+          status: text(order.status, "unknown"),
+          quantity: number(order.qty),
+          filledQuantity: number(order.filled_qty),
+          averageFillPrice: number(order.filled_avg_price),
+          submittedAt: time(order.submitted_at),
+          filledAt: time(order.filled_at),
+        });
+        const parent = convert(root, rootClientOrderId, null);
+        const legs = Array.isArray(root.legs)
+          ? root.legs.map(object).map(leg => convert(leg, rootClientOrderId, parent.brokerOrderId))
+          : [];
+        return [parent, ...legs].filter(order => order.brokerOrderId && order.clientOrderId && order.symbol);
+      };
+      taggedOrders = rows(brokerOrdersResult.value).flatMap(flatten);
     } catch {
       errors.brokerAttribution = "Tagged broker orders could not be parsed.";
     }
