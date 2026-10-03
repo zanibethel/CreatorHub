@@ -24,7 +24,7 @@ export default function useAccountReport() {
     };
     const visible = () => { if (!document.hidden) void refresh(); };
     void refresh();
-    const timer = window.setInterval(() => { void refresh(); }, 60_000);
+    const timer = window.setInterval(() => { void refresh(); }, 15_000);
     document.addEventListener("visibilitychange", visible);
     return () => { controller.abort(); window.clearInterval(timer); document.removeEventListener("visibilitychange", visible); };
   }, [refreshVersion]);

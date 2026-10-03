@@ -19,7 +19,7 @@ export async function GET() {
     const state = states[0];
     const parsed = state?.payload ? paperAccountSchema.safeParse(state.payload) : null;
     if (parsed && !parsed.success) throw new Error("Stored account report is invalid.");
-    const points = state?.source_key ? await read(`paper_report_history?source_key=eq.${encodeURIComponent(state.source_key)}&select=collected_at,equity&order=collected_at.desc&limit=720`) : [];
+    const points = state?.source_key ? await read(`paper_report_history?source_key=eq.${encodeURIComponent(state.source_key)}&select=collected_at,equity&order=collected_at.desc&limit=1440`) : [];
     const body: AccountReport = {
       snapshot: parsed?.success ? parsed.data : null,
       history: points.filter((p: { collected_at: string; equity: number }) => Number.isFinite(Date.parse(p.collected_at)) && Number.isFinite(Number(p.equity)))
@@ -31,7 +31,7 @@ export async function GET() {
         : state?.status === "error" ? "The last collection failed; the previous snapshot is retained." : null,
     };
     // Only this allowlisted projection is public. Database rows and broker identifiers stay private.
-    return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=60" } });
+    return NextResponse.json(body, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=5" } });
   } catch {
     return NextResponse.json({ error: "Stored account report is temporarily unavailable." }, { status: 503, headers: { "Cache-Control": "no-store" } });
   }

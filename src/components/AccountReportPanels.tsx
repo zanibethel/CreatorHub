@@ -9,7 +9,7 @@ const money = (value: number | null) => value === null ? "—" : formatPaperMone
 const stamp = (value: string | null) => value ? new Date(value).toLocaleString() : "—";
 
 function History({ points }: { points: AccountHistoryPoint[] }) {
-  if (points.length < 2) return <p>{points.length ? "First account snapshot recorded. The next hourly collection will extend the chart." : "Portfolio history begins with the first saved account snapshot."}</p>;
+  if (points.length < 2) return <p>{points.length ? "First account snapshot recorded. The next minute checkpoint will extend the chart." : "Portfolio history begins with the first saved account snapshot."}</p>;
   const values = points.map(p => p.equity);
   const low = Math.min(...values), high = Math.max(...values);
   const first = Date.parse(points[0].time), last = Date.parse(points.at(-1)!.time);
@@ -17,7 +17,7 @@ function History({ points }: { points: AccountHistoryPoint[] }) {
   return <div className={styles.accountChart}>
     <svg viewBox="0 0 600 184" role="img" aria-label={`${points.length} recorded paper-account equity snapshots, from ${formatPaperMoney(values[0])} to ${formatPaperMoney(values.at(-1)!)}`}><polyline points={path} fill="none" stroke="#62d9aa" strokeWidth="3" /></svg>
     <div className={styles.chartRange}><span>{stamp(points[0].time)}</span><span>{stamp(points.at(-1)!.time)}</span></div>
-    <p className={styles.meta}>Recorded account equity · includes cashflows · latest {points.length} hourly snapshots</p>
+    <p className={styles.meta}>Recorded account equity · includes cashflows · latest {points.length} minute checkpoints</p>
   </div>;
 }
 
@@ -25,7 +25,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
   const [now, setNow] = useState(0);
   useEffect(() => {
     setNow(Date.now());
-    const timer = window.setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 60_000);
+    const timer = window.setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 15_000);
     return () => window.clearInterval(timer);
   }, []);
   const snapshot = report?.snapshot;
@@ -34,7 +34,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
   const snapshotAge = snapshot ? now - Date.parse(snapshot.collectedAt) : 0;
   return <section className={styles.card}>
     <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{snapshot ? "Alpaca paper account" : "Account collection pending"}</span></div>
-    {snapshot ? <p className={snapshotAge > 75 * 60_000 ? styles.stale : styles.meta}>Account snapshot {stamp(snapshot.collectedAt)} · collected hourly{snapshotAge > 75 * 60_000 ? " · update overdue" : ""}</p> : null}
+    {snapshot ? <p className={snapshotAge > 90_000 ? styles.stale : styles.meta}>Account snapshot {stamp(snapshot.collectedAt)} · updates about every 30 seconds{snapshotAge > 90_000 ? " · update overdue" : ""}</p> : null}
     {snapshot && (error || report?.message) ? <p role="status" className={styles.error}>{error || report?.message} Showing the last saved snapshot.</p> : null}
     {!snapshot ? <div className={styles.empty}>{view === "portfolio" ? <><strong className={styles.accountValue}>{formatPaperMoney(PAPER_STARTING_CASH)}</strong><span>Challenge starting amount</span></> : null}<p>{waiting}</p></div>
     : view === "portfolio" ? <>

@@ -143,7 +143,7 @@ test('public snapshot endpoint projects saved data without private state or sour
     : json([{collected_at:stamp,equity:100000}])});
   const response = await api.GET();
   assert.equal(response.status,200);
-  assert.match(response.headers.get('cache-control'),/s-maxage=60/);
+  assert.match(response.headers.get('cache-control'),/s-maxage=5/);
   const result = await response.json();
   assert.equal(result.snapshot.account.equity,100000);
   assert.equal(result.history[0].equity,100000);
@@ -154,4 +154,25 @@ test('unconfigured public report storage never attempts a privileged database fe
     'next/server':{NextResponse:Response}, '@/lib/account-report':schemas,
   }, {process:{env:{}}, fetch:()=>{throw new Error('Must not fetch');}});
   assert.equal((await api.GET()).status,503);
+});
+
+test('account polling refreshes every 15 seconds, pauses when hidden and aborts on cleanup', async () => {
+  let cleanup, tick, visibility, interval, calls=0, pendingResolve, activeSignal;
+  const doc={hidden:false,addEventListener:(name,fn)=>{visibility=fn;},removeEventListener:()=>{visibility=null;}};
+  const hook=module('../src/components/useAccountReport.ts',{react:{useState:value=>[value,()=>{}],useEffect:fn=>{cleanup=fn();}}},{
+    AbortController, document:doc,
+    window:{setInterval:(fn,ms)=>{tick=fn;interval=ms;return 1;},clearInterval:()=>{tick=null;}},
+    fetch:(url,options)=>{calls++;activeSignal=options.signal;return new Promise(resolve=>{pendingResolve=resolve;});},
+  });
+  hook.default();
+  assert.equal(interval,15000);
+  assert.equal(calls,1);
+  tick(); assert.equal(calls,1,'pending requests must not overlap');
+  pendingResolve(json({snapshot:null,status:'pending'}));
+  await new Promise(resolve=>setImmediate(resolve));
+  doc.hidden=true;tick();assert.equal(calls,1);
+  doc.hidden=false;visibility();assert.equal(calls,2);
+  cleanup();assert.equal(activeSignal.aborted,true);assert.equal(tick,null);assert.equal(visibility,null);
+  pendingResolve(json({snapshot:null,status:'pending'}));
+  await new Promise(resolve=>setImmediate(resolve));
 });

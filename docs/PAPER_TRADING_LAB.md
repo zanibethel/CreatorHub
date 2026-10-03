@@ -8,7 +8,7 @@ The $1,000 starting amount is the challenge baseline. Portfolio metrics show the
 
 ## Five report views
 
-1. **Portfolio**: actual paper equity, cash, equity change since the previous close (including cash flows), and recorded hourly equity history.
+1. **Portfolio**: actual paper equity, cash, equity change since the previous close (including cash flows), and recorded minute equity history.
 2. **Watchlist**: provider quotes and market history only.
 3. **Trades**: the latest 10 fill executions, including partial fills. These are not completed round trips or calculated realized returns.
 4. **Orders**: open buy and sell orders with actual quantities, fills, limits and stops.
@@ -42,7 +42,7 @@ The initial SPY/QQQ and BTC-USD/ETH-USD watchlists are integration examples. The
 
 ## Hosted paper account collection
 
-The Supabase `paper-report-sync` Edge Function makes four read-only requests to the fixed Alpaca paper host: account, positions, open orders and the latest 10 FILL activities. An authenticated pg_cron heartbeat runs every five minutes; an atomic lease permits successful account collection once per hour. It continues with the Mac and report page closed. Failed collection retains the previous snapshot and retries after five minutes. Partial section failures remain unavailable rather than being reported as empty.
+The Supabase `paper-report-sync` Edge Function makes four read-only requests to the fixed Alpaca paper host: account, positions, open orders and the latest 10 FILL activities. An authenticated pg_cron heartbeat runs every 30 seconds; an atomic lease prevents overlapping collection and a 20-second cooldown leaves time for provider latency before the next heartbeat. Updates are near-live polling, not a continuous streaming connection. It continues with the Mac and report page closed. Failed collection retains the previous snapshot and retries at the next heartbeat after a one-minute backoff. Partial section failures remain unavailable rather than being reported as empty.
 
 Setup in [CreatorHub Edge Function Secrets](https://supabase.com/dashboard/project/yufptpfiwdbzzrvhkvux/functions/secrets):
 
@@ -51,13 +51,13 @@ Setup in [CreatorHub Edge Function Secrets](https://supabase.com/dashboard/proje
 | `ALPACA_PAPER_API_KEY_ID` | The key ID from the working Mac paper-account test |
 | `ALPACA_PAPER_API_SECRET_KEY` | The matching paper secret key |
 
-Save both. The next eligible heartbeat checks them; initial data should appear within about 5–7 minutes, including report refresh/cache time. Secret changes do not require an Edge Function redeploy. Vercel Preview must also have the server-only `SUPABASE_SECRET_KEY` to read saved report data. Its existing market quote credentials are separate.
+Save both. The next eligible heartbeat checks them; initial data should appear within about a minute, including report refresh/cache time. Secret changes do not require an Edge Function redeploy. Vercel Preview must also have the server-only `SUPABASE_SECRET_KEY` to read saved report data. Its existing market quote credentials are separate.
 
-State and history tables have RLS enabled and no ordinary-user grants or policies. Only the service role can read/write them. The public `/api/paper-trading/account-report` endpoint validates and projects the fixed report, omitting private state and identifiers. It polls every minute while visible and caches the projection for one minute. Refresh now reads the saved snapshot and refreshes market data; it does not trigger an Alpaca account collection.
+State and history tables have RLS enabled and no ordinary-user grants or policies. Only the service role can read/write them. The public `/api/paper-trading/account-report` endpoint validates and projects the fixed report, omitting private state and identifiers. It polls every 15 seconds while visible and caches the projection for five seconds, with five seconds of stale-while-revalidate. Refresh now reads the saved snapshot and refreshes market data; it does not trigger an Alpaca account collection.
 
 The scheduler token is generated within Vault, stored as a hash in private state, and checked before collection. Never expose the `net` or `vault` schemas through the Data API, or print queued HTTP headers or decrypted secrets. Extension-owned pg_net tables can retain default grants despite a best-effort revoke by `postgres`; the live Data API rejects the `net` schema. The collector endpoint returns status only, never account data.
 
-History contains one equity point per collected hour. It starts with the first successful snapshot and separates history by a private account hash if credentials change. It does not reconstruct earlier performance, attribute returns to trades, or calculate fees/realized P/L. Open orders are capped at the provider’s 500-record response; the UI displays up to 50 orders/positions and indicates additional records. Missing keys produce an explicit setup state.
+History contains one equity checkpoint per collected minute, updating that minute’s point on the second collection. Existing hourly history is preserved. The public chart shows the latest 1,440 checkpoints. It starts with the first successful snapshot and separates history by a private account hash if credentials change. It does not reconstruct earlier performance, attribute returns to trades, or calculate fees/realized P/L. Open orders are capped at the provider’s 500-record response; the UI displays up to 50 orders/positions and indicates additional records. Missing keys produce an explicit setup state.
 
 ## Validation
 

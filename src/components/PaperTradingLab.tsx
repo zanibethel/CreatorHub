@@ -133,7 +133,7 @@ export default function PaperTradingLab() {
           <label>Stocks / ETFs<input value={draftStocks} maxLength={120} onChange={e => setDraftStocks(e.target.value)} placeholder="SPY,QQQ" /></label>
           <label>USD crypto pairs<input value={draftCrypto} maxLength={180} onChange={e => setDraftCrypto(e.target.value)} placeholder="BTC-USD,ETH-USD" /></label>
         </section>
-        <section><h3>Account reporting</h3><p>Account snapshots are collected hourly in the background. This page checks for the latest saved report every minute. Refresh now reads that saved report; it does not place orders or force a broker update.</p></section>
+        <section><h3>Account reporting</h3><p>Account data updates about every 30 seconds in the background. This page checks for the latest saved report every 15 seconds. Chart checkpoints are recorded each minute. Refresh now reads that saved report; it does not place orders or force a broker update.</p></section>
         <section><h3>QR destinations</h3><p>Blank links stay out of rotation. Add CoOperative when ready. Each code opens that exact destination; donation and ad checkout pages must already exist.</p>
           {SPONSOR_SLOTS.map(slot => <label key={slot.id}>{slot.title}<input type="url" placeholder="https://…" maxLength={256} value={draftLinks[slot.id] ?? ""} onChange={e => setDraftLinks(current => ({...current,[slot.id]:e.target.value}))} /></label>)}
         </section>
