@@ -25,7 +25,7 @@ export function qualificationEvidence(item: Candidate, quote: { bid: number | nu
     ...(history.length < 2 ? ["Recent chart history is unavailable."] : []),
     "Entry, stop, target and holding-period rules are not validated.",
     "Spread limits, fees, slippage and order minimums need validation.",
-    "Daily-loss, pool capacity and correlated-exposure checks are not configured.",
+    "Current bot risk state and pool allocation capacity must pass before order authorization.",
   ];
   return { status: inverse ? "Monitor only · no allocation" : "Awaiting validated rules", valid, fresh, spread, change, historyCount: history.length, historyFrom: history[0]?.time, historyThrough: history.at(-1)?.time, blockers, pools: inverse ? [] : RESEARCH_POOLS };
 }
