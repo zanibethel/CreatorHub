@@ -21,7 +21,7 @@ Still intentionally blocked:
 - Live pool-usage/capacity calculation has not yet been fed into final authorization.
 - Decision/rejection events have a persisted journal target, but the live evaluator is not yet writing every event into it.
 - No Alpaca paper-order adapter exists yet.
-- Live mark-to-market refresh for open virtual positions is still pending, so unrealized P/L/equity currently refresh from the latest ledger-applied fill rather than every quote tick.
+- Live mark-to-market refresh is implemented for open virtual positions; remaining accounting work includes official crypto-fee true-up and longer-horizon outcome analytics.
 - Broker-hosted protective orders, active exit management, and MFE/MAE outcome analytics remain pending.
 - Planned experimental bots remain disabled.
 
@@ -358,13 +358,13 @@ Before promoting a material strategy change:
 1. ✅ Add versioned strategy configuration.
 2. ✅ Build deterministic market-regime calculation.
 3. ✅ Build score components with explainable evidence.
-4. ◐ Add risk/portfolio governor and correlation checks — thresholds and persisted bot risk fields exist; live pool/correlation calculation still needs wiring.
+4. ◐ Add risk/portfolio governor and correlation checks — live pool usage and open planned risk are wired; correlated-exposure calculation still needs deeper asset/sector linkage.
 5. ✅ Add stop/target calculation for analysis.
 6. ✅ Add risk-based position sizing from virtual challenge equity.
 7. ◐ Add decision journal/rejection logging — schema/RPC exist; evaluator writes are not wired yet.
 8. ✅ Add dry-run decision endpoint that cannot place orders.
 9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
-10. ☐ Add bot-tagged Alpaca paper-only order adapter.
+10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution and a controlled crypto paper execution path are proven; automatic stock/swing submission remains gated.
 11. ☐ Require broker-hosted protection where supported.
 12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — fill reconciliation is implemented and idempotent; live mark-to-market and active exits remain.
 13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
@@ -373,3 +373,22 @@ Before promoting a material strategy change:
 16. ☐ Tune only from documented paper evidence.
 
 Each bot ledger starts at $100 and is authoritative for strategy buying power and risk calculations. The larger Alpaca paper-account balance is only an execution sandbox and audit trail. Bot-attributed orders/fills must be reconciled to the matching virtual ledger; untagged broker activity must never silently change a bot's performance. The read-only public report remains separate from privileged order execution. Public endpoints must never expose broker credentials, private order identifiers, or internal authorization state.
+
+
+## Weekend rehearsal — 2026-10-03
+
+Live paper-only readiness work completed:
+
+- Added continuous virtual-position mark-to-market using Alpaca stock/crypto market data.
+- Virtual ledgers now refresh unrealized P/L, equity, peak/drawdown, open planned risk, daily-loss state, weekly drawdown, and 20/40/40 pool usage.
+- Activated `three-trade-weekly-swing-100` for staging under `three-trade-weekly-swing-v1`; broker execution remains gated by fresh same-session revalidation.
+- Persisted three Monday swing plans:
+  - QQQ: trigger 755.264510, maximum entry 760.112546, protective stop 726.870393, staged notional about $26.60, planned loss $1.
+  - NVDA: trigger 238.072835, maximum entry 240.626942, protective stop 220.624179, staged notional about $13.64, planned loss $1.
+  - MSFT: trigger 522.982460, maximum entry 528.818174, protective stop 490.062857, staged notional about $15.89, planned loss $1.
+- These are prepared plans only. Monday submission requires a fresh quote, acceptable spread, price at/above trigger but no higher than maximum entry, clean bot risk state, remaining weekly trade capacity, and unchanged strategy permissions.
+- Executed one controlled weekend SOL/USD PAPER smoke test through the full prepared-order → Alpaca → fill → virtual-ledger path.
+- Crypto fee reserve is now included in virtual accounting. A market crypto buy reduces the virtual position to the estimated net received quantity; a sell reduces virtual USD proceeds by the configured estimated fee. Official broker fee activity remains a future true-up source.
+- The SOL paper smoke-test position is protected with a separate GTC stop-limit order. Crypto protection remains subject to stop-limit execution risk if price trades through the limit without a fill.
+
+Real-money trading is not enabled by this work. The current integration and automated paths remain PAPER-only.
