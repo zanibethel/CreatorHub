@@ -85,7 +85,7 @@ export default function PaperTradingLab() {
     try {
       window.localStorage.setItem(settingsKey,JSON.stringify({ version:1, links:clean, stocks:draftStocks, crypto:draftCrypto }));
       setStocks(draftStocks); setCrypto(draftCrypto); setLinks(clean); setSponsorIndex(0); setStorageError(""); dialog.current?.close();
-    } catch { setError("Allow browser storage to save your stream settings."); }
+    } catch { setError("Allow browser storage to save your report settings."); }
   }
   const monitorLabel = {
     off: "Quote monitor paused", connecting: "Fetching quotes…", monitoring: "Quotes refresh every 15s",
@@ -95,9 +95,9 @@ export default function PaperTradingLab() {
 
   return <main className={styles.dashboard}>
     <header className={styles.header}>
-      <div className={styles.brand}><Link href="/">CreatorHub</Link><h1>Day {day ?? "—"} of $1,000 Bot Trader</h1><span className={styles.pill}>PAPER ONLY · simulator inactive</span></div>
+      <div className={styles.brand}><Link href="/">CreatorHub</Link><h1>Day {day ?? "—"} of $1,000 Bot Trader</h1><span className={styles.pill}>INTERACTIVE REPORT</span></div>
       <div className={styles.metrics}>
-        <div className={styles.metric}><span>Virtual starting cash</span><strong>{formatPaperMoney(PAPER_STARTING_CASH)}</strong><small className={styles.meta}>Account ledger not connected</small></div>
+        <div className={styles.metric}><span>Starting amount</span><strong>{formatPaperMoney(PAPER_STARTING_CASH)}</strong><small className={styles.meta}>Account ledger not connected</small></div>
         <div className={styles.metric}><span>Today’s P/L</span><strong>—</strong><small className={styles.meta}>Not recorded</small></div>
       </div>
     </header>
@@ -105,21 +105,27 @@ export default function PaperTradingLab() {
       <nav className={styles.tabs} aria-label="Report screens">{REPORT_VIEWS.map(([id,label]) => <button key={id} aria-pressed={view === id} onClick={() => choose(id)}>{label}</button>)}</nav>
       <div className={styles.controls}>
         <button onClick={() => setRotating(v => !v)} aria-pressed={rotating}>{rotating ? "Pause report" : "Resume report"}</button>
-        <button onClick={move}>Next</button><button onClick={openSettings}>Stream settings</button>
-        <button onClick={() => setEnabled(value => !value)} aria-pressed={enabled}>{enabled ? "Pause quotes" : "Monitor quotes"}</button>
-        <button onClick={refresh} disabled={!ready || loading}>{loading ? "Fetching…" : "Refresh now"}</button>
+        <button onClick={move}>Next</button>
+        <details className={styles.controlMenu}>
+          <summary>Controls</summary>
+          <div className={styles.controlOptions}>
+            <button onClick={openSettings}>Report settings</button>
+            <button onClick={() => setEnabled(value => !value)} aria-pressed={enabled}>{enabled ? "Pause quotes" : "Monitor quotes"}</button>
+            <button onClick={refresh} disabled={!ready || loading}>{loading ? "Fetching…" : "Refresh now"}</button>
+          </div>
+        </details>
       </div>
     </div>
-    <div className={styles.stage} onFocusCapture={() => setRotating(false)}>
+    <div className={styles.stage} onFocusCapture={() => setRotating(false)} onPointerDown={() => setRotating(false)}>
       <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} />
       <TradingSponsorCard links={links} index={sponsorIndex} onSetup={openSettings} />
     </div>
-    <footer className={styles.footer}><span role="status" title={feedError || storageError || monitorLabel}>{feedError ? `${monitorLabel}: ${feedError}` : storageError || `${monitorLabel} · no paper trades yet`}</span><span>{REPORT_VIEWS.findIndex(([id]) => id === view) + 1}/3 · {rotating ? "Rotates every 12s" : "Paused"}</span></footer>
+    <footer className={styles.footer}><span role="status" title={feedError || storageError || monitorLabel}>{feedError ? `${monitorLabel}: ${feedError}` : storageError || `${monitorLabel} · read-only report`}</span><span>{REPORT_VIEWS.findIndex(([id]) => id === view) + 1}/{REPORT_VIEWS.length} · {rotating ? "Rotates every 12s" : "Paused"}</span></footer>
     <dialog ref={dialog} className={styles.dialog} aria-labelledby="paper-settings-title">
-      <h2 id="paper-settings-title">Stream settings</h2>
+      <h2 id="paper-settings-title">Report settings</h2>
       <form onSubmit={event => { event.preventDefault(); saveSettings(); }}>
-        <section><h3>Challenge counter</h3><p>{startedOn ? `Started ${startedOn}.` : "Choose when day one begins."} The counter and settings are saved in this browser. Starting it does not run the simulator.</p><button type="button" disabled={!ready || !!startedOn} onClick={startCounter}>{startedOn ? "Counter started" : "Start day counter"}</button></section>
-        <section><h3>Market monitor</h3><p>Save symbols to apply your watchlist. Quotes refresh every 15 seconds while this page is visible; charts refresh every five minutes. Stocks require Alpaca keys on the server. Crypto uses the public Kraken feed. This monitor does not create trades or run while the page is closed.</p>
+        <section><h3>Challenge counter</h3><p>{startedOn ? `Started ${startedOn}.` : "Choose when day one begins."} The counter and settings are saved in this browser. This sets the report day only.</p><button type="button" disabled={!ready || !!startedOn} onClick={startCounter}>{startedOn ? "Counter started" : "Start day counter"}</button></section>
+        <section><h3>Market monitor</h3><p>Save symbols to apply your watchlist. Quotes refresh every 15 seconds while this page is visible; charts refresh every five minutes. Stocks require Alpaca keys on the server. Crypto uses the public Kraken feed. Monitoring pauses when the page is closed.</p>
           <label>Stocks / ETFs<input value={draftStocks} maxLength={120} onChange={e => setDraftStocks(e.target.value)} placeholder="SPY,QQQ" /></label>
           <label>USD crypto pairs<input value={draftCrypto} maxLength={180} onChange={e => setDraftCrypto(e.target.value)} placeholder="BTC-USD,ETH-USD" /></label>
         </section>

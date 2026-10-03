@@ -37,12 +37,16 @@ export default function TradingSponsorCard({ links, index, onSetup }: { links: S
   const slots = SPONSOR_SLOTS.filter(slot => safeDestination(links[slot.id] ?? ""));
   const slot = slots.length ? slots[index % slots.length] : null;
   const url = slot ? safeDestination(links[slot.id]) : "";
+  if (!slot) return <aside className={`${styles.card} ${styles.sponsorSetup}`} aria-label="Stream sponsor setup">
+    <div><h2>Support & sponsors</h2><p>Add donation or sponsor links to display a QR card.</p></div>
+    <button onClick={onSetup}>Set up links</button>
+  </aside>;
   return <aside className={`${styles.card} ${styles.sponsor}`} aria-label="Stream sponsor card">
-    <span className={styles.meta}>{slot?.id === "donate" ? "CREATOR SUPPORT" : "SPONSOR SPACE"}</span>
-    <h2>{slot?.title ?? "Your stream, your community"}</h2>
-    {slot ? <QR url={url} /> : <div className={styles.qrBlank}>QR space reserved</div>}
-    <p>{slot?.copy ?? "Donations · ad bookings · RaiseHub · CoOperative when ready"}</p>
-    {slot ? <a href={url} target="_blank" rel="noopener noreferrer">Scan or visit {new URL(url).hostname}</a> : <button onClick={onSetup}>Set QR destinations</button>}
-    <span className={styles.meta}>{slot ? `Destination ${index % slots.length + 1}/${slots.length} · switches every 24 seconds` : "Add a link to enable its card"}</span>
+    <span className={styles.meta}>{slot.id === "donate" ? "CREATOR SUPPORT" : "SPONSOR SPACE"}</span>
+    <h2>{slot.title}</h2>
+    <QR url={url} />
+    <p>{slot.copy}</p>
+    <a href={url} target="_blank" rel="noopener noreferrer">Scan or visit {new URL(url).hostname}</a>
+    <span className={styles.meta}>{`Destination ${index % slots.length + 1}/${slots.length} · switches every 24 seconds`}</span>
   </aside>;
 }
