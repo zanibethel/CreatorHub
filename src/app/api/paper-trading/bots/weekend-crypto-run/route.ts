@@ -52,12 +52,22 @@ export async function GET(request: Request) {
   }
 
   if (readiness.session.flattenDue) {
+    const flattenResponse = await fetch(
+      new URL("/api/paper-trading/bots/weekend-crypto-flatten", request.url),
+      {
+        method: "POST",
+        headers: { "x-paper-weekend-execution-token": executionToken },
+        cache: "no-store",
+        signal: AbortSignal.timeout(30_000),
+      },
+    );
+    const flatten = await flattenResponse.json().catch(() => ({ error: "Flatten returned an invalid response." }));
     return reply({
-      ok: true,
-      action: "flatten-due",
-      reason: "end-of-day flatten handler not yet armed",
+      ok: flattenResponse.ok,
+      action: "flatten",
       localTime: readiness.session.localTime,
-    });
+      result: flatten,
+    }, flattenResponse.ok ? 200 : 502);
   }
 
   if (!readiness.session.entriesOpen) {
