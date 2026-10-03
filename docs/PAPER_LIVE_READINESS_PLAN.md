@@ -35,7 +35,7 @@ The goal is not merely to place successful orders. The system must demonstrate t
 
 ### Still blocked before live money
 
-- Full exit manager verification.
+- Staged-action exit planner is live; broker-action execution/verification still needs promotion and paper validation.
 - Stock swing paper executor with same-session revalidation.
 - Broker-hosted stock bracket/OCO protection.
 - Official crypto CFEE reconciliation against estimated fees.
@@ -46,6 +46,8 @@ The goal is not merely to place successful orders. The system must demonstrate t
 ## Execution sequence
 
 ### 1. Exit Manager v1 — current work
+
+The live background component is a **staged-action planner** attached to mark-to-market. It continuously computes the next exit action but does not silently change broker orders. Broker-changing PAPER actions remain explicit until the execution layer is promoted separately.
 
 Build and paper-test deterministic exit management.
 
@@ -61,9 +63,10 @@ For every open bot position:
    - persist the broker and virtual-ledger state transition.
 5. Trail the remainder using a deterministic rule that only tightens.
 6. Never allow active sell quantities to exceed the bot's actual available position.
-7. Log every action, rejection, replacement, and recovery.
+7. Persist the planned next action, current R multiple, mark, desired stop/partial fraction, and evaluation time.
+8. Log every eventual broker action, rejection, replacement, and recovery.
 
-Crypto v1 uses broker stop-limit protection because Alpaca crypto does not expose the same bracket/OCO path used for equities. Profit-taking is trigger-driven rather than leaving an independent standing take-profit order that could conflict with the full-position stop.
+Crypto v1 uses broker stop-limit protection because Alpaca crypto does not expose the same bracket/OCO path used for equities. Profit-taking is trigger-driven rather than leaving an independent standing take-profit order that could conflict with the full-position stop. The current planner writes `hold`, `repair_stop`, `tighten_stop_breakeven`, `partial_profit`, or `tighten_stop_trail` into the virtual position state on every marked sync.
 
 ### 2. Monday Swing Revalidation Executor
 
