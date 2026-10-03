@@ -27,10 +27,10 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 
 ## Initial market-data wiring
 
-- The first manual check is read-only: Alpaca IEX latest stock quotes and Kraken public Level 2 order books for selected USD crypto pairs.
+- The near-live monitor is read-only: Alpaca IEX latest stock quotes and Kraken public Level 2 order books for selected USD crypto pairs.
 - The dashboard accepts editable symbols; the initial SPY/QQQ and BTC-USD/ETH-USD values are test examples, not a recommended or approved strategy watchlist.
 - Alpaca keys are read from server-only `ALPACA_API_KEY_ID` and `ALPACA_API_SECRET_KEY` environment variables. Use market-data credentials only; never add keys to source control or expose them to browser code.
-- The refresh endpoint requires a signed-in, non-anonymous user, has no order placement methods, and returns a no-cache snapshot. It does not yet persist data, generate signals, simulate fills, or run hourly.
+- The refresh endpoint requires a signed-in, non-anonymous user, has no order placement methods, and returns a no-cache snapshot. The page monitors quotes while visible. It does not yet persist data, generate signals, simulate fills, or run hourly.
 - The free Alpaca stock feed is IEX only. Treat it as an integration test, not consolidated-market evidence. Upgrade only after we decide to test against full-market real-time data.
 - Kraken order-book depth describes Kraken's venue. Historical depth must be captured by our worker if we want to analyze book conditions later.
 
@@ -39,7 +39,7 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 - Three report screens: **Portfolio & watchlist**, **Trades & rules**, and **Upcoming orders**, advancing every 12 seconds. Manual selection, report interaction, and settings pause both report and sponsor rotation. Reduced-motion preference starts paused.
 - A persistent top bar shows the challenge day, virtual starting cash, and daily P/L. The current $1,000 is the initial virtual amount; P/L stays unrecorded until a private ledger exists.
 - Desktop/livestream layouts fill the viewport with all report cards visible. The watchlist pages through four symbols at a time. Very short screens (under 561px high) allow vertical scrolling to keep content readable.
-- Portfolio screen reserves the top card for saved account value since day one, with the watchlist grid below. Watchlist prices show fetched bid/ask snapshots with venue/timeframe labels and real provider closing-price charts.
+- Portfolio screen reserves the top card for saved account value since day one, with the watchlist grid below. Watchlist prices show fetched bid/ask snapshots with venue/timeframe labels, source quote ages, and real provider price-history charts.
 - Trades screen reserves space for the 10 most recent completed trades and their purchase/fill/cost/rationale reports, alongside the pool and entry/exit rules. Until private persistence exists, no fictional records appear.
 - Upcoming screen distinguishes pending/partial entries from filled positions and linked target/stop sell orders.
 - One sponsor/QR card occupies the same position on every screen. Its destination rotates every 24 seconds independently of screen changes, so a code remains visible through two screen transitions.
@@ -56,9 +56,9 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 ## Scheduling and data handling
 
 - The future hourly job updates snapshots and paper-trade state; it does **not** rewrite or commit website source code every hour.
-- The report page reads the latest stored snapshot on refresh and shows separate timestamps for equity and crypto data.
+- The future report page will read the latest stored account snapshot on refresh and shows separate timestamps for equity and crypto data.
 - Crypto is monitored around the clock. Equity checks follow the equity market session and clearly show when quotes are stale.
-- Real portfolio data requires an authorized data connection. The preview can manually fetch market quotes and crypto depth, but it has no brokerage connection, persisted portfolio history, or trading worker and generates no trades.
+- Real portfolio data requires an authorized data connection. The preview can automatically fetch market quotes and crypto depth while open, but it has no brokerage connection, persisted portfolio history, or trading worker and generates no trades.
 - Do not connect real order routing in this project. Start with paper simulation and an explicit data-source adapter.
 
 ## Open before live-data paper runs
@@ -73,4 +73,15 @@ The earlier +9% target / -2.3% stop idea remains a candidate for testing, not a 
 - Run `npm run test:paper` for access-control, watchlist-validation, partial-provider-failure, order-book sorting, and stock-history pagination checks with mocked provider responses.
 - Provider requests time out after 10 seconds. Missing stock credentials and unsupported crypto pairs are reported individually so other sources can still load. A refresh with no usable quotes fails explicitly.
 - Stock charts request 60 calendar days of split-adjusted daily bars, follow pagination, and display the latest 30 bars. Crypto charts omit the current incomplete hourly candle.
-- Source timestamps include the date so older quotes are not mistaken for current quotes. Manual snapshots are not evidence of order-book persistence or trade execution.
+- Source timestamps include the date so older quotes are not mistaken for current quotes. Quote snapshots are not evidence of order-book persistence or trade execution.
+
+## Near-live quote monitor
+
+- Enabled by default after browser settings load. Refreshes stock quotes and crypto order books every 15 seconds after the preceding refresh completes, while the tab is visible. It stops fetching when hidden, resumes when visible, and stops entirely when the page is closed.
+- Pause quotes controls the feed independently from Pause report, which controls screen and sponsor rotation. Refresh now forces a quote and chart update.
+- Historical charts load on the first successful refresh, then every five minutes. Quote-only refreshes skip historical requests and retain the previous chart values. Quote and chart-history failures are isolated; a failed chart request does not suppress available crypto quotes.
+- Quotes older than 60 seconds, missing timestamps, and timestamps more than 60 seconds ahead of the browser clock are marked stale. A current fetch time is distinct from the age of the provider quote. This display rule is not a trading eligibility or market-session rule.
+- Requests cannot overlap. Unavailable feeds retry after 30, 60, then at most 120 seconds; a successful refresh restores the 15-second cadence. Invalid watchlists and expired authentication stop automatic retries until settings/sign-in are corrected and the user refreshes.
+- Partial sources are reported individually. Total failure preserves the previous displayed snapshot with an error and growing quote age. Browser requests time out after 20 seconds; provider calls retain their 10-second bound.
+- Stocks still need server-side Alpaca keys and use only IEX. Kraken crypto monitoring uses public venue data. This is polling, not a streaming tick feed, Level II equity service, or an order execution engine.
+- The hourly background worker and private ledger remain separate pending work. This page monitor records no trades and does not claim continuous monitoring while the user is away.

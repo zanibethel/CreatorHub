@@ -1,16 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { quoteAge, type Candle, type MarketSnapshot } from "@/lib/market-monitor";
 import styles from "./PaperTradingLab.module.css";
 
-type Candle = { time: string; close: number };
-export type MarketSnapshot = {
-  collectedAt: string;
-  stocks: Record<string, { bid: number | null; ask: number | null; timestamp: string | null } | null>;
-  stockBars: Record<string, Candle[]>;
-  crypto: Array<{ product: string; timestamp: string | null; bestBid: { price: number } | null; bestAsk: { price: number } | null; candles: Candle[] }>;
-  errors?: Record<string, string>;
-};
+export type { MarketSnapshot } from "@/lib/market-monitor";
 
 function Sparkline({ candles, label }: { candles: Candle[]; label: string }) {
   const values = candles.map(c => c.close).filter(Number.isFinite);
@@ -28,11 +22,17 @@ const symbols = (value: string) => [...new Set(value.split(",").map(v => v.trim(
 
 export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup }: { snapshot: MarketSnapshot | null; stocks: string; crypto: string; onSetup: () => void }) {
   const [page, setPage] = useState(0);
+  const [now, setNow] = useState(0);
+  useEffect(() => {
+    setNow(Date.now());
+    const timer = window.setInterval(() => { if (!document.hidden) setNow(Date.now()); }, 1000);
+    return () => window.clearInterval(timer);
+  }, []);
   const entries = [
-    ...symbols(stocks).map(symbol => ({ symbol, quote: snapshot?.stocks[symbol], candles: snapshot?.stockBars[symbol] ?? [], source: "IEX · daily", time: snapshot?.stocks[symbol]?.timestamp })),
+    ...symbols(stocks).map(symbol => ({ symbol, quote: snapshot?.stocks[symbol], candles: snapshot?.stockBars[symbol] ?? [], source: "IEX · daily chart", time: snapshot?.stocks[symbol]?.timestamp })),
     ...symbols(crypto).map(symbol => {
       const book = snapshot?.crypto.find(b => b.product === symbol);
-      return { symbol, quote: book ? { bid: book.bestBid?.price ?? null, ask: book.bestAsk?.price ?? null } : null, candles: book?.candles ?? [], source: "Kraken · hourly", time: book?.timestamp };
+      return { symbol, quote: book ? { bid: book.bestBid?.price ?? null, ask: book.bestAsk?.price ?? null } : null, candles: book?.candles ?? [], source: "Kraken · hourly chart", time: book?.timestamp };
     }),
   ];
   const pages = Math.max(1, Math.ceil(entries.length / 4));
@@ -49,9 +49,10 @@ export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup }: {
         <span className={styles.priceLabel}>Bid · ask {price(entry.quote?.ask)}</span>
         <Sparkline candles={entry.candles} label={`${entry.symbol} ${entry.source} closing prices`} />
         <span className={styles.priceLabel}>{entry.source}{entry.time ? ` · ${new Date(entry.time).toLocaleString()}` : " · no quote"}</span>
+        {entry.quote ? <span className={quoteAge(entry.time, now).stale ? styles.stale : styles.fresh}>{quoteAge(entry.time, now).label}</span> : null}
       </article>)}
     </div>
-    <span className={styles.meta}>{snapshot ? `Snapshot fetched ${new Date(snapshot.collectedAt).toLocaleString()} · USD bids, not last trades` : "Sample symbols · refresh to fetch quotes · no trades created"}</span>
-    {snapshot?.errors && Object.keys(snapshot.errors).length ? <span role="status" className={styles.error}>{Object.entries(snapshot.errors).map(([source, error]) => `${source}: ${error}`).join(" · ")}</span> : null}
+    <span className={styles.meta}>{snapshot ? `Last fetch ${new Date(snapshot.collectedAt).toLocaleString()} · USD bids, not last trades` : "Waiting for quotes · no trades created"}</span>
+    {snapshot?.errors && Object.keys(snapshot.errors).length ? <details className={styles.feedIssues}><summary>{Object.keys(snapshot.errors).length} feed issue(s)</summary><p>{Object.entries(snapshot.errors).map(([source, error]) => `${source}: ${error}`).join(" · ")}</p></details> : null}
   </section>;
 }

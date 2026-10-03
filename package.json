@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:paper": "node --test tests/paper-market-data.test.mjs"
+    "test:paper": "node --test tests/paper-*.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",

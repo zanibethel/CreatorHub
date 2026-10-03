@@ -13,8 +13,8 @@
 .metric span { color:var(--muted); font-size:12px; }
 .metric strong { font-size:26px; font-variant-numeric:tabular-nums; }
 .pill { font-size:12px; color:#f4c67b; }
-.toolbar { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-.tabs,.controls { display:flex; gap:6px; align-items:center; }
+.toolbar { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:8px; }
+.tabs,.controls { display:flex; flex-wrap:wrap; gap:6px; align-items:center; }
 .tabs button[aria-pressed=true] { border-color:#a78bfa; background:#3a2358; }
 .stage { min-height:0; display:grid; grid-template-columns:minmax(0,1fr) minmax(210px,24%); gap:12px; }
 .report { min-height:0; min-width:0; display:grid; grid-template-rows:minmax(0,1.1fr) minmax(0,1fr); gap:12px; }
@@ -60,3 +60,9 @@
 @media (max-width:650px) { .header { align-items:flex-start; gap:8px; } .brand h1 { font-size:18px; max-width:200px; } .metrics { gap:8px; } .metric strong { font-size:19px; } .metric span { font-size:12px; } .metric small { display:none; } .toolbar { flex-wrap:wrap; } .tabs { width:100%; } .tabs button { flex:1; padding:6px; font-size:12px; } .controls { margin-left:auto; } .controls button { padding:5px 8px; font-size:12px; } .stage { grid-template-columns:1fr; grid-template-rows:minmax(0,1fr) 112px; } .sponsor { display:grid; grid-template-columns:80px 1fr; gap:6px 12px; text-align:left; padding:8px 12px; } .sponsor .qr,.sponsor .qrBlank { grid-column:1; grid-row:1 / span 4; width:80px; } .sponsor .qrBlank { font-size:12px; padding:4px; } .sponsor h2 { font-size:18px; } .sponsor>span,.sponsor>h2,.sponsor>p,.sponsor>a,.sponsor>button { grid-column:2; margin:0; } .sponsor p { font-size:12px; } .sponsor .meta { display:none; } .rules { grid-template-columns:repeat(3,minmax(0,1fr)); } .rules p { font-size:12px; } .rules h3 { font-size:12px; } .table { font-size:12px; } .footer { font-size:12px; } .footer span:last-child { display:none; } }
 @media (max-height:650px) and (min-width:651px) { .dashboard { padding:8px 12px; gap:6px; } .brand h1 { font-size:22px; } .card { padding:10px; gap:6px; } .card h2 { font-size:16px; } .rules p { font-size:12px; } .sponsor { gap:8px; } .qr { max-width:190px; } .sponsor h2 { font-size:22px; } }
 @media (max-height:560px) { .dashboard { height:auto; min-height:100dvh; } .stage { min-height:480px; } }
+
+.fresh { color:#62d9aa; font-size:12px; }
+.stale { color:#f4c67b; font-size:12px; }
+.feedIssues { color:#ffb0b0; font-size:12px; max-height:90px; overflow:auto; flex-shrink:0; }
+.feedIssues summary { cursor:pointer; }
+.footer span:first-child { min-width:0; overflow:hidden; white-space:nowrap; text-overflow:ellipsis; }

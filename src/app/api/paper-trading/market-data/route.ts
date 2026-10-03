@@ -35,6 +35,7 @@ export async function GET(request: Request) {
   const requestUrl = new URL(request.url);
   const stockSymbols = parseSymbols(requestUrl.searchParams.get("stocks"), /^[A-Z][A-Z0-9.]{0,9}$/);
   const cryptoProducts = parseSymbols(requestUrl.searchParams.get("crypto"), /^[A-Z0-9]{2,12}-USD$/);
+  const includeHistory = requestUrl.searchParams.get("history") !== "0";
 
   if (stockSymbols === null || cryptoProducts === null || (!stockSymbols.length && !cryptoProducts.length)) {
     return NextResponse.json({ error: "Provide up to 10 comma-separated stock symbols and/or USD crypto pairs." }, { status: 400 });
@@ -43,18 +44,21 @@ export async function GET(request: Request) {
   const stocksPromise = stockSymbols.length
     ? fetchStockQuotes(stockSymbols)
     : Promise.resolve({});
-  const stockBarsPromise = stockSymbols.length
+  const stockBarsPromise = stockSymbols.length && includeHistory
     ? fetchStockBars(stockSymbols)
     : Promise.resolve({});
   const [stocksResult, barsResult, ...cryptoResults] = await Promise.allSettled([
-    stocksPromise, stockBarsPromise, ...cryptoProducts.map(fetchKrakenMarketData),
+    stocksPromise, stockBarsPromise, ...cryptoProducts.map(product => fetchKrakenMarketData(product, includeHistory)),
   ] as const);
   const errors: Record<string, string> = {};
   const message = (reason: unknown) => reason instanceof Error ? reason.message : "Market-data request failed.";
   if (stocksResult.status === "rejected") errors.stocks = message(stocksResult.reason);
   if (barsResult.status === "rejected") errors.stockBars = message(barsResult.reason);
   const crypto = cryptoResults.flatMap((result, index) => {
-    if (result.status === "fulfilled") return [result.value];
+    if (result.status === "fulfilled") {
+      if (result.value.historyError) errors[`${cryptoProducts[index]} history`] = result.value.historyError;
+      return [result.value];
+    }
     errors[cryptoProducts[index]] = message(result.reason);
     return [];
   });
@@ -75,6 +79,7 @@ export async function GET(request: Request) {
       stocks,
       stockBars,
       crypto,
+      historyIncluded: includeHistory,
       errors,
       note: "Read-only market data snapshot. It is not a trade signal or a simulated fill.",
     }, { headers: { "Cache-Control": "no-store" } });
@@ -143,9 +148,16 @@ async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[
   ]));
 }
 
-async function fetchKrakenMarketData(product: string) {
-  const [book, candles] = await Promise.all([fetchKrakenBook(product), fetchKrakenCandles(product)]);
-  return { ...book, candles };
+async function fetchKrakenMarketData(product: string, includeHistory: boolean) {
+  const [book, candles] = await Promise.allSettled([fetchKrakenBook(product), includeHistory ? fetchKrakenCandles(product) : Promise.resolve([])]);
+  if (book.status === "rejected") throw book.reason;
+  return {
+    ...book.value,
+    candles: candles.status === "fulfilled" ? candles.value : [],
+    historyError: candles.status === "rejected"
+      ? candles.reason instanceof Error ? candles.reason.message : "Crypto history unavailable."
+      : undefined,
+  };
 }
 
 async function fetchKrakenCandles(product: string): Promise<Candle[]> {

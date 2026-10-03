@@ -96,3 +96,23 @@ test("stock history follows pagination for later symbols and uses an explicit da
   assert.equal(requests.filter(url => url.pathname.endsWith("/bars")).length, 2);
   assert.ok(requests.find(url => url.pathname.endsWith("/bars")).searchParams.has("start"));
 });
+
+test("fast monitor refreshes skip historical requests", async () => {
+  const urls = [];
+  const response = await route({ fetch: url => { urls.push(url); return cryptoFetch(url); } })("crypto=BTC-USD&history=0");
+  assert.equal(response.status, 200);
+  const body = await response.json();
+  assert.equal(body.historyIncluded, false);
+  assert.equal(body.crypto[0].candles.length, 0);
+  assert.equal(urls.length, 1);
+  assert.ok(new URL(urls[0]).pathname.endsWith("/PreTrade"));
+});
+
+test("crypto history failure does not suppress an available order book", async () => {
+  const response = await route({ fetch: url => new URL(url).pathname.endsWith("/OHLC")
+    ? new Response("", {status:503}) : cryptoFetch(url) })("crypto=BTC-USD");
+  const body = await response.json();
+  assert.equal(response.status,200);
+  assert.equal(body.crypto[0].bestBid.price,99);
+  assert.match(body.errors["BTC-USD history"], /503/);
+});
