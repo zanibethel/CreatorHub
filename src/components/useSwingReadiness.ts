@@ -2,6 +2,22 @@
 
 import { useEffect, useState } from "react";
 
+export type SwingExecutionPreview = {
+  symbol: string;
+  quantity: number;
+  estimatedNotional: number;
+  entryReference: number;
+  stopLoss: number;
+  takeProfit: number;
+  plannedRiskDollars: number;
+  plannedRiskPct: number;
+  allocationPct: number;
+  orderClass: "bracket";
+  orderType: "market";
+  timeInForce: "day";
+  paperOnly: true;
+};
+
 export type SwingReadinessPlan = {
   symbol: string;
   state: "ready" | "waiting" | "blocked";
@@ -15,6 +31,7 @@ export type SwingReadinessPlan = {
   correlationGroup: string | null;
   blockers: string[];
   waitingOn: string[];
+  executionPreview: SwingExecutionPreview | null;
 };
 
 export type SwingReadinessReport = {
@@ -30,6 +47,9 @@ export type SwingReadinessReport = {
   openPositionSlotsRemaining: number;
   readyCount: number;
   plans: SwingReadinessPlan[];
+  executionEnabled: boolean;
+  submissionReady: boolean;
+  brokerProtection: "bracket";
 };
 
 export default function useSwingReadiness() {
