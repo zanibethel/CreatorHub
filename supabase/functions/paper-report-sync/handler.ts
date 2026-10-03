@@ -1,6 +1,5 @@
 import { collectPaperReport } from "./collector.ts";
 import { collectPaperBotMarks } from "./marks.ts";
-import { managePaperCryptoExits } from "./exits.ts";
 
 export function createHandler(env: (name: string) => string | undefined, fetcher: typeof fetch = fetch) {
   return async (request: Request) => {
@@ -62,26 +61,6 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
         await db("rpc/paper_bot_mark_to_market", { p_prices: marks, p_collected_at: report.collectedAt });
       } catch (markError) {
         report.errors.virtualMarks = markError instanceof Error ? markError.message.slice(0, 180) : "Virtual position marks unavailable.";
-      }
-
-      phase = "paper exit manager";
-      try {
-        const [exitPositions, exitOrders, exitLedgers] = await Promise.all([
-          db("paper_bot_positions?select=bot_id,symbol,asset_class,quantity,average_entry,protective_stop,initial_protective_stop,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,strategy_id,strategy_version,metadata,exit_manager_state&quantity=gt.0"),
-          db("paper_bot_orders?select=client_order_id,bot_id,symbol,side,status,broker_order_id,requested_quantity,protective_stop,metadata&side=eq.sell&limit=500"),
-          db("paper_bot_ledgers?select=bot_id,broker_tag&status=eq.active"),
-        ]);
-        const exitResults = await managePaperCryptoExits({
-          db,
-          positions: Array.isArray(exitPositions) ? exitPositions : [],
-          orders: Array.isArray(exitOrders) ? exitOrders : [],
-          ledgers: Array.isArray(exitLedgers) ? exitLedgers : [],
-          marks,
-        });
-        const exitErrors = exitResults.filter(result => result.action === "error");
-        if (exitErrors.length) report.errors.exitManager = exitErrors.map(result => `${result.symbol}: ${result.detail ?? "action failed"}`).join(" · ").slice(0, 300);
-      } catch (exitError) {
-        report.errors.exitManager = exitError instanceof Error ? exitError.message.slice(0, 180) : "Paper exit manager unavailable.";
       }
 
       phase = "snapshot save";
