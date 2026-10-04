@@ -266,3 +266,39 @@ Swing counterfactual rules:
 - Future completed 5-minute IEX bars drive the hypothetical trigger/stop/+1R/+2R/MFE/MAE record.
 - A watching plan that never triggers expires when the 120-minute entry window closes.
 - A hypothetical trade that triggered inside the entry window remains active after that window and can continue across later market sessions until stop or +2R resolves it.
+
+
+## Strategy Review layer
+
+Bot Lab now has a derived Strategy Review API and panel that combines safe aggregates from:
+- decision/rejection journal evidence,
+- executed trade metrics,
+- counterfactual studies,
+- terminal order lifecycle events,
+- score bands,
+- per-symbol evidence,
+- and recurring blockers/waiting reasons.
+
+The review layer is deliberately advisory-only:
+- automatic strategy mutation is disabled,
+- automatic risk increases are disabled,
+- live-money changes are disabled,
+- counterfactual paths are never counted as P/L,
+- same-bar ambiguous counterfactuals are excluded from directional conclusions,
+- and material recommendations require a new strategy version plus PAPER validation.
+
+Evidence maturity is operationally labeled:
+- fewer than 20 resolved outcome samples: `collecting`,
+- 20-49: `early`,
+- 50-99: `developing`,
+- 100+: `established`.
+
+Parameter-change recommendations remain locked until at least 20 resolved outcome samples exist for that bot. This threshold is a review-governance guardrail, not a trading-entry rule and not proof of statistical significance.
+
+Current deterministic recommendations can:
+- withhold changes when the sample is too small,
+- flag a possible restrictive-gate review when mature non-executed evidence repeatedly reaches +2R before the original stop,
+- note when rejection gates appear protective,
+- and flag weak realized-R capture versus MFE after enough completed trades.
+
+Any such recommendation is a hypothesis for a new version. It cannot edit the running strategy.
