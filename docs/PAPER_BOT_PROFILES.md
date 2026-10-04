@@ -40,8 +40,8 @@ Purpose: test a fee-aware, short-horizon daily crypto strategy against the other
 
 Persisted challenge intent:
 - Starting capital: $100.
-- Execution pool in v4: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
-- Monitor-only pool in v4: XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, RENDER/USD.
+- Execution pool in v5: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
+- Monitor-only pool in v5: XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, RENDER/USD.
 - Continuous 24/7 crypto entry eligibility; America/Chicago is retained only as the daily accounting boundary.
 - Maximum three new entries per America/Chicago accounting day.
 - Maximum one open position at a time.
@@ -159,7 +159,7 @@ Current registry:
 1. `default-diverse` — active.
 2. `penny-volatility-day-100` — planned.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
-4. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v4` with continuous 24/7 PAPER execution armed and live money disabled.
+4. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
 
 New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
 
@@ -205,3 +205,25 @@ Current adapters:
 When a new strategy family is introduced, add its source identifier and adapter to the normalized source map. TypeScript intentionally requires every configured source to have an adapter, so a newly activated bot cannot silently fall through to an unrelated dashboard behavior. Planned profiles may remain `not-configured` until their strategy contract is implemented.
 
 Reference plans are informational and may exist before qualification. They must never be treated as order authorization. Only the strategy's own readiness/execution gates can advance a candidate to a ready or ordered state.
+
+
+## Prospect discovery layer
+
+A separate research-only scanner now sits upstream of the trading bots. It is not a $100 trading challenge and does not own capital or place orders.
+
+The scanner runs every ten minutes and searches outside the existing fixed watchlists. It combines stock gainers and most-active names with a broad scan of active tradable USD crypto pairs. It assigns a separate Prospect Score designed to detect symbols that may be developing into stronger normal strategy setups.
+
+Promotion rules:
+- Prospect Score below 40: not retained as scanner evidence.
+- 40–64.99: observation evidence only.
+- 65–79.99: Prospect Watchlist.
+- 80–100: automatically assigned to appropriate bot review queues.
+
+An 80-point assignment means "review this next," not "trade this." Each receiving bot must still apply its own strategy and execution gates. The scanner cannot silently expand an execution whitelist, mark an order READY, or activate a planned bot.
+
+Current review routing:
+- Crypto → Daily Crypto + Default Diverse.
+- Stocks above $5 → Default Diverse + Weekly Swing.
+- Stocks at or below $5 → Penny Volatility + Default Diverse.
+
+See `docs/PAPER_PROSPECT_SCANNER.md` for the source-of-truth discovery design and persistence rules.
