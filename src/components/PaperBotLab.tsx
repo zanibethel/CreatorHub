@@ -31,6 +31,7 @@ type WatchRow = {
   detail: string;
   strategies: Array<"day" | "swing" | "long">;
   targetEntry?: number | null;
+  projectedPurchase?: number | null;
   projectedProfit?: number | null;
   executionEligible?: boolean;
 };
@@ -132,6 +133,7 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
       </div>
       <div className={styles.watchPlan}>
         <span><small>Target entry</small><strong>{money(row.targetEntry)}</strong></span>
+        <span><small>Planned buy</small><strong>{money(row.projectedPurchase)}</strong></span>
         <span><small>Projected profit</small><strong>{signedMoney(row.projectedProfit)}</strong></span>
       </div>
       <span className={styles.portfolioScore}>Score <strong>{row.score !== null ? `${row.score.toFixed(1)}/100` : "N/A"}</strong></span>
@@ -299,6 +301,11 @@ export default function PaperBotLab() {
         ...(item.pools.includes("multi-week") ? ["long" as const] : []),
       ],
       targetEntry: stagedPlan?.entry_trigger ?? null,
+      projectedPurchase: stagedPlan?.requested_notional ?? (
+        stagedQuantity != null && stagedPlan?.entry_trigger != null
+          ? stagedQuantity * stagedPlan.entry_trigger
+          : null
+      ),
       projectedProfit: stagedPlan
         ? projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1)
         : null,
@@ -314,6 +321,7 @@ export default function PaperBotLab() {
     detail: plan.waitingOn[0] ?? plan.blockers[0] ?? "All currently evaluated gates pass.",
     strategies: ["swing"],
     targetEntry: plan.executionPreview?.entryReference ?? null,
+    projectedPurchase: plan.executionPreview?.estimatedNotional ?? null,
     projectedProfit: plan.executionPreview
       ? projectedProfit(plan.executionPreview.entryReference, plan.executionPreview.takeProfit, plan.executionPreview.quantity)
       : null,
@@ -329,6 +337,11 @@ export default function PaperBotLab() {
     detail: candidate.waitingOn[0] ?? candidate.blockers[0] ?? "All currently evaluated gates pass.",
     strategies: ["day"],
     targetEntry: candidate.trigger,
+    projectedPurchase: candidate.plannedNotional ?? (
+      candidate.trigger != null && candidate.plannedQuantity != null
+        ? candidate.trigger * candidate.plannedQuantity
+        : null
+    ),
     projectedProfit: candidate.estimatedGrossTargetDollars ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity),
     executionEligible: candidate.executionEligible,
   }));
