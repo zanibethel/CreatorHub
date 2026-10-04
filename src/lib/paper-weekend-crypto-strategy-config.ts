@@ -93,13 +93,13 @@ export const DAILY_CRYPTO_DAY_STRATEGY_V5 = {
   id: "daily-crypto-day-v5",
   version: 5,
   opportunity: {
-    minimumGoalR: 2.00,
-    maximumGoalR: 4.25,
-    scoreBonusR: 0.75,
-    momentumBonusR: 0.75,
-    trendBonusR: 0.50,
-    volatilityBonusR: 0.25,
-    momentumReferencePct: 0.75,
+    minimumGoalProfitPct: 5.00,
+    maximumGoalProfitPct: 20.00,
+    fastRangeMultiplier: 2.00,
+    slowRangeMultiplier: 1.50,
+    atrExpansionMultiplier: 8.00,
+    fastMomentumMultiplier: 3.00,
+    slowMomentumMultiplier: 2.00,
   },
 } as const;
 
