@@ -29,6 +29,7 @@ export type WeekendCryptoCandidate = {
   feeCoverageMultiple: number | null;
   waitingOn: string[];
   blockers: string[];
+  trackingBars: Array<{ t:string; o:number; h:number; l:number; c:number; v?:number }>;
 };
 
 export type WeekendCryptoReadiness = {
