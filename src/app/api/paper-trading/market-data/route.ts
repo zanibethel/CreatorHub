@@ -68,7 +68,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     collectedAt: new Date().toISOString(),
     sources: {
-      stocks: stockSymbols.length ? "Alpaca IEX (single-exchange feed)" : null,
+      stocks: stockSymbols.length ? "US equities single-exchange feed" : null,
       crypto: cryptoProducts.length ? "Kraken public order book" : null,
     },
     stocks,
@@ -83,7 +83,7 @@ export async function GET(request: Request) {
 async function fetchStockQuotes(symbols: string[]) {
   const key = process.env.ALPACA_API_KEY_ID;
   const secret = process.env.ALPACA_API_SECRET_KEY;
-  if (!key || !secret) throw new Error("Alpaca data keys are not configured on the server.");
+  if (!key || !secret) throw new Error("Market-data credentials are not configured on the server.");
 
   const query = new URLSearchParams({ symbols: symbols.join(","), feed: "iex" });
   const response = await fetch(`https://data.alpaca.markets/v2/stocks/quotes/latest?${query.toString()}`, {
@@ -91,7 +91,7 @@ async function fetchStockQuotes(symbols: string[]) {
     cache: "no-store",
     signal: AbortSignal.timeout(10_000),
   });
-  if (!response.ok) throw new Error(`Alpaca returned HTTP ${response.status}.`);
+  if (!response.ok) throw new Error(`Market-data feed returned HTTP ${response.status}.`);
 
   const payload = await response.json() as {
     quotes?: Record<string, { ap?: number; as?: number; bp?: number; bs?: number; t?: string }>;
@@ -111,7 +111,7 @@ async function fetchStockQuotes(symbols: string[]) {
 async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[]>> {
   const key = process.env.ALPACA_API_KEY_ID;
   const secret = process.env.ALPACA_API_SECRET_KEY;
-  if (!key || !secret) throw new Error("Alpaca data keys are not configured on the server.");
+  if (!key || !secret) throw new Error("Market-data credentials are not configured on the server.");
 
   const query = new URLSearchParams({
     symbols: symbols.join(","),
@@ -131,7 +131,7 @@ async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[
       cache: "no-store",
       signal,
     });
-    if (!response.ok) throw new Error(`Alpaca history request returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Market-history feed returned HTTP ${response.status}.`);
 
     const payload = await response.json() as {
       bars?: Record<string, Array<{ t: string; c: number; h?: number; l?: number; v?: number }>>;
