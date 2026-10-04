@@ -105,15 +105,24 @@ test("v3 makes LINK and DOT executable while extended alts stay monitor-only", (
   }
 });
 
-test("monitor-only READY candidates can never be selected for submission", () => {
+test("all monitor-only READY candidates can never be selected for submission", () => {
   const base = input({
     occupiedByOtherBots: [...config.DAILY_CRYPTO_DAY_STRATEGY_V3.executionUniverse],
   });
   const result = readiness.evaluateWeekendCryptoReadiness(base);
-  const xrp = result.candidates.find(candidate => candidate.symbol === "XRP/USD");
-  assert.equal(xrp.state, "ready");
-  assert.equal(xrp.executionEligible, false);
-  assert.equal(xrp.selectedForSubmission, false);
+
+  for (const symbol of config.DAILY_CRYPTO_DAY_STRATEGY_V3.monitorOnlyUniverse) {
+    const candidate = result.candidates.find(item => item.symbol === symbol);
+    assert.equal(candidate.state, "ready");
+    assert.equal(candidate.executionEligible, false);
+    assert.equal(candidate.tier, "monitor");
+    assert.equal(candidate.selectedForSubmission, false);
+  }
+
+  assert.equal(
+    result.candidates.some(candidate => candidate.tier === "monitor" && candidate.selectedForSubmission),
+    false,
+  );
   assert.equal(result.selectedSymbol, null);
   assert.equal(result.submissionReady, false);
 });
