@@ -30,6 +30,8 @@ type WatchRow = {
   score: number | null;
   detail: string;
   strategies: Array<"day" | "swing" | "long">;
+  targetEntry?: number | null;
+  projectedProfit?: number | null;
   executionEligible?: boolean;
 };
 
@@ -116,11 +118,11 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
   if (!visible.length) return <EmptyState>Watchlist data is loading.</EmptyState>;
   return <div className={styles.watchPortfolioGrid}>
     {visible.map(row => <div className={styles.watchPortfolioItem} key={row.symbol}>
-      <div>
+      <div className={styles.watchIdentity}>
         <strong>{row.symbol}</strong>
         <small>{row.label}</small>
       </div>
-      <strong>{money(row.currentPrice)}</strong>
+      <strong className={styles.watchPrice}>{money(row.currentPrice)}</strong>
       <span className={styles.portfolioBadge}>{row.state}</span>
       <div className={styles.strategyMarkers} aria-label={row.strategies.length ? `Strategy fit: ${row.strategies.join(", ")}` : "No funded strategy horizon"}>
         {row.strategies.includes("day") ? <span title="Day trade">D</span> : null}
@@ -128,8 +130,12 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
         {row.strategies.includes("long") ? <span title="Longer-term / multi-week">L</span> : null}
         {!row.strategies.length ? <span className={styles.strategyMarkerNone}>—</span> : null}
       </div>
+      <div className={styles.watchPlan}>
+        <span><small>Target entry</small><strong>{money(row.targetEntry)}</strong></span>
+        <span><small>Projected profit</small><strong>{signedMoney(row.projectedProfit)}</strong></span>
+      </div>
       <span className={styles.portfolioScore}>Score <strong>{row.score !== null ? `${row.score.toFixed(1)}/100` : "N/A"}</strong></span>
-      <small>{row.detail}</small>
+      <small className={styles.watchDetail}>{row.detail}</small>
     </div>)}
   </div>;
 }
@@ -274,6 +280,12 @@ export default function PaperBotLab() {
         risk: { accountEquity: ledger?.equity ?? profile.challengeStartingCash },
       }).score;
     })() : null;
+    const stagedPlan = stagedOrders.find(order => normalizedSymbol(order.symbol) === normalizedSymbol(item.symbol));
+    const stagedQuantity = stagedPlan?.requested_quantity ?? (
+      stagedPlan?.requested_notional != null && stagedPlan.entry_trigger != null && stagedPlan.entry_trigger > 0
+        ? stagedPlan.requested_notional / stagedPlan.entry_trigger
+        : null
+    );
     return {
       symbol: item.symbol.replace("-", "/"),
       label: item.label,
@@ -286,6 +298,10 @@ export default function PaperBotLab() {
         ...(item.pools.includes("multi-day") ? ["swing" as const] : []),
         ...(item.pools.includes("multi-week") ? ["long" as const] : []),
       ],
+      targetEntry: stagedPlan?.entry_trigger ?? null,
+      projectedProfit: stagedPlan
+        ? projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1)
+        : null,
     };
   });
 
@@ -297,6 +313,10 @@ export default function PaperBotLab() {
     score: null,
     detail: plan.waitingOn[0] ?? plan.blockers[0] ?? "All currently evaluated gates pass.",
     strategies: ["swing"],
+    targetEntry: plan.executionPreview?.entryReference ?? null,
+    projectedProfit: plan.executionPreview
+      ? projectedProfit(plan.executionPreview.entryReference, plan.executionPreview.takeProfit, plan.executionPreview.quantity)
+      : null,
     executionEligible: true,
   }));
 
@@ -308,6 +328,8 @@ export default function PaperBotLab() {
     score: candidate.score,
     detail: candidate.waitingOn[0] ?? candidate.blockers[0] ?? "All currently evaluated gates pass.",
     strategies: ["day"],
+    targetEntry: candidate.trigger,
+    projectedProfit: candidate.estimatedGrossTargetDollars ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity),
     executionEligible: candidate.executionEligible,
   }));
 
