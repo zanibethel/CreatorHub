@@ -193,7 +193,7 @@ export async function POST(request: Request) {
     const body = text ? JSON.parse(text) : null;
     if (!response.ok) {
       const detail = typeof body?.message === "string" ? body.message : `HTTP ${response.status}`;
-      throw new Error(`Alpaca PAPER request failed: ${detail}`);
+      throw new Error(`PAPER execution request failed: ${detail}`);
     }
     return body;
   };
@@ -252,10 +252,10 @@ export async function POST(request: Request) {
   const openOrders = Array.isArray(openOrdersRaw) ? openOrdersRaw as BrokerOrder[] : [];
 
   if (positions.some(position => normalizeSymbol(position.symbol) === compact && Math.abs(numeric(position.qty) ?? 0) > 0)) {
-    return reply({ error: "Shared Alpaca PAPER account already has a position in this symbol." }, 409);
+    return reply({ error: "Shared PAPER execution account already has a position in this symbol." }, 409);
   }
   if (openOrders.some(order => normalizeSymbol(order.symbol) === compact)) {
-    return reply({ error: "Shared Alpaca PAPER account already has an open order in this symbol." }, 409);
+    return reply({ error: "Shared PAPER execution account already has an open order in this symbol." }, 409);
   }
 
   // Size from the worst allowed fill (maxEntry), not the current ask.
@@ -371,7 +371,7 @@ export async function POST(request: Request) {
   }
 
   if (!entryOrder?.id) {
-    const reason = "Alpaca did not return a broker order for the daily crypto entry.";
+    const reason = "The PAPER execution venue did not return an order for the daily crypto entry.";
     await patchOrder(clientOrderId, {
       status: "error",
       metadata: {
@@ -449,7 +449,7 @@ export async function POST(request: Request) {
   }
 
   // Query the actual broker position after crypto fees so the protective quantity
-  // uses what Alpaca says is sellable, not a locally estimated net quantity.
+  // uses the execution venue's current sellable quantity, not a locally estimated net quantity.
   let position: BrokerPosition | null = null;
   for (let index = 0; index < 12; index++) {
     try {
