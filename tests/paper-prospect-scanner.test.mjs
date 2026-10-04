@@ -80,7 +80,7 @@ test("crypto momentum and volume expansion can promote a new prospect", () => {
   });
   assert.ok(result.score >= config.PAPER_PROSPECT_SCANNER_V1.thresholds.botReviewScore);
   assert.equal(result.status,"review-ready");
-  assert.deepEqual(Array.from(result.suggestedBotIds), ["weekend-crypto-day-100","default-diverse"]);
+  assert.deepEqual(Array.from(result.suggestedBotIds), ["weekend-crypto-day-100","crypto-swing-100","default-diverse"]);
 });
 
 test("ordinary movement stays below prospect watchlist threshold", () => {
