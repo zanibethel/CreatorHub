@@ -5,6 +5,8 @@ import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 
 export type StagedPaperOrder = {
   bot_id: string;
+  strategy_id: string | null;
+  strategy_version: number | null;
   symbol: string;
   asset_class: "stock" | "etf" | "crypto" | "unknown";
   status: string;
@@ -80,6 +82,8 @@ export type PaperTradeMetric = {
 
 export type PaperCounterfactual = {
   bot_id: string;
+  strategy_id: string | null;
+  strategy_version: number | null;
   symbol: string;
   status: "watching" | "triggered" | "completed" | "expired" | "ambiguous" | "superseded";
   source_event_type: string;
