@@ -1,11 +1,38 @@
-export const DAILY_CRYPTO_DAY_STRATEGY_V2 = {
-  id: "daily-crypto-day-v2",
+export const DAILY_CRYPTO_DAY_STRATEGY_V3 = {
+  id: "daily-crypto-day-v3",
   botProfileId: "weekend-crypto-day-100",
   displayName: "$100 Daily Crypto Day Bot",
-  version: 2,
+  version: 3,
   mode: "paper-only",
   timezone: "America/Chicago",
-  universe: ["BTC/USD", "ETH/USD", "SOL/USD"],
+  executionUniverse: ["BTC/USD", "ETH/USD", "SOL/USD", "LINK/USD", "DOT/USD"],
+  monitorOnlyUniverse: [
+    "XRP/USD",
+    "LTC/USD",
+    "AVAX/USD",
+    "DOGE/USD",
+    "ADA/USD",
+    "BCH/USD",
+    "AAVE/USD",
+    "HYPE/USD",
+    "RENDER/USD",
+  ],
+  universe: [
+    "BTC/USD",
+    "ETH/USD",
+    "SOL/USD",
+    "LINK/USD",
+    "DOT/USD",
+    "XRP/USD",
+    "LTC/USD",
+    "AVAX/USD",
+    "DOGE/USD",
+    "ADA/USD",
+    "BCH/USD",
+    "AAVE/USD",
+    "HYPE/USD",
+    "RENDER/USD",
+  ],
   session: {
     tradingDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     stopNewEntriesLocal: "22:30",
@@ -60,6 +87,7 @@ export const DAILY_CRYPTO_DAY_STRATEGY_V2 = {
   },
 } as const;
 
-// Legacy export name retained temporarily so older imports do not break while
-// the stable bot ID / broker tag continue across the v1 -> v2 strategy revision.
-export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = DAILY_CRYPTO_DAY_STRATEGY_V2;
+// Compatibility aliases retained while the stable bot ID / broker tag continue
+// across strategy revisions. Runtime routes should import V3 explicitly.
+export const DAILY_CRYPTO_DAY_STRATEGY_V2 = DAILY_CRYPTO_DAY_STRATEGY_V3;
+export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = DAILY_CRYPTO_DAY_STRATEGY_V3;
