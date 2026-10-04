@@ -60,6 +60,17 @@ const ACTIVE_PROFILES = PAPER_BOT_PROFILES.filter(profile => {
   return true;
 });
 const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
+const marketPriceMoney = (value: number | null | undefined) => {
+  if (value == null) return "—";
+  const absolute = Math.abs(value);
+  const maximumFractionDigits = absolute >= 1 ? 2 : absolute >= 0.01 ? 4 : absolute >= 0.0001 ? 6 : 8;
+  return new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    minimumFractionDigits: 2,
+    maximumFractionDigits,
+  }).format(value);
+};
 const signedMoney = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${money(value)}`;
 const percent = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 const stamp = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : "—";
@@ -330,7 +341,11 @@ function prospectBotLabel(id: string) {
   return profile ? botShortName(profile) : id;
 }
 
-function ProspectRows({ rows, compact = false }: { rows: PaperProspect[]; compact?: boolean }) {
+function ProspectRows({ rows, currentPriceFor, compact = false }: {
+  rows: PaperProspect[];
+  currentPriceFor?: (row: PaperProspect) => number | null;
+  compact?: boolean;
+}) {
   const visible = compact ? rows.slice(0, 4) : rows;
   if (!visible.length) return <EmptyState>No scanner prospects currently meet this level.</EmptyState>;
 
@@ -347,7 +362,10 @@ function ProspectRows({ rows, compact = false }: { rows: PaperProspect[]; compac
         </div>
         <div className={styles.prospectStatus}>
           <span>{row.status === "review-ready" ? "BOT REVIEW READY" : "PROSPECT WATCHLIST"}</span>
-          <strong>{money(row.price)}</strong>
+          <div className={styles.prospectCurrentPrice}>
+            <small>Current price</small>
+            <strong>{marketPriceMoney(currentPriceFor?.(row) ?? row.price)}</strong>
+          </div>
         </div>
         <div className={styles.prospectMetrics}>
           <span><small>Change</small><strong>{percent(row.percent_change)}</strong></span>
@@ -384,6 +402,38 @@ export default function PaperBotLab() {
   const stockSymbols = watchlist.stocks.map(item => item.symbol).join(",");
   const cryptoSymbols = watchlist.crypto.map(item => item.symbol).join(",");
   const { snapshot: marketSnapshot, error: marketError, refresh: refreshMarket } = useMarketMonitor(stockSymbols, cryptoSymbols, true);
+
+  const prospectQuoteRows = [...(prospectReport?.prospects ?? []), ...(prospectReport?.nearMisses ?? [])];
+  const prospectStockSymbols = [...new Set(prospectQuoteRows
+    .filter(item => item.asset_class === "stock")
+    .map(item => item.symbol))]
+    .slice(0, 20)
+    .join(",");
+  const prospectCryptoSymbols = [...new Set(prospectQuoteRows
+    .filter(item => item.asset_class === "crypto")
+    .map(item => normalizedSymbol(item.symbol)))]
+    .slice(0, 10)
+    .join(",");
+  const {
+    snapshot: prospectMarketSnapshot,
+    error: prospectMarketError,
+    refresh: refreshProspectMarket,
+  } = useMarketMonitor(
+    prospectStockSymbols,
+    prospectCryptoSymbols,
+    Boolean(prospectStockSymbols || prospectCryptoSymbols),
+  );
+
+  const currentProspectPrice = (row: PaperProspect) => {
+    if (row.asset_class === "stock") {
+      const quote = prospectMarketSnapshot?.stocks[row.symbol];
+      return quote ? midPrice(quote.bid, quote.ask) : row.price;
+    }
+    const quote = prospectMarketSnapshot?.crypto.find(
+      item => normalizedSymbol(item.product) === normalizedSymbol(row.symbol),
+    );
+    return quote ? midPrice(quote.bestBid?.price, quote.bestAsk?.price) : row.price;
+  };
 
   const profile = ACTIVE_PROFILES.find(item => item.id === selectedBotId) ?? ACTIVE_PROFILES[0];
   const ledger = ledgerReport?.bots.find(bot => bot.botId === profile.id) ?? null;
@@ -696,6 +746,7 @@ export default function PaperBotLab() {
     refreshAccount();
     refreshStrategyReview();
     refreshMarket();
+    refreshProspectMarket();
   };
 
   const capitalModel = ledgerReport?.accountingModel;
@@ -764,9 +815,9 @@ export default function PaperBotLab() {
       {views.map(item => <button key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
     </nav>
 
-    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError
+    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError || prospectMarketError
       ? <div className={styles.portfolioWarnings}>
-          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
+          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError, prospectMarketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
         </div>
       : null}
 
@@ -803,7 +854,7 @@ export default function PaperBotLab() {
 
     {view === "prospects" ? <div className={styles.portfolioSingleColumn}>
       <PortfolioPanel title={`${botShortName(profile)} prospect review queue`}>
-        <ProspectRows rows={assignedProspects} />
+        <ProspectRows rows={assignedProspects} currentPriceFor={currentProspectPrice} />
         <p className={styles.portfolioNote}>These symbols crossed the 80-point Prospect Score and were automatically assigned to this bot for strategy review. They are candidates for the bot to evaluate next, not READY trades.</p>
       </PortfolioPanel>
       <PortfolioPanel title="Market Prospect Scanner">
@@ -815,11 +866,11 @@ export default function PaperBotLab() {
           <SummaryCard label="New symbols" value={String(prospectReport?.counts.newToExistingLists ?? 0)} />
           <SummaryCard label="Last scan" value={stamp(prospectReport?.lastSeenAt)} />
         </div>
-        <ProspectRows rows={prospectReport?.prospects ?? []} />
+        <ProspectRows rows={prospectReport?.prospects ?? []} currentPriceFor={currentProspectPrice} />
         <p className={styles.portfolioNote}>The scanner is discovery-only. A score of 65 adds a symbol to the prospect watchlist; 80 automatically assigns it to the appropriate bot review queue. That assignment is review-only: it cannot authorize an order or silently expand a bot&apos;s execution universe.</p>
       </PortfolioPanel>
       <PortfolioPanel title="Near the watchlist threshold">
-        <ProspectRows rows={prospectReport?.nearMisses ?? []} />
+        <ProspectRows rows={prospectReport?.nearMisses ?? []} currentPriceFor={currentProspectPrice} />
         <p className={styles.portfolioNote}>Near-miss prospects are retained so we can see which high-volume or fast-moving symbols are approaching the discovery threshold before their normal bot score becomes compelling.</p>
       </PortfolioPanel>
     </div> : null}
