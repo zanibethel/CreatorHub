@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildPaperExecutionFailureJournalRow } from "@/lib/paper-order-lifecycle-evidence";
 import {
   assertSwingPaperExecutionAllowed,
   buildAlpacaSwingBracketRequest,
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
   const db = async (
     path: string,
     body?: unknown,
-    method: "GET"|"PATCH" = body === undefined ? "GET" : "PATCH",
+    method: "GET"|"POST"|"PATCH" = body === undefined ? "GET" : "PATCH",
     prefer?: string,
   ) => {
     const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -153,6 +154,14 @@ export async function POST(request: Request) {
     const text = await response.text();
     if (!response.ok) throw new Error(`Paper execution storage returned HTTP ${response.status}.`);
     return text ? JSON.parse(text) : null;
+  };
+
+  const journalFailure = async (input: Parameters<typeof buildPaperExecutionFailureJournalRow>[0]) => {
+    try {
+      await db("paper_bot_journal", buildPaperExecutionFailureJournalRow(input), "POST", "return=minimal");
+    } catch {
+      // Evidence failure must not change the PAPER execution outcome.
+    }
   };
 
   const readinessUrl = new URL("/api/paper-trading/bots/swing-readiness", request.url);
@@ -266,12 +275,13 @@ export async function POST(request: Request) {
   }
 
   if (!brokerOrder?.id) {
+    const reason = submitError || "Broker outcome could not be confirmed.";
     await db(
       `paper_bot_orders?client_order_id=eq.${encodeURIComponent(prepared.client_order_id)}`,
       {
         metadata: {
           ...claimMetadata,
-          executionError: submitError || "Broker outcome could not be confirmed.",
+          executionError: reason,
           brokerLookupPending: true,
         },
         updated_at: new Date().toISOString(),
@@ -279,6 +289,18 @@ export async function POST(request: Request) {
       "PATCH",
       "return=minimal",
     );
+    await journalFailure({
+      botId: prepared.bot_id,
+      strategyId: prepared.strategy_id,
+      strategyVersion: prepared.strategy_version,
+      symbol: prepared.symbol,
+      assetClass: prepared.asset_class,
+      clientOrderId: prepared.client_order_id,
+      phase: "broker-submission",
+      reason,
+      side: "buy",
+      brokerLookupPending: true,
+    });
     return reply({ error: "Broker submission outcome is unconfirmed; the order remains claimed to prevent duplication." }, 502);
   }
 
