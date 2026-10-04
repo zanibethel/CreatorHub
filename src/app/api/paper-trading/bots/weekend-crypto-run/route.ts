@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildDailyCryptoScanJournalRows } from "@/lib/paper-daily-crypto-scan-journal";
+import { advancePaperCounterfactual, buildDailyCryptoCounterfactualSeeds, counterfactualPatch } from "@/lib/paper-counterfactual";
+import { DAILY_CRYPTO_DAY_STRATEGY_V3 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,13 @@ const candidateSchema = z.object({
   feeCoverageMultiple: z.number().finite().nonnegative().nullable(),
   waitingOn: z.array(z.string()),
   blockers: z.array(z.string()),
+  trackingBars: z.array(z.object({
+    t: z.string(),
+    o: z.number().finite().positive(),
+    h: z.number().finite().positive(),
+    l: z.number().finite().positive(),
+    c: z.number().finite().positive(),
+  })),
 });
 
 const readinessSchema = z.object({
@@ -45,7 +54,7 @@ const readinessSchema = z.object({
   broadCryptoSupportive: z.boolean(),
   executionEnabled: z.boolean(),
   submissionReady: z.boolean(),
-  selectedSymbol: z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]).nullable(),
+  selectedSymbol: z.enum(strategy.executionUniverse).nullable(),
   session: z.object({
     localDate: z.string(),
     localWeekday: z.string(),
@@ -55,6 +64,42 @@ const readinessSchema = z.object({
     flattenDue: z.boolean(),
   }),
   candidates: z.array(candidateSchema),
+});
+
+const counterfactualRowSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  setup_key: z.string(),
+  bot_id: z.string(),
+  strategy_id: z.string().nullable(),
+  strategy_version: z.coerce.number().int().positive().nullable(),
+  symbol: z.string(),
+  asset_class: z.string(),
+  decision_at: z.string(),
+  session_key: z.string().nullable(),
+  status: z.enum(["watching","triggered","completed","expired","ambiguous","superseded"]),
+  score: z.coerce.number().finite().nullable(),
+  trigger_price: z.coerce.number().finite().positive(),
+  max_entry_price: z.coerce.number().finite().positive(),
+  protective_stop: z.coerce.number().finite().positive(),
+  planned_take_profit: z.coerce.number().finite().positive().nullable(),
+  assumed_entry_price: z.coerce.number().finite().positive().nullable(),
+  risk_per_unit: z.coerce.number().finite().positive().nullable(),
+  one_r_price: z.coerce.number().finite().positive().nullable(),
+  two_r_price: z.coerce.number().finite().positive().nullable(),
+  triggered_at: z.string().nullable(),
+  stop_hit_at: z.string().nullable(),
+  one_r_hit_at: z.string().nullable(),
+  two_r_hit_at: z.string().nullable(),
+  first_outcome: z.string().nullable(),
+  peak_price: z.coerce.number().finite().positive().nullable(),
+  trough_price: z.coerce.number().finite().positive().nullable(),
+  last_bar_at: z.string().nullable(),
+  mark_count: z.coerce.number().int().nonnegative(),
+  mfe_r: z.coerce.number().finite(),
+  mae_r: z.coerce.number().finite(),
+  blockers: z.array(z.string()),
+  warnings: z.array(z.string()),
+  metadata: z.record(z.string(),z.unknown()),
 });
 
 function reply(body: unknown, status = 200) {
@@ -86,6 +131,105 @@ async function persistScanJournal(readiness: z.infer<typeof readinessSchema>) {
   return response.ok;
 }
 
+async function persistCounterfactuals(readiness: z.infer<typeof readinessSchema>) {
+  const supabaseSecret = process.env.SUPABASE_SECRET_KEY?.trim() ?? "";
+  if (!supabaseSecret) return { ok:false, seedsAttempted:0, updates:0 };
+
+  const headers: Record<string,string> = {
+    apikey: supabaseSecret,
+    "Content-Type": "application/json",
+  };
+  if (supabaseSecret.startsWith("eyJ")) headers.Authorization = `Bearer ${supabaseSecret}`;
+
+  const seeds = buildDailyCryptoCounterfactualSeeds(BOT_ID, readiness);
+  if (seeds.length) {
+    const seedResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?on_conflict=setup_key`,
+      {
+        method:"POST",
+        headers:{...headers,Prefer:"resolution=ignore-duplicates,return=minimal"},
+        body:JSON.stringify(seeds),
+        cache:"no-store",
+        signal:AbortSignal.timeout(10_000),
+      },
+    );
+    if (!seedResponse.ok) throw new Error(`Counterfactual seed storage returned HTTP ${seedResponse.status}.`);
+  }
+
+  const activeResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?select=*&bot_id=eq.${BOT_ID}&status=in.(watching,triggered)&order=decision_at.asc`,
+    {
+      headers:{...headers,Accept:"application/json"},
+      cache:"no-store",
+      signal:AbortSignal.timeout(10_000),
+    },
+  );
+  if (!activeResponse.ok) throw new Error(`Counterfactual read returned HTTP ${activeResponse.status}.`);
+
+  const rows = z.array(counterfactualRowSchema).parse(await activeResponse.json());
+  let updates = 0;
+
+  for (const row of rows) {
+    const candidate = readiness.candidates.find(item => item.symbol === row.symbol);
+    if (!candidate) continue;
+
+    const result = advancePaperCounterfactual({
+      id: row.id,
+      setupKey: row.setup_key,
+      botId: row.bot_id,
+      strategyId: row.strategy_id,
+      strategyVersion: row.strategy_version,
+      symbol: row.symbol,
+      assetClass: row.asset_class,
+      decisionAt: row.decision_at,
+      sessionKey: row.session_key,
+      status: row.status,
+      score: row.score,
+      triggerPrice: row.trigger_price,
+      maxEntryPrice: row.max_entry_price,
+      protectiveStop: row.protective_stop,
+      plannedTakeProfit: row.planned_take_profit,
+      assumedEntryPrice: row.assumed_entry_price,
+      riskPerUnit: row.risk_per_unit,
+      oneRPrice: row.one_r_price,
+      twoRPrice: row.two_r_price,
+      triggeredAt: row.triggered_at,
+      stopHitAt: row.stop_hit_at,
+      oneRHitAt: row.one_r_hit_at,
+      twoRHitAt: row.two_r_hit_at,
+      firstOutcome: row.first_outcome,
+      peakPrice: row.peak_price,
+      troughPrice: row.trough_price,
+      lastBarAt: row.last_bar_at,
+      markCount: row.mark_count,
+      mfeR: row.mfe_r,
+      maeR: row.mae_r,
+      blockers: row.blockers,
+      warnings: row.warnings,
+      metadata: row.metadata,
+    }, candidate.trackingBars, {
+      expire: readiness.session.flattenDue
+        || (row.session_key !== null && row.session_key !== readiness.session.localDate),
+    });
+
+    if (!result.changed) continue;
+    const updateResponse = await fetch(
+      `${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?id=eq.${row.id}`,
+      {
+        method:"PATCH",
+        headers:{...headers,Prefer:"return=minimal"},
+        body:JSON.stringify(counterfactualPatch(result.state)),
+        cache:"no-store",
+        signal:AbortSignal.timeout(10_000),
+      },
+    );
+    if (!updateResponse.ok) throw new Error(`Counterfactual update returned HTTP ${updateResponse.status}.`);
+    updates += 1;
+  }
+
+  return { ok:true, seedsAttempted:seeds.length, updates };
+}
+
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET?.trim() ?? "";
   if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
@@ -114,8 +258,15 @@ export async function GET(request: Request) {
     journalPersisted = false;
   }
 
+  let counterfactualTracking = { ok:false, seedsAttempted:0, updates:0 };
+  try {
+    counterfactualTracking = await persistCounterfactuals(readiness);
+  } catch {
+    counterfactualTracking = { ok:false, seedsAttempted:0, updates:0 };
+  }
+
   if (!readiness.session.isTradingDay) {
-    return reply({ ok: true, action: "none", reason: "outside-daily-crypto-session", journalPersisted });
+    return reply({ ok: true, action: "none", reason: "outside-daily-crypto-session", journalPersisted, counterfactualTracking });
   }
 
   if (readiness.session.flattenDue) {
@@ -135,11 +286,12 @@ export async function GET(request: Request) {
       localTime: readiness.session.localTime,
       result: flatten,
       journalPersisted,
+      counterfactualTracking,
     }, flattenResponse.ok ? 200 : 502);
   }
 
   if (!readiness.session.entriesOpen) {
-    return reply({ ok: true, action: "none", reason: "entry-window-closed", journalPersisted });
+    return reply({ ok: true, action: "none", reason: "entry-window-closed", journalPersisted, counterfactualTracking });
   }
 
   if (readiness.executionEnabled) {
@@ -157,16 +309,16 @@ export async function GET(request: Request) {
       return reply({ ok: false, action: "manager-error", result: manage, journalPersisted }, 502);
     }
     if (!["none","hold"].includes(manage.action ?? "none")) {
-      return reply({ ok: true, action: "manage", result: manage, journalPersisted });
+      return reply({ ok: true, action: "manage", result: manage, journalPersisted, counterfactualTracking });
     }
   }
 
   if (!readiness.executionEnabled) {
-    return reply({ ok: true, action: "none", reason: "daily-crypto-executor-disabled", journalPersisted });
+    return reply({ ok: true, action: "none", reason: "daily-crypto-executor-disabled", journalPersisted, counterfactualTracking });
   }
 
   if (!readiness.submissionReady || !readiness.selectedSymbol) {
-    return reply({ ok: true, action: "none", reason: "no-selected-ready-setup", journalPersisted });
+    return reply({ ok: true, action: "none", reason: "no-selected-ready-setup", journalPersisted, counterfactualTracking });
   }
 
   const executeResponse = await fetch(
@@ -193,6 +345,7 @@ export async function GET(request: Request) {
       executorStatus: executeResponse.status,
       result: body,
       journalPersisted,
+      counterfactualTracking,
     }, expectedRace ? 200 : 502);
   }
 
@@ -202,5 +355,6 @@ export async function GET(request: Request) {
     symbol: readiness.selectedSymbol,
     result: body,
     journalPersisted,
+    counterfactualTracking,
   });
 }
