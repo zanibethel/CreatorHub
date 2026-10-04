@@ -14,7 +14,7 @@ const historyRow = z.object({
 const exitManagerState = z.object({
   version: z.string().optional(),
   mode: z.string().optional(),
-  plannedAction: z.enum(["hold","repair_stop","partial_profit","tighten_stop_trail","tighten_stop_breakeven"]).optional(),
+  plannedAction: z.enum(["hold","repair_stop","partial_profit","goal_exit","tighten_stop_trail","tighten_stop_breakeven"]).optional(),
   rMultiple: z.coerce.number().finite().optional(),
   markPrice: z.coerce.number().finite().positive().optional(),
   evaluatedAt: timestamp.optional(),
