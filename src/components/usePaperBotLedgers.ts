@@ -143,8 +143,13 @@ export type PaperBotLedgerReport = {
   history: Record<string, Array<{ time: string; equity: number }>>;
   accountingModel: {
     challengeStartingCash: number;
+    programStartingCapital: number;
+    reservedBotPools: number;
+    allocatedBotCapital: number;
+    unallocatedReserve: number;
+    currency: string;
     virtualLedgerIsAuthority: boolean;
-    brokerAccountIsExecutionVenueOnly: boolean;
+    executionVenueBalanceIsNotProgramCapital: boolean;
     tradeAttributionRequired: boolean;
   };
 };
