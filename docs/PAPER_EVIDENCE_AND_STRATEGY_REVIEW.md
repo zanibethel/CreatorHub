@@ -1,0 +1,235 @@
+# Paper Trading Evidence & Strategy Review Loop
+
+Status: approved design requirement. Applies to all CreatorHub PAPER trading bots and research paths.
+
+## Purpose
+
+CreatorHub must preserve enough evidence to learn from both trades that happen and trades that do not happen.
+
+The evidence set must include:
+- research inputs and analysis artifacts,
+- every materially considered candidate,
+- proposed/staged/prepared trades,
+- blocked/rejected candidates,
+- candidates that lose priority to another setup,
+- prepared plans that expire,
+- prepared or submitted orders that are canceled or replaced,
+- broker rejections and execution failures,
+- executed trades and all fills,
+- protection changes and exit-manager actions,
+- completed trade outcomes,
+- and defined counterfactual follow-up for serious candidates that were not executed.
+
+The goal is to avoid survivorship bias. Strategy review must not learn only from the trades that happened.
+
+This system remains PAPER-only. Evidence collection may inform recommendations, but it must never silently loosen risk limits, modify execution permissions, or enable live-money trading.
+
+## Evidence lifecycle
+
+### 1. Research evidence
+
+Persist source data, assumptions, analysis code, derived metrics, rankings, and selection rationale used to build or revise a strategy.
+
+Research artifacts should remain reproducible and versioned. When practical, retain the exact data snapshot or durable source reference used for the decision.
+
+### 2. Considered candidate
+
+When the decision engine materially evaluates a symbol or pair, persist enough context to reproduce the decision:
+
+- bot ID,
+- strategy ID/version,
+- symbol and asset class,
+- candidate/pool/tier,
+- evaluation timestamp and market-data timestamps,
+- market regime,
+- score and component evidence,
+- bid/ask/reference price,
+- spread and quote freshness,
+- trend/momentum/breakout/volume/volatility inputs,
+- fee coverage when applicable,
+- portfolio/risk context,
+- blockers,
+- warnings/waiting reasons,
+- and whether the candidate was eligible for submission.
+
+Routine raw scans may be sampled or aggregated only when the underlying evidence remains sufficient for later review. Any candidate that approaches qualification, becomes READY, is blocked by risk/session/correlation, or is explicitly promoted into a proposal must be retained durably.
+
+### 3. Proposed / staged / prepared trade
+
+A serious proposal must be preserved even if no broker order is ever submitted.
+
+Record:
+- proposed entry/trigger/max-chase price,
+- proposed stop/invalidation,
+- target/trailing plan,
+- quantity/notional,
+- planned risk dollars and percent,
+- fee/slippage assumptions,
+- score/regime/setup context,
+- competing candidates and priority decision when relevant,
+- prepared-plan creation time,
+- expiration time,
+- and the exact strategy version that produced it.
+
+A prepared plan is evidence, not a broker order.
+
+### 4. Revalidation history
+
+Every subsequent revalidation of a staged plan should retain the reason the plan:
+
+- stayed eligible,
+- became READY,
+- remained on standby,
+- lost priority to a stronger candidate,
+- became blocked,
+- became stale,
+- exceeded max chase,
+- failed regime/liquidity/risk checks,
+- expired,
+- was canceled,
+- or was replaced by a newer version.
+
+The terminal disposition must be explicit. Do not silently delete old proposals.
+
+### 5. Counterfactual follow-up for non-executed proposals
+
+For serious candidates that reached a defined proposal threshold but were not executed, record a clearly labeled counterfactual outcome window.
+
+Counterfactual records must never be mixed with real P/L or virtual-ledger returns.
+
+They should answer questions such as:
+- Did price subsequently reach the proposed entry?
+- Would the proposed stop have been hit first?
+- Would +1R, first target, or trailing thresholds have been reached?
+- What were MFE and MAE relative to the proposed entry/stop?
+- Did spread/liquidity improve or degrade?
+- Was the reason for rejection protective or unnecessarily restrictive?
+
+Counterfactual windows must use deterministic rules and be versioned. They exist for strategy research, not to rewrite historical trading performance.
+
+### 6. Submitted / broker lifecycle
+
+For actual PAPER submissions, preserve privately:
+
+- canonical bot attribution,
+- broker order identifiers,
+- submission request,
+- broker acknowledgements,
+- status transitions,
+- replacements,
+- cancellations,
+- rejections,
+- expirations,
+- partial fills,
+- fills,
+- observed slippage,
+- fees where available,
+- and reconciliation state.
+
+Raw broker IDs remain server-side/private.
+
+### 7. Open-position management
+
+Persist each meaningful management decision:
+
+- protective-order creation/repair,
+- stop tightening,
+- +1R protection,
+- partial take profit,
+- trailing-stop updates,
+- forced/session flatten,
+- emergency flatten,
+- manager errors/recoveries,
+- and any broker-vs-virtual-ledger reconciliation correction.
+
+Stops may not be widened merely to avoid a loss.
+
+### 8. Closed-trade outcome
+
+For every completed PAPER trade, retain:
+
+- realized P/L,
+- R multiple,
+- entry/exit price,
+- fees and fee source,
+- MFE/MAE,
+- peak/trough marks,
+- mark count,
+- exit reason,
+- duration,
+- slippage/execution quality,
+- strategy version,
+- and relevant regime/setup classifications.
+
+### 9. Strategy review dataset
+
+Periodic strategy review must combine:
+
+- executed trades,
+- rejected candidates,
+- staged but unexecuted proposals,
+- expired/canceled/replaced plans,
+- monitor-only observations,
+- broker rejection/execution-quality data,
+- and counterfactual outcomes.
+
+Review questions should include:
+- expectancy and average R by setup family,
+- return/drawdown/loss streaks by strategy version,
+- MFE/MAE versus stop design,
+- outcome by score band,
+- outcome by regime,
+- outcome by spread/quote freshness/volatility band,
+- fee and slippage impact,
+- false-positive and false-negative patterns,
+- missed-opportunity analysis,
+- candidate-priority effectiveness,
+- monitor-only promotion evidence,
+- weekday/weekend/session effects,
+- and whether gates are protecting capital or excluding favorable setups too often.
+
+## Recommendation and promotion rules
+
+The review layer may:
+- generate evidence-backed recommendations,
+- identify degrading or improving setup families,
+- propose score/threshold/stop/session/universe changes,
+- and compare candidate strategy versions.
+
+It may not:
+- silently rewrite production strategy parameters,
+- raise risk limits autonomously,
+- disable stops or kill switches,
+- widen stops on losing positions,
+- promote monitor-only assets automatically,
+- or enable live-money trading.
+
+Material changes require:
+1. documented evidence,
+2. a new versioned strategy configuration,
+3. replay/historical comparison when possible,
+4. PAPER validation,
+5. comparison against the prior strategy using return, drawdown, expectancy, average R, execution quality, and counterfactual evidence,
+6. and explicit approval before promotion.
+
+## Current implementation status — 2026-10-03
+
+Implemented or partially implemented:
+- persisted research artifacts under `research/paper-watchlist/`,
+- virtual bot orders/positions/equity history,
+- private broker order/fill audit tables,
+- trade metrics with live R/MFE/MAE fields,
+- durable Daily Crypto Day five-minute evidence for all execution and monitor-only candidates,
+- prepared swing plans retained as virtual orders,
+- executed Default Diverse broker/fill/ledger attribution,
+- and versioned strategy configuration.
+
+Still required for complete coverage:
+- wire decision/rejection journaling across every bot/evaluator,
+- persist revalidation events and terminal disposition for staged swing plans,
+- explicitly journal cancel/expire/replace reasons across all execution paths,
+- add counterfactual tracking for serious non-executed proposals,
+- aggregate closed-trade and non-trade evidence into a repeatable strategy-review dataset,
+- and build the adaptive recommendation/report layer.
+
+Nothing materially considered by the algorithm should be discarded merely because no trade occurred.
