@@ -34,23 +34,23 @@ Persisted challenge intent:
 
 The exact entry frequency and risk parameters are intentionally not fixed yet. They should be designed from market-data availability and replay/paper tests rather than copied from the diversified bot.
 
-### $100 Weekend Crypto Day Bot
+### $100 Daily Crypto Day Bot
 
-Purpose: test a fee-aware, short-horizon weekend crypto strategy against the other $100 challenges.
+Purpose: test a fee-aware, short-horizon daily crypto strategy against the other $100 challenges.
 
 Persisted challenge intent:
 - Starting capital: $100.
-- BTC/USD, ETH/USD, and SOL/USD only in v1.
-- Saturday/Sunday intraday-only in America/Chicago.
+- BTC/USD, ETH/USD, and SOL/USD only in v2.
+- Seven-day intraday crypto sessions in America/Chicago.
 - Maximum three new entries per local session day.
 - Maximum one open position at a time.
 - Alpaca execution-venue quotes plus completed 5-minute / 15-minute bars.
 - 0.50% risk budget per trade, 30% maximum initial allocation, and 1.50% daily realized-loss kill switch.
 - Gross target must cover estimated round-trip taker fees by at least 2.50x.
 - Same-symbol entries are blocked when another bot already holds that crypto in the shared Alpaca PAPER account.
-- Status: active scanner / PAPER execution disabled.
+- Status: active scanner + automated PAPER execution armed; live money disabled.
 
-The source-of-truth strategy and rollout plan is `PAPER_WEEKEND_CRYPTO_DAY.md`.
+The source-of-truth strategy and rollout plan is `PAPER_DAILY_CRYPTO_DAY.md`.
 
 ### $100 Three-Trade Weekly Swing Bot
 
@@ -81,7 +81,7 @@ Bots do not:
 
 Market data, the Alpaca paper venue, and common analytical infrastructure may be shared, but every decision/order must retain the bot/profile ID and strategy version that produced it. Only bot-attributed fills may change that bot's virtual ledger.
 
-Broker attribution uses stable short profile tags in Alpaca `client_order_id` values: `div` for Default Diverse, `pny` for the Penny Volatility challenge, `sw3` for the Three-Trade Weekly Swing challenge, and `wkd` for the Weekend Crypto Day challenge. The formatter/parser lives in `src/lib/paper-order-attribution.ts`. A private service-role-only `paper_bot_orders` table maps those client order IDs to the bot, strategy version, broker order ID, symbol, requested size, and reconciliation status. Raw order identifiers remain private.
+Broker attribution uses stable short profile tags in Alpaca `client_order_id` values: `div` for Default Diverse, `pny` for the Penny Volatility challenge, `sw3` for the Three-Trade Weekly Swing challenge, and `wkd` for the Daily Crypto Day challenge. The formatter/parser lives in `src/lib/paper-order-attribution.ts`. A private service-role-only `paper_bot_orders` table maps those client order IDs to the bot, strategy version, broker order ID, symbol, requested size, and reconciliation status. Raw order identifiers remain private.
 
 This avoids contaminating the experiment. A strong result from one bot must not hide losses from another.
 
@@ -158,7 +158,7 @@ Current registry:
 1. `default-diverse` — active.
 2. `penny-volatility-day-100` — planned.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
-4. `weekend-crypto-day-100` — active scanner under `weekend-crypto-day-v1`; PAPER execution remains disabled while the scanner/submission path is validated.
+4. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v2` with seven-day PAPER execution armed and live money disabled.
 
 New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
 
