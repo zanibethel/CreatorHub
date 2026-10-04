@@ -331,6 +331,7 @@ export async function POST(request: Request) {
         entryOrderType: "marketable-limit",
         entryLimitPrice: roundPrice(candidate.maxEntry),
         estimatedFeeBps: strategy.fees.estimatedTakerFeeBpsPerSide,
+        feeReconciliationPending: true,
       },
     });
   } catch (error) {
@@ -388,6 +389,7 @@ export async function POST(request: Request) {
       estimatedFeeBps: strategy.fees.estimatedTakerFeeBpsPerSide,
       filledQuantityObserved: filledQty,
       filledAveragePriceObserved: numeric(finalEntry.filled_avg_price),
+      feeReconciliationPending: filledQty > 0,
     },
   });
 
@@ -424,6 +426,35 @@ export async function POST(request: Request) {
       critical: true,
     }, 502);
   }
+
+  const filledAveragePrice = numeric(finalEntry.filled_avg_price);
+  const observedEntryFeeQuantity = protectiveQty <= filledQty
+    ? Math.max(0, filledQty - protectiveQty)
+    : null;
+  const observedEntryFeeBps = observedEntryFeeQuantity !== null && filledQty > 0
+    ? observedEntryFeeQuantity / filledQty * 10_000
+    : null;
+  const observedEntryFeeUsd = observedEntryFeeQuantity !== null && filledAveragePrice
+    ? observedEntryFeeQuantity * filledAveragePrice
+    : null;
+
+  await patchOrder(clientOrderId, {
+    metadata: {
+      paperOnly: true,
+      executionMode: "paper-crypto",
+      entryOrderType: "marketable-limit",
+      entryLimitPrice: roundPrice(candidate.maxEntry),
+      estimatedFeeBps: strategy.fees.estimatedTakerFeeBpsPerSide,
+      filledQuantityObserved: filledQty,
+      filledAveragePriceObserved: filledAveragePrice,
+      brokerSellableQuantityObserved: protectiveQty,
+      observedEntryFeeQuantity,
+      observedEntryFeeBps,
+      observedEntryFeeUsd,
+      feeReconciliationPending: false,
+      feeReconciliationSource: observedEntryFeeBps !== null ? "broker-position-quantity" : "estimated-fallback",
+    },
+  });
 
   const stopClientOrderId = createPaperClientOrderId(BOT_ID, strategy.version, crypto.randomUUID());
   const stopPrice = roundPrice(candidate.protectiveStop);
@@ -488,7 +519,13 @@ export async function POST(request: Request) {
         entryLimitPrice: roundPrice(candidate.maxEntry),
         estimatedFeeBps: strategy.fees.estimatedTakerFeeBpsPerSide,
         filledQuantityObserved: filledQty,
-        filledAveragePriceObserved: numeric(finalEntry.filled_avg_price),
+        filledAveragePriceObserved: filledAveragePrice,
+        brokerSellableQuantityObserved: protectiveQty,
+        observedEntryFeeQuantity,
+        observedEntryFeeBps,
+        observedEntryFeeUsd,
+        feeReconciliationPending: false,
+        feeReconciliationSource: observedEntryFeeBps !== null ? "broker-position-quantity" : "estimated-fallback",
         protectionAttached: true,
         protectionClientOrderId: stopClientOrderId,
       },
