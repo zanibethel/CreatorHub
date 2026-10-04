@@ -11,16 +11,16 @@ Implemented:
 - Equal $100 isolated virtual ledgers for all registered challenges.
 - Persisted bot equity history, positions table, and normalized decision/trade journal schema.
 - Service-role-only ledger/journal storage with RLS and a schema-validated read-only public bot-ledger projection.
-- Bot Lab comparison UI showing virtual challenge equity separately from the Alpaca paper-account audit balance.
+- Bot Lab comparison UI showing virtual challenge equity separately from the external PAPER execution-account audit balance.
 - Dry-run decision endpoint with no order-routing capability.
-- Stable bot-specific Alpaca client-order attribution plus service-only prepared-order, observed-order, and fill audit tables.
+- Stable bot-specific execution-venue client-order attribution plus service-only prepared-order, observed-order, and fill audit tables.
 - Idempotent fill-to-ledger reconciliation: only fills that match a prepared bot order can change the bot ledger; buys update cash/quantity/cost basis, sells update realized P/L, and equity history is checkpointed.
 - 20/40/40 Default Diverse portfolio allocation ceilings ($20/$40/$40 at the initial $100 baseline), replacing the legacy fixed position-cap interpretation.
 
 Still intentionally blocked:
 - Decision/rejection events have a persisted journal target, but the live evaluator is not yet writing every event into it.
 - Monday stock/swing same-session revalidation is live; the privileged PAPER submission endpoint is deployed and the PAPER execution kill switch is armed, but submission still requires a fresh selected setup during the valid session window.
-- Stock bracket protection request construction is implemented. A closed-market PAPER smoke test confirmed Alpaca bracket acceptance plus both child legs, then canceled cleanly with zero fills. Child-leg attribution back to the parent bot plan is implemented; the remaining rehearsal is a real market-hours PAPER fill/exit.
+- Stock bracket protection request construction is implemented. A closed-market PAPER smoke test confirmed PAPER bracket acceptance plus both child legs, then canceled cleanly with zero fills. Child-leg attribution back to the parent bot plan is implemented; the remaining rehearsal is a real market-hours PAPER fill/exit.
 - Official crypto CFEE true-up and longer-horizon R/MFE/MAE analytics remain pending.
 - Correlation/sector exposure calculation needs deeper asset linkage.
 - Real-money execution remains completely disabled.
@@ -84,7 +84,7 @@ Required checks:
 - Maximum acceptable spread.
 - Minimum recent liquidity/dollar volume.
 - No entry when required quote/market data is stale or unavailable.
-- Crypto execution pricing must be verified against the execution venue rather than assuming the public Kraken watchlist price is executable through Alpaca.
+- Crypto execution pricing must be verified against the execution venue rather than assuming the public watchlist price is executable through the configured PAPER venue.
 
 ### 3. Trend
 
@@ -264,7 +264,7 @@ An automated paper order may be submitted only when all required checks pass:
 12. Daily and weekly kill switches are clear.
 13. Total portfolio heat remains within limits.
 14. Broker/order validation passes.
-15. The resulting order is explicitly routed to the Alpaca paper environment.
+15. The resulting order is explicitly routed to the configured PAPER execution environment.
 
 Failure of any mandatory check means no new order.
 
@@ -367,7 +367,7 @@ Before promoting a material strategy change:
 7. ◐ Complete evidence journaling across every evaluator — Daily Crypto scan evidence is live; remaining bots still need uniform considered/rejected/staged/revalidation/cancel/expire/replace coverage per `docs/PAPER_EVIDENCE_AND_STRATEGY_REVIEW.md`.
 8. ✅ Add dry-run decision endpoint that cannot place orders.
 9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
-10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution, controlled crypto paper execution, privileged swing submission, duplicate-claim protection, and PAPER-only bracket construction are implemented; market-hours fill/exit validation remains.
+10. ◐ Add bot-tagged PAPER-only execution adapter — bot attribution, controlled crypto paper execution, privileged swing submission, duplicate-claim protection, and PAPER-only bracket construction are implemented; market-hours fill/exit validation remains.
 11. ◐ Require broker-hosted protection where supported — crypto stop-limit protection is live in PAPER; stock bracket acceptance and both child legs have been smoke-tested off-hours, with market-hours fill/exit validation remaining.
 12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — reconciliation and live marking are implemented; crypto exit-manager v1 is being paper-validated.
 13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
@@ -375,14 +375,14 @@ Before promoting a material strategy change:
 15. ☐ Add counterfactual tracking for serious non-executed proposals and build the adaptive strategy-review/recommendation layer.
 16. ☐ Tune only from documented paper evidence.
 
-Each bot ledger starts at $100 and is authoritative for strategy buying power and risk calculations. The larger Alpaca paper-account balance is only an execution sandbox and audit trail. Bot-attributed orders/fills must be reconciled to the matching virtual ledger; untagged broker activity must never silently change a bot's performance. The read-only public report remains separate from privileged order execution. Public endpoints must never expose broker credentials, private order identifiers, or internal authorization state.
+Each bot ledger starts at $100 and is authoritative for strategy buying power and risk calculations. The external PAPER execution-account balance is only an execution sandbox and audit trail. Bot-attributed orders/fills must be reconciled to the matching virtual ledger; untagged broker activity must never silently change a bot's performance. The read-only public report remains separate from privileged order execution. Public endpoints must never expose broker credentials, private order identifiers, or internal authorization state.
 
 
 ## Weekend rehearsal — 2026-10-03
 
 Live paper-only readiness work completed:
 
-- Added continuous virtual-position mark-to-market using Alpaca stock/crypto market data.
+- Added continuous virtual-position mark-to-market using configured stock/crypto market data.
 - Virtual ledgers now refresh unrealized P/L, equity, peak/drawdown, open planned risk, daily-loss state, weekly drawdown, and 20/40/40 pool usage.
 - Activated `three-trade-weekly-swing-100` for staging under `three-trade-weekly-swing-v1`; broker execution remains gated by fresh same-session revalidation.
 - Persisted three Monday swing plans:
@@ -390,7 +390,7 @@ Live paper-only readiness work completed:
   - NVDA: trigger 238.072835, maximum entry 240.626942, protective stop 220.624179, staged notional about $13.64, planned loss $1.
   - MSFT: trigger 522.982460, maximum entry 528.818174, protective stop 490.062857, staged notional about $15.89, planned loss $1.
 - These are prepared plans only. Monday submission requires a fresh quote, acceptable spread, price at/above trigger but no higher than maximum entry, clean bot risk state, remaining weekly trade capacity, and unchanged strategy permissions.
-- Executed one controlled weekend SOL/USD PAPER smoke test through the full prepared-order → Alpaca → fill → virtual-ledger path.
+- Executed one controlled weekend SOL/USD PAPER smoke test through the full prepared-order → PAPER execution venue → fill → virtual-ledger path.
 - Crypto fee reserve is now included in virtual accounting. A market crypto buy reduces the virtual position to the estimated net received quantity; a sell reduces virtual USD proceeds by the configured estimated fee. Official broker fee activity remains a future true-up source.
 - The SOL paper smoke-test position is protected with a separate GTC stop-limit order. Crypto protection remains subject to stop-limit execution risk if price trades through the limit without a fill.
 
