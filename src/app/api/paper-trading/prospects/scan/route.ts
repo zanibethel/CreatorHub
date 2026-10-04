@@ -127,7 +127,7 @@ export async function GET(request: Request) {
       cache: "no-store",
       signal: AbortSignal.timeout(20_000),
     });
-    if (!response.ok) throw new Error(`Alpaca prospect source returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Prospect market-data source returned HTTP ${response.status}.`);
     return response.json() as Promise<unknown>;
   };
 
@@ -328,7 +328,7 @@ export async function GET(request: Request) {
           watchlistEligible: false,
           botReviewEligible: false,
           suggestedBotIds: [],
-          reasons: [...scored.reasons, "Alpaca asset validation did not pass"],
+          reasons: [...scored.reasons, "Market-catalog validation did not pass"],
         }
       : scored;
     return {
