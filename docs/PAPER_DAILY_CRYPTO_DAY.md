@@ -158,6 +158,7 @@ Implemented:
 - Cross-bot same-symbol occupancy block.
 - Live Bot Lab readiness panel.
 - Live trade telemetry for open-position R, MFE, MAE, peak/trough marks, mark count, and durable closed-trade outcome records.
+- Durable five-minute scanner journaling from the authenticated runner into the private `paper_bot_journal`, capturing every v3 execution and monitor-only candidate's score, tier, spread, quote age, momentum, ATR, fee coverage, planned risk/targets, blockers, and waiting reasons. This evidence path is passive and does not change order authorization.
 - Broker-observed crypto entry fee reconciliation using gross fill quantity versus actual sellable quantity, with a bounded estimate fallback.
 - Closed-trade journal records include realized P/L, R multiple, MFE/MAE, estimated fees, and exit reason.
 - Service-only atomic entry claim with duplicate/risk guards.
