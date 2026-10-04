@@ -22,17 +22,21 @@ function module(path, imports = {}) {
 const strategy = module("../src/lib/paper-strategy-config.ts");
 const swingStrategy = module("../src/lib/paper-swing-strategy-config.ts");
 const weekendStrategy = module("../src/lib/paper-weekend-crypto-strategy-config.ts");
+const cryptoSwingStrategy = module("../src/lib/paper-crypto-swing-strategy-config.ts");
+const tradePlan = module("../src/lib/paper-bot-trade-plan.ts");
 const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-strategy-config": strategy,
   "./paper-swing-strategy-config": swingStrategy,
   "./paper-weekend-crypto-strategy-config": weekendStrategy,
+  "./paper-crypto-swing-strategy-config": cryptoSwingStrategy,
+  "./paper-bot-trade-plan": tradePlan,
 });
 const attribution = module("../src/lib/paper-order-attribution.ts", { "./paper-bot-profiles": profiles });
 
 test("paper bot broker tags are short and unique", () => {
   const tags = profiles.PAPER_BOT_PROFILES.map(profile => profile.brokerTag);
   assert.equal(new Set(tags).size, tags.length);
-  assert.deepEqual(Array.from(tags), ["div", "pny", "sw3", "wkd"]);
+  assert.deepEqual(Array.from(tags), ["div", "pny", "sw3", "csw", "wkd"]);
 });
 
 test("client order ids encode bot ownership and strategy version", () => {
@@ -54,10 +58,13 @@ test("unrecognized or malformed broker activity is not attributed to a bot", () 
 
 test("active comparison bot tags remain independently parseable", () => {
   const swingId = attribution.createPaperClientOrderId("three-trade-weekly-swing-100", 1, "abcdef654321");
+  const cryptoSwingId = attribution.createPaperClientOrderId("crypto-swing-100", 1, "abcdef445566");
   const weekendId = attribution.createPaperClientOrderId("weekend-crypto-day-100", 3, "abcdef112233");
   assert.equal(attribution.parsePaperClientOrderId(swingId).botId, "three-trade-weekly-swing-100");
+  assert.equal(attribution.parsePaperClientOrderId(cryptoSwingId).botId, "crypto-swing-100");
   assert.equal(attribution.parsePaperClientOrderId(weekendId).botId, "weekend-crypto-day-100");
   assert.equal(attribution.parsePaperClientOrderId(weekendId).strategyVersion, 3);
   assert.equal(profiles.THREE_TRADE_SWING_BOT.status, "active");
+  assert.equal(profiles.CRYPTO_SWING_BOT.status, "active");
   assert.equal(profiles.DAILY_CRYPTO_DAY_BOT.status, "active");
 });
