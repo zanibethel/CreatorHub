@@ -21,6 +21,7 @@ import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
 type PortfolioView = "portfolio" | "holdings" | "watchlist" | "orders" | "trades" | "strategy";
+type WatchLifecycleStage = "WATCHING" | "PREPARED" | "READY" | "ORDERED" | "HOLDING" | "EXITED";
 
 type WatchRow = {
   symbol: string;
@@ -38,6 +39,8 @@ type WatchRow = {
   projectedProfit?: number | null;
   projectedProfitPct?: number | null;
   planLabel?: "REFERENCE PLAN" | "PREPARED PLAN" | "READY PLAN" | "AWAITING DATA";
+  lifecycleStage?: WatchLifecycleStage;
+  lifecycleDetail?: string;
   executionEligible?: boolean;
 };
 
@@ -119,6 +122,37 @@ function StrategyLegend() {
   </div>;
 }
 
+const WATCH_LIFECYCLE: Array<{ id: WatchLifecycleStage; short: string; label: string }> = [
+  { id: "WATCHING", short: "Watch", label: "Watching" },
+  { id: "PREPARED", short: "Plan", label: "Prepared plan" },
+  { id: "READY", short: "Ready", label: "Ready to act" },
+  { id: "ORDERED", short: "Order", label: "Order placed" },
+  { id: "HOLDING", short: "Hold", label: "Filled / holding" },
+  { id: "EXITED", short: "Exit", label: "Exited" },
+];
+
+function WatchLifecycle({ stage = "WATCHING", detail }: { stage?: WatchLifecycleStage; detail?: string }) {
+  const activeIndex = Math.max(0, WATCH_LIFECYCLE.findIndex(item => item.id === stage));
+  const active = WATCH_LIFECYCLE[activeIndex];
+  return <div className={styles.watchLifecycle}>
+    <div className={styles.watchLifecycleHeader}>
+      <strong>{active.label}</strong>
+      {detail ? <small>{detail}</small> : null}
+    </div>
+    <div className={styles.watchLifecycleSteps} aria-label={`Trade lifecycle: ${active.label}`}>
+      {WATCH_LIFECYCLE.map((item, index) => <span
+        key={item.id}
+        className={[
+          styles.watchLifecycleStep,
+          index < activeIndex ? styles.watchLifecycleComplete : "",
+          index === activeIndex ? styles.watchLifecycleActive : "",
+        ].filter(Boolean).join(" ")}
+        title={item.label}
+      >{item.short}</span>)}
+    </div>
+  </div>;
+}
+
 function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: boolean }) {
   const visible = compact ? rows.slice(0, 8) : rows;
   if (!visible.length) return <EmptyState>Watchlist data is loading.</EmptyState>;
@@ -136,6 +170,7 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
         {row.strategies.includes("long") ? <span title="Longer-term / multi-week">L</span> : null}
         {!row.strategies.length ? <span className={styles.strategyMarkerNone}>—</span> : null}
       </div>
+      <WatchLifecycle stage={row.lifecycleStage} detail={row.lifecycleDetail} />
       <div className={styles.watchPlan}>
         <div className={styles.watchPlanMode}>{row.planLabel ?? "REFERENCE PLAN"}</div>
         <span><small>Target entry</small><strong>{money(row.targetEntry)}</strong></span>
@@ -413,11 +448,46 @@ export default function PaperBotLab() {
     executionEligible: candidate.executionEligible,
   }));
 
-  const watchRows = profile.id === "weekend-crypto-day-100"
+  const candidateWatchRows = profile.id === "weekend-crypto-day-100"
     ? cryptoWatchRows
     : profile.id === "three-trade-weekly-swing-100"
       ? swingWatchRows
       : defaultWatchRows;
+
+  const watchRows = candidateWatchRows.map(row => {
+    const symbol = normalizedSymbol(row.symbol);
+    const position = positions.find(item => normalizedSymbol(item.symbol) === symbol);
+    const activeOrder = liveBrokerOrders.find(item => normalizedSymbol(item.symbol) === symbol);
+    const latestClosed = closedTrades
+      .filter(item => normalizedSymbol(item.symbol) === symbol)
+      .sort((a, b) => Date.parse(b.closed_at ?? b.opened_at) - Date.parse(a.closed_at ?? a.opened_at))[0];
+
+    let lifecycleStage: WatchLifecycleStage = "WATCHING";
+    let lifecycleDetail = row.planLabel === "REFERENCE PLAN"
+      ? "Reference plan only — no order authorization yet."
+      : row.detail;
+
+    if (position) {
+      lifecycleStage = "HOLDING";
+      lifecycleDetail = activeOrder?.side === "sell"
+        ? `Position open · ${activeOrder.status.replaceAll("_", " ")} exit order active.`
+        : "Entry filled · position is currently open.";
+    } else if (activeOrder) {
+      lifecycleStage = "ORDERED";
+      lifecycleDetail = `${activeOrder.side.toUpperCase()} order ${activeOrder.status.replaceAll("_", " ")}.`;
+    } else if (row.planLabel === "READY PLAN" || row.state === "SELECTED" || row.state === "READY") {
+      lifecycleStage = "READY";
+      lifecycleDetail = "Execution gates currently pass; waiting for submission/fill.";
+    } else if (row.planLabel === "PREPARED PLAN") {
+      lifecycleStage = "PREPARED";
+      lifecycleDetail = "Concrete entry, size, stop, and target are prepared.";
+    } else if (row.planLabel === "AWAITING DATA" && latestClosed) {
+      lifecycleStage = "EXITED";
+      lifecycleDetail = `Last trade exited${latestClosed.realized_pl == null ? "" : ` at ${signedMoney(latestClosed.realized_pl)}`}.`;
+    }
+
+    return { ...row, lifecycleStage, lifecycleDetail };
+  });
 
   const equity = ledger?.equity ?? profile.challengeStartingCash;
   const realized = ledger?.realizedPl ?? 0;
