@@ -25,6 +25,7 @@ import usePaperStrategyReview from "./usePaperStrategyReview";
 import usePaperProspects, { type PaperProspect } from "./usePaperProspects";
 import useSharedWatchlist from "./useSharedWatchlist";
 import useSwingReadiness from "./useSwingReadiness";
+import useCryptoSwingReadiness from "./useCryptoSwingReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
@@ -71,6 +72,7 @@ const projectedProfit = (entry: number | null | undefined, target: number | null
 function botShortName(profile: PaperBotProfile) {
   if (profile.id === "weekend-crypto-day-100") return "Daily Crypto";
   if (profile.id === "three-trade-weekly-swing-100") return "Weekly Swing";
+  if (profile.id === "crypto-swing-100") return "Crypto Swing";
   return "Default Diverse";
 }
 
@@ -372,6 +374,7 @@ export default function PaperBotLab() {
   const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
   const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
   const { report: swingReadiness, error: swingReadinessError } = useSwingReadiness();
+  const { report: cryptoSwingReadiness, error: cryptoSwingReadinessError } = useCryptoSwingReadiness();
   const { report: cryptoReadiness, error: cryptoReadinessError } = useWeekendCryptoReadiness();
   const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
   const { report: prospectReport, error: prospectError } = usePaperProspects();
@@ -628,6 +631,7 @@ export default function PaperBotLab() {
     "decision-engine": defaultTradePlans,
     "swing-readiness": swingTradePlans,
     "crypto-readiness": cryptoTradePlans,
+    "crypto-swing-readiness": cryptoSwingReadiness?.plans ?? [],
   } satisfies Record<Exclude<PaperBotProfile["tradePlan"]["source"], "not-configured">, PaperBotTradePlan[]>;
 
   const candidateTradePlans = profile.tradePlan.source === "not-configured"
@@ -752,9 +756,9 @@ export default function PaperBotLab() {
       {views.map(item => <button key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
     </nav>
 
-    {ledgerError || accountError || swingReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError
+    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError
       ? <div className={styles.portfolioWarnings}>
-          {[ledgerError, accountError, swingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
+          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
         </div>
       : null}
 
@@ -786,6 +790,7 @@ export default function PaperBotLab() {
       <p className={styles.portfolioNote}>D / S / L describes the strategy horizon this symbol is currently configured to be considered for. It is not trade authorization; score, setup state, risk, liquidity, and execution gates still have to pass.</p>
       {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
       {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
+      {profile.id === "crypto-swing-100" ? <p className={styles.portfolioNote}>Crypto Swing v1 uses 1-hour trend, momentum, volume expansion and breakout structure for 1-7 day reference plans. It receives only scanner-assigned crypto prospects. PAPER execution is intentionally disabled while we collect initial swing evidence.</p> : null}
     </PortfolioPanel> : null}
 
     {view === "prospects" ? <div className={styles.portfolioSingleColumn}>
