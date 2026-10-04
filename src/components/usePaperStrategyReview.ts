@@ -19,6 +19,10 @@ export type PaperStrategyReviewBot = {
   strategyId:string|null;
   strategyVersion:number|null;
   status:string;
+  evidenceScope:{
+    currentStrategyOnly:true;
+    priorVersionEvidence:{ journal:number; trades:number; counterfactuals:number };
+  };
   evidenceMaturity:{
     level:"collecting"|"early"|"developing"|"established";
     minimumForRecommendations:number;
