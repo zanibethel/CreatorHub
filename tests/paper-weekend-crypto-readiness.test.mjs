@@ -44,17 +44,14 @@ function bars(count, minutes, base, step) {
 }
 
 function input(overrides = {}) {
-  const bars5m = {
-    "BTC/USD": bars(30,5,100,0.05),
-    "ETH/USD": bars(30,5,100,0.05),
-    "SOL/USD": bars(30,5,100,0.05),
-  };
-  const bars15m = {
-    "BTC/USD": bars(20,15,95,0.20),
-    "ETH/USD": bars(20,15,95,0.20),
-    "SOL/USD": bars(20,15,95,0.20),
-  };
+  const universe = config.DAILY_CRYPTO_DAY_STRATEGY_V3.universe;
+  const bars5m = Object.fromEntries(universe.map(symbol => [symbol, bars(30,5,100,0.05)]));
+  const bars15m = Object.fromEntries(universe.map(symbol => [symbol, bars(20,15,95,0.20)]));
   const ask = bars5m["BTC/USD"].at(-1).c + 0.09;
+  const quotes = Object.fromEntries(universe.map(symbol => [
+    symbol,
+    { bid: ask - 0.03, ask, timestamp: new Date(now - 2_000).toISOString() },
+  ]));
   return {
     now,
     ledger: {
@@ -67,11 +64,7 @@ function input(overrides = {}) {
       dailyNewEntries: 0,
       executionEnabled: false,
     },
-    quotes: {
-      "BTC/USD": { bid: ask - 0.03, ask, timestamp: new Date(now - 2_000).toISOString() },
-      "ETH/USD": { bid: ask - 0.03, ask, timestamp: new Date(now - 2_000).toISOString() },
-      "SOL/USD": { bid: ask - 0.03, ask, timestamp: new Date(now - 2_000).toISOString() },
-    },
+    quotes,
     bars5m,
     bars15m,
     occupiedByOtherBots: [],
@@ -90,10 +83,39 @@ test("daily crypto scanner can select one qualified PAPER candidate while execut
   assert.equal(result.candidates.filter(candidate => candidate.selectedForSubmission).length, 1);
   const selected = result.candidates.find(candidate => candidate.selectedForSubmission);
   assert.equal(selected.state, "ready");
+  assert.equal(selected.executionEligible, true);
+  assert.equal(selected.tier, "execution");
   assert.ok(selected.score >= 80);
   assert.ok(selected.plannedNotional <= 30.000001);
   assert.ok(selected.plannedRiskPct <= 0.500001);
   assert.ok(selected.feeCoverageMultiple >= 2.5);
+});
+
+test("v3 makes LINK and DOT executable while extended alts stay monitor-only", () => {
+  const result = readiness.evaluateWeekendCryptoReadiness(input());
+  for (const symbol of ["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]) {
+    const candidate = result.candidates.find(item => item.symbol === symbol);
+    assert.equal(candidate.executionEligible, true);
+    assert.equal(candidate.tier, "execution");
+  }
+  for (const symbol of ["XRP/USD","LTC/USD","AVAX/USD","DOGE/USD","ADA/USD","BCH/USD","AAVE/USD","HYPE/USD","RENDER/USD"]) {
+    const candidate = result.candidates.find(item => item.symbol === symbol);
+    assert.equal(candidate.executionEligible, false);
+    assert.equal(candidate.tier, "monitor");
+  }
+});
+
+test("monitor-only READY candidates can never be selected for submission", () => {
+  const base = input({
+    occupiedByOtherBots: [...config.DAILY_CRYPTO_DAY_STRATEGY_V3.executionUniverse],
+  });
+  const result = readiness.evaluateWeekendCryptoReadiness(base);
+  const xrp = result.candidates.find(candidate => candidate.symbol === "XRP/USD");
+  assert.equal(xrp.state, "ready");
+  assert.equal(xrp.executionEligible, false);
+  assert.equal(xrp.selectedForSubmission, false);
+  assert.equal(result.selectedSymbol, null);
+  assert.equal(result.submissionReady, false);
 });
 
 test("another bot holding the same symbol blocks that daily crypto candidate", () => {
