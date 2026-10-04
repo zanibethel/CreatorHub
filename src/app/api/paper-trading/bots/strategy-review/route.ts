@@ -17,6 +17,8 @@ const ledgerRow = z.object({
 
 const journalRow = z.object({
   bot_id:z.string().min(1).max(64),
+  strategy_id:z.string().nullable(),
+  strategy_version:z.coerce.number().int().positive().nullable(),
   event_type:z.string(),
   symbol:z.string().max(32).nullable(),
   occurred_at:timestamp,
@@ -78,7 +80,7 @@ export async function GET() {
   try {
     const [ledgersRaw,journalRaw,tradesRaw,counterfactualRaw] = await Promise.all([
       read("paper_bot_ledgers?select=bot_id,display_name,strategy_id,strategy_version,status&order=bot_id.asc"),
-      read("paper_bot_journal?select=bot_id,event_type,symbol,occurred_at,score,qualification,regime,blockers,warnings,metadata&order=occurred_at.desc&limit=10000"),
+      read("paper_bot_journal?select=bot_id,strategy_id,strategy_version,event_type,symbol,occurred_at,score,qualification,regime,blockers,warnings,metadata&order=occurred_at.desc&limit=10000"),
       read("paper_bot_trade_metrics?select=bot_id,strategy_id,strategy_version,symbol,status,opened_at,closed_at,realized_pl,r_multiple,mfe_r,mae_r,estimated_fees,exit_reason&order=opened_at.desc&limit=2000"),
       read("paper_bot_counterfactuals?select=bot_id,strategy_id,strategy_version,symbol,status,source_event_type,decision_at,score,first_outcome,mfe_r,mae_r&order=decision_at.desc&limit=5000"),
     ]);
