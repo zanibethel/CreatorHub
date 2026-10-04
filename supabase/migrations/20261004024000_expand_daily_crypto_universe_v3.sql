@@ -112,7 +112,7 @@ begin
     expires_at,stage_reason,take_profit_price,take_profit_fraction,
     take_profit_r,protect_winner_at_r,trail_remainder,metadata
   ) values (
-    p_client_order_id,'weekend-crypto-day-100','daily-crypto-day-v3',2,
+    p_client_order_id,'weekend-crypto-day-100','daily-crypto-day-v3',3,
     p_symbol,'crypto','buy','prepared',p_requested_notional,'day',
     p_entry_trigger,p_max_entry_price,p_protective_stop,p_planned_risk_dollars,
     p_expires_at,'Daily crypto day scanner selected a fee-aware momentum setup.',
