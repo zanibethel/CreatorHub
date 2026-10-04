@@ -34,6 +34,7 @@ The goal is not merely to place successful orders. The system must demonstrate t
 - Bot Lab and Paper Trading Orders views expose safe monitoring information without public broker identifiers.
 - Weekend Crypto Day Bot v1 has its own isolated $100 ledger, `wkd` attribution tag, fee-aware BTC/ETH/SOL scanner, and live Bot Lab readiness panel.
 - Paper trade telemetry now captures live MFE/MAE and persistent closed-trade R/P&L/fee/exit-reason outcomes without exposing broker identifiers.
+- Crypto entry fees now prefer broker-observed post-fee quantity over the 25-bps estimate; ledger application waits briefly for that observation, then safely falls back to the estimate.
 - Weekend crypto execution enforces a $12 notional floor, buffered above the broker's observed $10 crypto minimum.
 
 ### Still blocked before live money
