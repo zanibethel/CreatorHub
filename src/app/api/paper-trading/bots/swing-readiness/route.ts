@@ -164,7 +164,7 @@ export async function GET(request: Request) {
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) throw new Error(`Alpaca returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Market-data source returned HTTP ${response.status}.`);
     return response.json();
   };
 
