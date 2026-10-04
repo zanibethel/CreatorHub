@@ -238,6 +238,9 @@
 .prospectStatus { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px; border:1px solid rgba(167,139,250,.16); border-radius:9px; background:rgba(167,139,250,.045); }
 .prospectStatus span { color:#c4b5fd; font-size:9px; font-weight:800; letter-spacing:.055em; }
 .prospectStatus strong { font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.prospectCurrentPrice { display:grid; gap:2px; text-align:right; min-width:0; }
+.prospectCurrentPrice small { color:var(--muted); font-size:7px; text-transform:uppercase; letter-spacing:.05em; }
+.prospectCurrentPrice strong { font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
 .prospectMetrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px 10px; }
 .prospectMetrics > span { display:grid; gap:2px; min-width:0; }
 .prospectMetrics small { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.045em; }
