@@ -241,6 +241,11 @@
 .portfolioBadge { justify-self:start; color:#c4b5fd; font-size:10px; font-weight:700; letter-spacing:.04em; }
 .portfolioScore { justify-self:end; color:var(--muted); font-size:10px; white-space:nowrap; }
 .portfolioScore strong { color:#f7f2ff; font-size:12px; font-variant-numeric:tabular-nums; }
+.strategyLegend { display:flex; flex-wrap:wrap; gap:8px 14px; color:var(--muted); font-size:10px; align-items:center; }
+.strategyLegend span { display:inline-flex; align-items:center; gap:5px; }
+.strategyLegend strong,.strategyMarkers span { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; border:1px solid #5b467c; background:#2b1d40; color:#f7f2ff; font-size:10px; font-weight:800; letter-spacing:.04em; }
+.strategyMarkers { display:flex; gap:4px; justify-self:end; align-items:center; }
+.strategyMarkers .strategyMarkerNone { color:var(--muted); border-style:dashed; background:transparent; }
 .portfolioEmpty { border:1px dashed var(--border); border-radius:12px; min-height:92px; display:grid; place-items:center; padding:18px; color:var(--muted); text-align:center; }
 .portfolioNote { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
 .portfolioWarnings { border:1px solid #6b592e; background:#2c2518; color:#f4c67b; border-radius:12px; padding:10px 12px; display:flex; flex-wrap:wrap; gap:8px 18px; font-size:11px; }
