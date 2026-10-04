@@ -14,7 +14,7 @@ const readinessSchema = z.object({
     localDate: z.string(),
     localWeekday: z.string(),
     localTime: z.string(),
-    isWeekend: z.boolean(),
+    isTradingDay: z.boolean(),
     entriesOpen: z.boolean(),
     flattenDue: z.boolean(),
   }),
@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 
   const executionToken = process.env.PAPER_WEEKEND_CRYPTO_EXECUTION_TOKEN?.trim() ?? "";
   if (executionToken.length < 32) {
-    return reply({ error: "Weekend execution token is not configured." }, 503);
+    return reply({ error: "Daily crypto execution token is not configured." }, 503);
   }
 
   const readinessUrl = new URL("/api/paper-trading/bots/weekend-crypto-readiness", PUBLIC_ORIGIN);
@@ -44,13 +44,13 @@ export async function GET(request: Request) {
     signal: AbortSignal.timeout(20_000),
   });
   if (!readinessResponse.ok) {
-    return reply({ error: "Weekend readiness check failed." }, 503);
+    return reply({ error: "Daily crypto readiness check failed." }, 503);
   }
 
   const readiness = readinessSchema.parse(await readinessResponse.json());
 
-  if (!readiness.session.isWeekend) {
-    return reply({ ok: true, action: "none", reason: "outside-weekend-session" });
+  if (!readiness.session.isTradingDay) {
+    return reply({ ok: true, action: "none", reason: "outside-daily-crypto-session" });
   }
 
   if (readiness.session.flattenDue) {
@@ -96,7 +96,7 @@ export async function GET(request: Request) {
   }
 
   if (!readiness.executionEnabled) {
-    return reply({ ok: true, action: "none", reason: "weekend-executor-disabled" });
+    return reply({ ok: true, action: "none", reason: "daily-crypto-executor-disabled" });
   }
 
   if (!readiness.submissionReady || !readiness.selectedSymbol) {
