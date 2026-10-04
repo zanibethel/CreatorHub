@@ -3,6 +3,8 @@ import { z } from "zod";
 import { evaluateSwingReadiness, type SwingPreparedPlan } from "@/lib/paper-swing-revalidation";
 import { buildSwingExecutionPreview } from "@/lib/paper-swing-execution";
 import { buildSwingRevalidationJournalRows } from "@/lib/paper-swing-evidence";
+import { advancePaperCounterfactual, buildSwingCounterfactualSeeds, counterfactualPatch } from "@/lib/paper-counterfactual";
+import { THREE_TRADE_SWING_STRATEGY_V1 as strategy } from "@/lib/paper-swing-strategy-config";
 
 export const dynamic = "force-dynamic";
 
@@ -52,8 +54,44 @@ const priorOrderSchema = z.object({
   status: z.string(),
 });
 
+const counterfactualRowSchema = z.object({
+  id: z.coerce.number().int().positive(),
+  setup_key: z.string(),
+  bot_id: z.string(),
+  strategy_id: z.string().nullable(),
+  strategy_version: z.coerce.number().int().positive().nullable(),
+  symbol: z.string(),
+  asset_class: z.string(),
+  decision_at: z.string(),
+  session_key: z.string().nullable(),
+  status: z.enum(["watching","triggered","completed","expired","ambiguous","superseded"]),
+  score: z.coerce.number().finite().nullable(),
+  trigger_price: z.coerce.number().finite().positive(),
+  max_entry_price: z.coerce.number().finite().positive(),
+  protective_stop: z.coerce.number().finite().positive(),
+  planned_take_profit: z.coerce.number().finite().positive().nullable(),
+  assumed_entry_price: z.coerce.number().finite().positive().nullable(),
+  risk_per_unit: z.coerce.number().finite().positive().nullable(),
+  one_r_price: z.coerce.number().finite().positive().nullable(),
+  two_r_price: z.coerce.number().finite().positive().nullable(),
+  triggered_at: z.string().nullable(),
+  stop_hit_at: z.string().nullable(),
+  one_r_hit_at: z.string().nullable(),
+  two_r_hit_at: z.string().nullable(),
+  first_outcome: z.string().nullable(),
+  peak_price: z.coerce.number().finite().positive().nullable(),
+  trough_price: z.coerce.number().finite().positive().nullable(),
+  last_bar_at: z.string().nullable(),
+  mark_count: z.coerce.number().int().nonnegative(),
+  mfe_r: z.coerce.number().finite(),
+  mae_r: z.coerce.number().finite(),
+  blockers: z.array(z.string()),
+  warnings: z.array(z.string()),
+  metadata: z.record(z.string(),z.unknown()),
+});
+
 type AlpacaQuote = { ap?: number; bp?: number; t?: string };
-type AlpacaBar = { c: number; t: string };
+type AlpacaBar = { o: number; h: number; l: number; c: number; t: string };
 type AlpacaClock = { timestamp?: string; is_open?: boolean; next_open?: string; next_close?: string };
 
 const json = (error: string, status = 503) =>
@@ -131,7 +169,7 @@ export async function GET(request: Request) {
   };
 
   try {
-    const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw, quoteRaw, barsRaw] = await Promise.all([
+    const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw, quoteRaw, barsRaw, intradayRaw] = await Promise.all([
       readDb(`paper_bot_ledgers?select=status,equity,buying_power,open_planned_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,metadata&bot_id=eq.${BOT_ID}&limit=1`),
       readDb(`paper_bot_orders?select=client_order_id,strategy_id,strategy_version,symbol,requested_notional,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,created_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,metadata&bot_id=eq.${BOT_ID}&side=eq.buy&status=eq.prepared&order=created_at.asc&limit=20`),
       readDb(`paper_bot_positions?select=symbol,planned_risk_dollars&bot_id=eq.${BOT_ID}&quantity=gt.0&limit=20`),
@@ -139,6 +177,7 @@ export async function GET(request: Request) {
       readAlpaca("https://paper-api.alpaca.markets/v2/clock"),
       readAlpaca("https://data.alpaca.markets/v2/stocks/quotes/latest?symbols=QQQ,NVDA,MSFT,SPY&feed=iex"),
       readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=QQQ,NVDA,MSFT,SPY&timeframe=1Day&limit=1000&feed=iex&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(Date.now()-45*86_400_000).toISOString())}`),
+      readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=QQQ,NVDA,MSFT&timeframe=5Min&limit=1000&feed=iex&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(Date.now()-3*86_400_000).toISOString())}`),
     ]);
 
     const ledgerRows = z.array(ledgerSchema).parse(ledgerRaw);
@@ -149,9 +188,18 @@ export async function GET(request: Request) {
     if (!ledger) return json("Swing bot ledger is unavailable.");
 
     const now = Date.now();
+    const completedIntradayBars = Object.fromEntries(
+      ["QQQ","NVDA","MSFT"].map(symbol => [
+        symbol,
+        (intradayBarsRaw[symbol] ?? [])
+          .filter(bar => Number.isFinite(Date.parse(bar.t)) && Date.parse(bar.t) + 5*60_000 <= now)
+          .map(bar => ({ t:bar.t, o:bar.o, h:bar.h, l:bar.l, c:bar.c })),
+      ]),
+    ) as Record<string, Array<{t:string;o:number;h:number;l:number;c:number}>>;
     const clock = clockRaw as AlpacaClock;
     const quotes = (quoteRaw as { quotes?: Record<string,AlpacaQuote> }).quotes ?? {};
     const bars = (barsRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
+    const intradayBarsRaw = (intradayRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
     const weekStart = weekStartUtc(now);
     const weeklyNewEntries = priorOrders.filter(order => order.submitted_at && Date.parse(order.submitted_at) >= weekStart).length;
 
@@ -246,6 +294,7 @@ export async function GET(request: Request) {
     );
     let evidencePersisted = false;
     let expiredPlans = 0;
+    let counterfactualTracking = { ok:false, seedsAttempted:0, updates:0 };
 
     if (evidenceRun && evidencePlans.length > 0) {
       const collectedAt = new Date(now).toISOString();
@@ -265,6 +314,81 @@ export async function GET(request: Request) {
       });
       await writeDb("paper_bot_journal", rows);
       evidencePersisted = true;
+
+      try {
+        const collectedAtMs = Date.parse(collectedAt);
+        const seeds = buildSwingCounterfactualSeeds({
+          botId: BOT_ID,
+          strategyId: result.strategyId,
+          strategyVersion: result.strategyVersion,
+          collectedAt,
+          executionEnabled,
+          marketOpen: Boolean(clock.is_open),
+          minutesSinceOpen,
+          minimumMinutesAfterOpen: strategy.execution.minimumMinutesAfterOpen,
+          maximumMinutesAfterOpen: strategy.execution.maximumMinutesAfterOpen,
+          broadMarketSupportive,
+          plans: evidencePlans.map(plan => ({
+            clientOrderId: plan.clientOrderId,
+            symbol: plan.symbol,
+            assetClass: plan.symbol === "QQQ" ? "etf" as const : "stock" as const,
+            createdAt: plan.createdAt,
+            entryTrigger: plan.entryTrigger,
+            maxEntryPrice: plan.maxEntryPrice,
+            protectiveStop: plan.protectiveStop,
+            takeProfitPrice: plan.takeProfitPrice,
+            plannedRiskDollars: plan.plannedRiskDollars,
+            expiresAt: plan.expiresAt,
+            stageReason: plan.stageReason,
+          })),
+          readiness: result.plans,
+          trackingBars: completedIntradayBars,
+        });
+
+        if (seeds.length) {
+          await writeDb(
+            "paper_bot_counterfactuals?on_conflict=setup_key",
+            seeds,
+            "POST",
+            "resolution=ignore-duplicates,return=minimal",
+          );
+        }
+
+        const activeRaw = await readDb(
+          `paper_bot_counterfactuals?select=*&bot_id=eq.${BOT_ID}&status=in.(watching,triggered)&order=decision_at.asc`
+        );
+        const activeRows = z.array(counterfactualRowSchema).parse(activeRaw);
+        let updates = 0;
+
+        for (const cf of activeRows) {
+          const sourcePlan = evidencePlans.find(plan => plan.symbol === cf.symbol);
+          const expiresAt = sourcePlan?.expiresAt ? Date.parse(sourcePlan.expiresAt) : Number.POSITIVE_INFINITY;
+          const advanced = advancePaperCounterfactual({
+            id:cf.id,setupKey:cf.setup_key,botId:cf.bot_id,strategyId:cf.strategy_id,
+            strategyVersion:cf.strategy_version,symbol:cf.symbol,assetClass:cf.asset_class,
+            decisionAt:cf.decision_at,sessionKey:cf.session_key,status:cf.status,score:cf.score,
+            triggerPrice:cf.trigger_price,maxEntryPrice:cf.max_entry_price,protectiveStop:cf.protective_stop,
+            plannedTakeProfit:cf.planned_take_profit,assumedEntryPrice:cf.assumed_entry_price,
+            riskPerUnit:cf.risk_per_unit,oneRPrice:cf.one_r_price,twoRPrice:cf.two_r_price,
+            triggeredAt:cf.triggered_at,stopHitAt:cf.stop_hit_at,oneRHitAt:cf.one_r_hit_at,
+            twoRHitAt:cf.two_r_hit_at,firstOutcome:cf.first_outcome,peakPrice:cf.peak_price,
+            troughPrice:cf.trough_price,lastBarAt:cf.last_bar_at,markCount:cf.mark_count,
+            mfeR:cf.mfe_r,maeR:cf.mae_r,blockers:cf.blockers,warnings:cf.warnings,metadata:cf.metadata,
+          }, completedIntradayBars[cf.symbol] ?? [], {
+            expire: Number.isFinite(expiresAt) && expiresAt <= collectedAtMs,
+          });
+          if (!advanced.changed) continue;
+          await writeDb(
+            `paper_bot_counterfactuals?id=eq.${cf.id}`,
+            counterfactualPatch(advanced.state),
+            "PATCH",
+          );
+          updates += 1;
+        }
+        counterfactualTracking = { ok:true, seedsAttempted:seeds.length, updates };
+      } catch {
+        counterfactualTracking = { ok:false, seedsAttempted:0, updates:0 };
+      }
 
       for (const row of rows) {
         if (row.metadata.terminalDisposition !== "expired" || !row.client_order_id) continue;
@@ -320,7 +444,7 @@ export async function GET(request: Request) {
       executionEnabled,
       submissionReady: executionEnabled && result.readyCount > 0,
       brokerProtection: "bracket",
-      ...(evidenceRun ? { evidencePersisted, expiredPlans } : {}),
+      ...(evidenceRun ? { evidencePersisted, expiredPlans, counterfactualTracking } : {}),
     }, { headers: { "Cache-Control": evidenceRun ? "no-store" : "public, s-maxage=5, stale-while-revalidate=5" } });
   } catch (error) {
     return json(error instanceof Error ? error.message : "Swing readiness is temporarily unavailable.");
