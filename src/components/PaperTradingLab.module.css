@@ -226,6 +226,27 @@
 
 .portfolioRows { display:grid; gap:8px; }
 
+.prospectGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.prospectCard { border:1px solid var(--border); border-radius:14px; padding:13px; display:grid; gap:10px; min-width:0; background:rgba(255,255,255,.012); }
+.prospectHeader { display:flex; justify-content:space-between; gap:12px; align-items:flex-start; min-width:0; }
+.prospectHeader > div:first-child { display:grid; gap:3px; min-width:0; }
+.prospectHeader > div:first-child strong { font-size:16px; line-height:1.15; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.prospectHeader small { color:var(--muted); font-size:9px; }
+.prospectScore { display:grid; gap:2px; text-align:right; flex-shrink:0; }
+.prospectScore span { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.05em; }
+.prospectScore strong { font-size:18px; font-variant-numeric:tabular-nums; }
+.prospectStatus { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px; border:1px solid rgba(167,139,250,.16); border-radius:9px; background:rgba(167,139,250,.045); }
+.prospectStatus span { color:#c4b5fd; font-size:9px; font-weight:800; letter-spacing:.055em; }
+.prospectStatus strong { font-size:13px; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.prospectMetrics { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px 10px; }
+.prospectMetrics > span { display:grid; gap:2px; min-width:0; }
+.prospectMetrics small { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.045em; }
+.prospectMetrics strong { font-size:11px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.prospectBots { display:grid; gap:3px; padding:8px 10px; border:1px solid rgba(98,217,170,.14); border-radius:9px; background:rgba(98,217,170,.035); }
+.prospectBots small { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.045em; }
+.prospectBots strong { font-size:10px; color:#8eddbd; line-height:1.35; }
+.prospectReason { color:var(--muted); font-size:9px; line-height:1.45; overflow-wrap:anywhere; }
+
 .holdingGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
 .holdingCard { border:1px solid var(--border); border-radius:14px; padding:13px; display:grid; gap:10px; min-width:0; background:rgba(255,255,255,.012); }
 .holdingHeader { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
@@ -298,6 +319,7 @@
 @media(max-width:850px) {
   .portfolioDashboard { grid-template-columns:1fr; }
   .holdingGrid { grid-template-columns:1fr; }
+  .prospectGrid { grid-template-columns:1fr; }
   .portfolioHeroTitle { flex-direction:column; }
   .portfolioHeroValue { text-align:left; }
   .watchPortfolioGrid { grid-template-columns:1fr; }
@@ -314,6 +336,9 @@
   .holdingStatus { align-items:flex-start; flex-direction:column; gap:3px; }
   .holdingStatus small { text-align:left; }
   .holdingMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .prospectMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .prospectHeader { gap:8px; }
+  .prospectScore strong { font-size:16px; }
   .watchLifecycleHeader { align-items:flex-start; flex-direction:column; gap:3px; }
   .watchLifecycleHeader small { text-align:left; white-space:normal; }
   .watchLifecycleSteps { gap:3px; }
