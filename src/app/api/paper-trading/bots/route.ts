@@ -68,6 +68,8 @@ const tradeMetricRow = z.object({
 });
 const counterfactualRow = z.object({
   bot_id: z.string().min(1).max(64),
+  strategy_id: z.string().nullable(),
+  strategy_version: z.coerce.number().int().positive().nullable(),
   symbol: z.string().min(1).max(32),
   status: z.enum(["watching","triggered","completed","expired","ambiguous","superseded"]),
   source_event_type: z.string(),
@@ -93,6 +95,8 @@ const counterfactualRow = z.object({
 
 const stagedOrderRow = z.object({
   bot_id: z.string().min(1).max(64),
+  strategy_id: z.string().nullable(),
+  strategy_version: z.coerce.number().int().positive().nullable(),
   symbol: z.string().min(1).max(32),
   asset_class: z.enum(["stock","etf","crypto","unknown"]),
   status: z.enum(["prepared","submitted","partially_filled","filled","canceled","rejected","expired","replaced","closed","error"]),
@@ -137,9 +141,9 @@ export async function GET() {
       read("paper_bot_journal?select=id,bot_id&limit=10000"),
       read("paper_bot_broker_orders?select=bot_id,broker_order_id&limit=10000"),
       read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
-      read("paper_bot_orders?select=bot_id,symbol,asset_class,status,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&status=eq.prepared&order=created_at.asc&limit=100"),
+      read("paper_bot_orders?select=bot_id,strategy_id,strategy_version,symbol,asset_class,status,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&status=eq.prepared&order=created_at.asc&limit=100"),
       read("paper_bot_trade_metrics?select=bot_id,symbol,status,opened_at,closed_at,entry_price,initial_protective_stop,initial_risk_dollars,peak_mark_price,trough_mark_price,last_mark_price,last_mark_at,mark_count,mfe_r,mae_r,exit_price,realized_pl,r_multiple,estimated_fees,exit_reason&order=opened_at.desc&limit=500"),
-      read("paper_bot_counterfactuals?select=bot_id,symbol,status,source_event_type,decision_state,decision_at,session_key,score,trigger_price,max_entry_price,protective_stop,assumed_entry_price,one_r_price,two_r_price,triggered_at,stop_hit_at,one_r_hit_at,two_r_hit_at,first_outcome,mark_count,mfe_r,mae_r&order=decision_at.desc&limit=500"),
+      read("paper_bot_counterfactuals?select=bot_id,strategy_id,strategy_version,symbol,status,source_event_type,decision_state,decision_at,session_key,score,trigger_price,max_entry_price,protective_stop,assumed_entry_price,one_r_price,two_r_price,triggered_at,stop_hit_at,one_r_hit_at,two_r_hit_at,first_outcome,mark_count,mfe_r,mae_r&order=decision_at.desc&limit=500"),
     ]);
 
     const ledgers = z.array(paperBotLedgerRowSchema).parse(ledgerRaw);
