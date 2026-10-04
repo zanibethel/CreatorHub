@@ -213,6 +213,14 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
     .filter(candidate => candidate.executionEligible && candidate.score >= 60)
     .sort((a,b) => b.score - a.score)
     .slice(0,3);
+  const capitalModel = botReport?.accountingModel;
+  const programStart = capitalModel?.programStartingCapital ?? PAPER_PROGRAM_CAPITAL;
+  const allocatedStart = capitalModel?.allocatedBotCapital ?? PAPER_ALLOCATED_CAPITAL;
+  const reserve = capitalModel?.unallocatedReserve ?? PAPER_UNALLOCATED_RESERVE;
+  const reservedPools = capitalModel?.reservedBotPools ?? PAPER_RESERVED_BOT_POOLS;
+  const currentBotEquity = botReport?.bots.reduce((sum, bot) => sum + bot.equity, 0) ?? allocatedStart;
+  const currentProgramEquity = reserve + currentBotEquity;
+  const programPl = currentProgramEquity - programStart;
 
   return <section className={styles.card}>
     <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{snapshot ? "Alpaca paper account" : "Account collection pending"}</span></div>
