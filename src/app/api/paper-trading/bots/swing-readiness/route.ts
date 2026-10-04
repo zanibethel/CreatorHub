@@ -188,6 +188,10 @@ export async function GET(request: Request) {
     if (!ledger) return json("Swing bot ledger is unavailable.");
 
     const now = Date.now();
+    const clock = clockRaw as AlpacaClock;
+    const quotes = (quoteRaw as { quotes?: Record<string,AlpacaQuote> }).quotes ?? {};
+    const bars = (barsRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
+    const intradayBarsRaw = (intradayRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
     const completedIntradayBars = Object.fromEntries(
       ["QQQ","NVDA","MSFT"].map(symbol => [
         symbol,
@@ -196,10 +200,6 @@ export async function GET(request: Request) {
           .map(bar => ({ t:bar.t, o:bar.o, h:bar.h, l:bar.l, c:bar.c })),
       ]),
     ) as Record<string, Array<{t:string;o:number;h:number;l:number;c:number}>>;
-    const clock = clockRaw as AlpacaClock;
-    const quotes = (quoteRaw as { quotes?: Record<string,AlpacaQuote> }).quotes ?? {};
-    const bars = (barsRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
-    const intradayBarsRaw = (intradayRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
     const weekStart = weekStartUtc(now);
     const weeklyNewEntries = priorOrders.filter(order => order.submitted_at && Date.parse(order.submitted_at) >= weekStart).length;
 
