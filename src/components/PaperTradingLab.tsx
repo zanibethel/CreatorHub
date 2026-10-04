@@ -9,7 +9,14 @@ import useSharedWatchlist from "./useSharedWatchlist";
 import usePaperBotLedgers from "./usePaperBotLedgers";
 import TradingSponsorCard, { SPONSOR_SLOTS, safeDestination, type SponsorLinks } from "./TradingSponsorCard";
 import styles from "./PaperTradingLab.module.css";
-import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
+import {
+  PAPER_STARTING_CASH,
+  PAPER_PROGRAM_CAPITAL,
+  PAPER_RESERVED_BOT_POOLS,
+  PAPER_BOT_POOL_CAPITAL,
+  PAPER_UNALLOCATED_RESERVE,
+  formatPaperMoney,
+} from "@/lib/paper-trading-config";
 
 function dateKey(date: Date) {
   return [date.getFullYear(), String(date.getMonth() + 1).padStart(2,"0"), String(date.getDate()).padStart(2,"0")].join("-");
@@ -38,7 +45,6 @@ export default function PaperTradingLab() {
   const { snapshot, loading, error: feedError, status, enabled, setEnabled, refresh } = useMarketMonitor(stocks, crypto, ready);
   const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
   const { report: botLedgerReport, error: botLedgerError, refresh: refreshBotLedgers } = usePaperBotLedgers();
-  const account = accountReport?.snapshot?.account;
   const challengeEquity = botLedgerReport?.bots.find(bot => bot.botId === "default-diverse")?.equity ?? PAPER_STARTING_CASH;
   const startKey = "creatorhub:paper-trading:challenge-started-on:public-report";
   const settingsKey = "creatorhub:paper-trading:stream-settings:public-report";
@@ -102,7 +108,7 @@ export default function PaperTradingLab() {
       <div className={styles.brand}><Link href="/">CreatorHub</Link><h1>Day {day ?? "—"} of $100 Default Diverse Bot</h1><span className={styles.pill}>INTERACTIVE REPORT</span></div>
       <div className={styles.metrics}>
         <div className={styles.metric}><span>Challenge virtual equity</span><strong>{formatPaperMoney(challengeEquity)}</strong><small className={styles.meta}>Isolated Default Diverse ledger</small></div>
-        <div className={styles.metric}><span>Alpaca paper account</span><strong>{account ? formatPaperMoney(account.equity) : "—"}</strong><small className={styles.meta}>Execution sandbox / audit trail · not bot buying power</small></div>
+        <div className={styles.metric}><span>Paper trading fund</span><strong>{formatPaperMoney(botLedgerReport?.accountingModel.programStartingCapital ?? PAPER_PROGRAM_CAPITAL)}</strong><small className={styles.meta}>{botLedgerReport?.accountingModel.reservedBotPools ?? PAPER_RESERVED_BOT_POOLS} reserved bot pools × {formatPaperMoney(botLedgerReport?.accountingModel.challengeStartingCash ?? PAPER_BOT_POOL_CAPITAL)} · {formatPaperMoney(botLedgerReport?.accountingModel.unallocatedReserve ?? PAPER_UNALLOCATED_RESERVE)} unallocated reserve</small></div>
       </div>
     </header>
     <div className={styles.toolbar}>
@@ -132,8 +138,8 @@ export default function PaperTradingLab() {
       <h2 id="paper-settings-title">Report settings</h2>
       <form onSubmit={event => { event.preventDefault(); saveSettings(); }}>
         <section><h3>Challenge counter</h3><p>{startedOn ? `Started ${startedOn}.` : "Choose when day one begins."} The counter and settings are saved in this browser. This sets the report day only.</p><button type="button" disabled={!ready || !!startedOn} onClick={startCounter}>{startedOn ? "Counter started" : "Start day counter"}</button></section>
-        <section><h3>Shared watchlist</h3><p>One saved selection across every report screen and device. Historical review through {watchlist.dataThrough}; all reviewed candidates are watched. Initial/reserve labels set research priority and do not permanently exclude a symbol from funded pools. Watching is not an entry signal.</p><p>Stocks / ETFs: {stocks}</p><p>Crypto: {crypto}</p><Link href="/paper-trading/research">Read the history review and selection rationale</Link><p>Quotes refresh every 15 seconds while visible; market charts refresh every five minutes. Crypto quotes use Kraken. Display settings and QR destinations stay local to this browser.</p></section>
-        <section><h3>Account reporting</h3><p>Each strategy challenge starts with $100 in its own virtual ledger. The Alpaca paper account is the execution sandbox and independent audit trail, not the bot bankroll. Bot-tagged fills will eventually reconcile back to the correct virtual ledger. Refresh never places an order.</p></section>
+        <section><h3>Shared watchlist</h3><p>One saved selection across every report screen and device. Historical review through {watchlist.dataThrough}; all reviewed candidates are watched. Initial/reserve labels set research priority and do not permanently exclude a symbol from funded pools. Watching is not an entry signal.</p><p>Stocks / ETFs: {stocks}</p><p>Crypto: {crypto}</p><Link href="/paper-trading/research">Read the history review and selection rationale</Link><p>Quotes refresh every 15 seconds while visible; market charts refresh every five minutes. Crypto quotes use the configured market-data feed. Display settings and QR destinations stay local to this browser.</p></section>
+        <section><h3>Capital reporting</h3><p>The PAPER program starts with a persisted $1,000 virtual fund. Five $100 bot pools are reserved now and the remaining $500 stays unallocated for future bots. External execution-venue balances are infrastructure only and are not treated as strategy capital. Bot-attributed fills reconcile back to the correct virtual ledger. Refresh never places an order.</p></section>
         <section><h3>QR destinations</h3><p>Blank links stay out of rotation. Add CoOperative when ready. Each code opens that exact destination; donation and ad checkout pages must already exist.</p>
           {SPONSOR_SLOTS.map(slot => <label key={slot.id}>{slot.title}<input type="url" placeholder="https://…" maxLength={256} value={draftLinks[slot.id] ?? ""} onChange={e => setDraftLinks(current => ({...current,[slot.id]:e.target.value}))} /></label>)}
         </section>
