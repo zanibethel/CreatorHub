@@ -283,6 +283,8 @@ export function advancePaperCounterfactual(
     }
 
     updateExcursions(state, bar.h, bar.l);
+    const hadOneRBefore = state.oneRHitAt !== null;
+    const hadTwoRBefore = state.twoRHitAt !== null;
     const oneRHit = finitePositive(state.oneRPrice) && bar.h >= state.oneRPrice;
     const twoRHit = finitePositive(state.twoRPrice) && bar.h >= state.twoRPrice;
     const stopHit = bar.l <= state.protectiveStop;
@@ -290,9 +292,12 @@ export function advancePaperCounterfactual(
     if (oneRHit) markOneR(state, bar.t);
     if (twoRHit) markTwoR(state, bar.t);
 
-    if (stopHit && oneRHit) {
+    const newTwoRThisBar = twoRHit && !hadTwoRBefore;
+    const newOneRThisBar = oneRHit && !hadOneRBefore;
+
+    if (stopHit && (newTwoRThisBar || newOneRThisBar)) {
       state.stopHitAt = bar.t;
-      terminal(state, "ambiguous", twoRHit
+      terminal(state, "ambiguous", newTwoRThisBar
         ? "stop-or-two-r-same-bar"
         : "stop-or-one-r-same-bar");
       break;
