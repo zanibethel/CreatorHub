@@ -1,4 +1,4 @@
-import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 as strategy } from "./paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "./paper-weekend-crypto-strategy-config";
 
 export type CryptoBar = {
   t: string;
@@ -53,10 +53,11 @@ export type WeekendCryptoCandidate = {
   blockers: string[];
 };
 
-export type WeekendSessionInfo = {
+export type DailyCryptoSessionInfo = {
   localDate: string;
   localWeekday: string;
   localTime: string;
+  isTradingDay: boolean;
   isWeekend: boolean;
   entriesOpen: boolean;
   flattenDue: boolean;
@@ -110,7 +111,7 @@ function timeToMinutes(value: string) {
   return hours * 60 + minutes;
 }
 
-export function weekendCryptoSession(now: number): WeekendSessionInfo {
+export function dailyCryptoSession(now: number): DailyCryptoSessionInfo {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: strategy.timezone,
     weekday: "short",
@@ -127,11 +128,12 @@ export function weekendCryptoSession(now: number): WeekendSessionInfo {
   const localTime = `${map.hour ?? "00"}:${map.minute ?? "00"}`;
   const localDate = `${map.year ?? "0000"}-${map.month ?? "00"}-${map.day ?? "00"}`;
   const localMinutes = timeToMinutes(localTime);
-  const isWeekend = strategy.session.weekendDays.includes(localWeekday as "Sat" | "Sun");
-  const entriesOpen = isWeekend && localMinutes < timeToMinutes(strategy.session.stopNewEntriesLocal);
-  const flattenDue = isWeekend && localMinutes >= timeToMinutes(strategy.session.flatByLocal);
+  const isWeekend = localWeekday === "Sat" || localWeekday === "Sun";
+  const isTradingDay = strategy.session.tradingDays.includes(localWeekday as typeof strategy.session.tradingDays[number]);
+  const entriesOpen = isTradingDay && localMinutes < timeToMinutes(strategy.session.stopNewEntriesLocal);
+  const flattenDue = isTradingDay && localMinutes >= timeToMinutes(strategy.session.flatByLocal);
 
-  return { localDate, localWeekday, localTime, isWeekend, entriesOpen, flattenDue };
+  return { localDate, localWeekday, localTime, isTradingDay, isWeekend, entriesOpen, flattenDue };
 }
 
 function scoreCandidate(input: {
@@ -162,7 +164,7 @@ export function evaluateWeekendCryptoReadiness(input: {
   bars15m: Record<string, CryptoBar[] | undefined>;
   occupiedByOtherBots: string[];
 }) {
-  const session = weekendCryptoSession(input.now);
+  const session = dailyCryptoSession(input.now);
   const occupied = new Set(input.occupiedByOtherBots);
   const btc15 = input.bars15m["BTC/USD"] ?? [];
   const btcFast = sma(btc15, strategy.setup.slowFastSmaPeriod);
@@ -228,9 +230,9 @@ export function evaluateWeekendCryptoReadiness(input: {
     const waitingOn: string[] = [];
     const blockers: string[] = [];
 
-    if (!input.ledger.active) blockers.push("Weekend crypto bot ledger is not active.");
-    if (!session.isWeekend) blockers.push("Weekend session is closed.");
-    if (session.isWeekend && !session.entriesOpen) blockers.push("New-entry window has closed for the local session day.");
+    if (!input.ledger.active) blockers.push("Daily crypto bot ledger is not active.");
+    if (!session.isTradingDay) blockers.push("Crypto day session is closed.");
+    if (session.isTradingDay && !session.entriesOpen) blockers.push("New-entry window has closed for the local session day.");
     if (input.ledger.dailyNewEntries >= strategy.cadence.maximumNewEntriesPerDay) blockers.push("Daily entry limit has been reached.");
     if (input.ledger.openPositions >= strategy.cadence.maximumOpenPositions) blockers.push("One-position limit is already occupied.");
     if (input.ledger.dailyRealizedLossPct >= strategy.risk.dailyRealizedLossLimitPct) blockers.push("Daily realized-loss kill switch is active.");
@@ -239,7 +241,7 @@ export function evaluateWeekendCryptoReadiness(input: {
 
     if (age === null || age > strategy.marketData.quoteFreshnessSeconds) waitingOn.push("Waiting for a fresh Alpaca quote.");
     if (spread === null) waitingOn.push("Waiting for a valid non-crossed quote.");
-    else if (!spreadOkay) waitingOn.push("Spread is wider than the weekend entry limit.");
+    else if (!spreadOkay) waitingOn.push("Spread is wider than the daily crypto entry limit.");
     if (fastBars.length < strategy.marketData.fastBarsRequired) waitingOn.push("Waiting for enough completed 5-minute bars.");
     if (slowBars.length < strategy.marketData.slowBarsRequired) waitingOn.push("Waiting for enough completed 15-minute bars.");
     if (!broadCryptoSupportive) waitingOn.push("BTC 15-minute regime is not supportive.");
@@ -301,7 +303,7 @@ export function evaluateWeekendCryptoReadiness(input: {
           blockers.push(`Planned notional is below the ${strategy.execution.minimumOrderNotionalUsd.toFixed(0)} broker-minimum buffer.`);
         }
         if (input.ledger.openRiskPct + (plannedRiskPct ?? 0) > strategy.risk.maximumOpenRiskPct) {
-          blockers.push("Planned trade would exceed the weekend bot open-risk ceiling.");
+          blockers.push("Planned trade would exceed the daily crypto bot open-risk ceiling.");
         }
       }
     }
@@ -361,3 +363,5 @@ export function evaluateWeekendCryptoReadiness(input: {
     candidates,
   };
 }
+
+export const weekendCryptoSession = dailyCryptoSession;
