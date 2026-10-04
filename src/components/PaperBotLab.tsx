@@ -62,6 +62,7 @@ function StrategyReviewCard({ review }: { review: PaperStrategyReviewBot }) {
       <strong className={styles.botCapital}>{review.evidenceMaturity.resolvedOutcomeSamples} outcomes</strong>
     </div>
     <p>{review.strategyId ?? "Strategy pending"}{review.strategyVersion ? ` · v${review.strategyVersion}` : ""}</p>
+    <p className={styles.meta}>Current-version evidence only · prior versions preserved separately: {review.evidenceScope.priorVersionEvidence.journal} decisions · {review.evidenceScope.priorVersionEvidence.trades} trades · {review.evidenceScope.priorVersionEvidence.counterfactuals} counterfactuals</p>
 
     <div className={styles.botMetrics}>
       <div><span>Decision observations</span><strong>{review.decisions.executionRelevantObservations} execute · {review.decisions.monitorOnlyObservations} monitor</strong></div>
