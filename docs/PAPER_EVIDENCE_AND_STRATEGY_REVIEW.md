@@ -223,13 +223,17 @@ Implemented or partially implemented:
 - prepared swing plans retained as virtual orders,
 - authenticated weekday five-minute swing revalidation journaling for QQQ/NVDA/MSFT, including market state, quote/spread freshness, blockers/waiting reasons, risk plan, selection priority, and explicit expiry terminalization,
 - executed Default Diverse broker/fill/ledger attribution,
+- central broker reconciliation now journals tagged terminal order states (`canceled`, broker `rejected`, `expired`, and `replaced`) across all PAPER bots, with broker-confirmed lifecycle events distinguished by `metadata.lifecycleSource=broker-reconciliation`,
+- route-side `execution_error` evidence for broker outcomes that cannot be confirmed, including swing submission ambiguity and Daily Crypto entry/protection/partial/flatten failures,
+- fail-closed Daily Crypto protective-order cancellation: replacement/partial/session-flatten work does not proceed when the existing broker protection cannot be confirmed canceled,
 - and versioned strategy configuration.
 
 Still required for complete coverage:
-- wire decision/rejection journaling across every bot/evaluator,
-- explicitly journal cancel/expire/replace reasons across all execution paths,
+- finish uniform considered-candidate/decision journaling for remaining evaluators that do not yet emit the same detail as Daily Crypto and swing revalidation,
 - add counterfactual tracking for serious non-executed proposals,
 - aggregate closed-trade and non-trade evidence into a repeatable strategy-review dataset,
 - and build the adaptive recommendation/report layer.
+
+Broker `rejected` order events and strategy-level rejected/blocked candidate events share the journal event name `rejected`; broker lifecycle records are explicitly identified with `metadata.lifecycleSource=broker-reconciliation` and `metadata.brokerStatus` so later analysis can separate execution rejection from strategy rejection.
 
 Nothing materially considered by the algorithm should be discarded merely because no trade occurred.
