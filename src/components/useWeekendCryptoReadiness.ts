@@ -41,6 +41,7 @@ export type WeekendCryptoReadiness = {
     localDate: string;
     localWeekday: string;
     localTime: string;
+    isTradingDay: boolean;
     isWeekend: boolean;
     entriesOpen: boolean;
     flattenDue: boolean;
@@ -72,14 +73,14 @@ export default function useWeekendCryptoReadiness() {
           signal: AbortSignal.any([controller.signal, AbortSignal.timeout(20_000)]),
         });
         const body = await response.json();
-        if (!response.ok) throw new Error(body.error || "Weekend crypto readiness unavailable.");
+        if (!response.ok) throw new Error(body.error || "Daily crypto readiness unavailable.");
         if (!controller.signal.aborted) {
           setReport(body);
           setError("");
         }
       } catch (reason) {
         if (!controller.signal.aborted) {
-          setError(reason instanceof Error ? reason.message : "Weekend crypto readiness unavailable.");
+          setError(reason instanceof Error ? reason.message : "Daily crypto readiness unavailable.");
         }
       } finally {
         running = false;
