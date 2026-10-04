@@ -4,7 +4,7 @@ All 19 reviewed candidates are persistently monitored. Initial/reserve labels se
 
 ## Saved model
 
-Every bot challenge starts at $100. Default Diverse uses 20% / 40% / 40% portfolio allocation ceilings for day / multi-day / multi-week exposure, or up to $20 / $40 / $40 of virtual equity in those pools. These are pool ceilings, not per-position sizes; individual positions are sized from planned loss risk. Crypto uses the same pool ceilings. The inverse sleeve remains at zero allocation. The larger Alpaca paper balance is displayed separately as the execution sandbox/audit trail and is never substituted for challenge equity.
+Every bot challenge starts at $100. Default Diverse uses 20% / 40% / 40% portfolio allocation ceilings for day / multi-day / multi-week exposure, or up to $20 / $40 / $40 of virtual equity in those pools. These are pool ceilings, not per-position sizes; individual positions are sized from planned loss risk. Crypto uses the same pool ceilings. The inverse sleeve remains at zero allocation. The PAPER program fund is persisted separately from external execution-account balances, which are never substituted for challenge equity.
 
 ## Initial research priorities (all 19 candidates remain watched)
 
@@ -53,13 +53,13 @@ QQQ/SPY correlation was 0.93. XLV/SPY was 0.22; GLD/SPY 0.33; XOM/SPY -0.28. All
 
 ## Data and reproducibility
 
-Retrieved from the connected Alpaca market-data API on October 3, 2026. Each equity has 503 daily bars over October 1, 2024–October 2, 2026, SIP feed, adjustment=all. Each crypto pair has 732 complete UTC daily bars; the incomplete October 3 bar is removed. Both responses had no next-page token. Asset catalog checks found all 12 selections active, tradable and fractionable; these flags do not establish account-specific order eligibility.
+Retrieved from the configured historical market-data source on October 3, 2026. Each equity has 503 daily bars over October 1, 2024–October 2, 2026, SIP feed, adjustment=all. Each crypto pair has 732 complete UTC daily bars; the incomplete October 3 bar is removed. Both responses had no next-page token. Asset catalog checks found all 12 selections active, tradable and fractionable; these flags do not establish account-specific order eligibility.
 
 Run `python research/paper-watchlist/analyze.py` to regenerate `metrics-2026-10-02.json` from `history-2026-10-02.csv`. Returns use the last available close at or before calendar 30/90/365-day cutoffs. Annualized sample daily-return volatility uses 252 equity sessions / 365 crypto days. Maximum drawdown uses closes over the last year. ATR is a simple 14-session mean true range divided by latest close. Dollar volume is a 20-session mean of close times volume, a liquidity proxy rather than an executable spread. Crypto venue volumes are not comparable to consolidated stock liquidity.
 
 Corporate-action-adjusted close change is not a fee/slippage-aware strategy return. No execution simulation, regime robustness, out-of-sample strategy validation or profitable day-trading inference is made. Daily bars cannot establish intraday behavior. The report's IEX quotes and Kraken crypto quotes differ from the research feeds.
 
-SH targets daily -1x S&P 500 results; longer holdings can diverge because of compounding. [Issuer description](https://www.proshares.com/our-etfs/leveraged-and-inverse/sh). Crypto has execution fees; use the [current Alpaca fee schedule](https://docs.alpaca.markets/us/docs/crypto-fees) in future tests. [Fractional trading](https://docs.alpaca.markets/us/docs/fractional-trading) supports small notionals but order type, minimum size and account eligibility must be checked at execution.
+SH targets daily -1x S&P 500 results; longer holdings can diverge because of compounding. [Issuer description](https://www.proshares.com/our-etfs/leveraged-and-inverse/sh). Crypto has execution fees; future tests must use the current configured execution-fee model. Small notionals still require order type, minimum size, liquidity, and account eligibility checks at execution.
 
 ## Report behavior
 
