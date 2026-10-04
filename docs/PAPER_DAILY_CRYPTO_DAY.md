@@ -171,6 +171,10 @@ Implemented:
 - Server-only Cron and crypto-execution secrets configured in Vercel Production.
 - PAPER execution armed; live money remains disabled.
 
+## Evidence retention
+
+Daily Crypto Day follows the cross-bot evidence standard in `docs/PAPER_EVIDENCE_AND_STRATEGY_REVIEW.md`. Its five-minute scan journal is part of that larger system: execution candidates and monitor-only candidates are retained for later false-positive, missed-opportunity, spread/liquidity, score-band, and promotion analysis. Any serious non-executed proposal added later must remain separate from actual virtual-ledger P/L and be labeled counterfactual.
+
 ## Next implementation sequence
 
 1. Let the armed scanner wait for a genuine execution-pool setup instead of forcing a trade.
