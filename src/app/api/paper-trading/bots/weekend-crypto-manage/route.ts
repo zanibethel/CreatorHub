@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildPaperExecutionFailureJournalRow } from "@/lib/paper-order-lifecycle-evidence";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
 import { DAILY_CRYPTO_DAY_STRATEGY_V3 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
@@ -15,7 +16,7 @@ const ledgerSchema=z.object({
   metadata:z.object({executionEnabled:z.boolean().optional(),liveMoneyEnabled:z.boolean().optional()}).passthrough(),
 });
 const positionSchema=z.object({
-  symbol:z.enum(["BTC/USD","ETH/USD","SOL/USD"]),
+  symbol:z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]),
   quantity:z.coerce.number().finite().positive(),
   average_entry:z.coerce.number().finite().positive(),
   protective_stop:z.coerce.number().finite().positive().nullable(),
@@ -87,6 +88,9 @@ export async function POST(request:Request){
     if(!response.ok)throw new Error(`Daily crypto manager storage returned HTTP ${response.status}.`);
     return text?JSON.parse(text):null;
   };
+  const journalFailure=async(input:Parameters<typeof buildPaperExecutionFailureJournalRow>[0])=>{
+    try{await db("paper_bot_journal",buildPaperExecutionFailureJournalRow(input),"POST","return=minimal");}catch{}
+  };
 
   const brokerHeaders={
     "APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,
@@ -135,11 +139,25 @@ export async function POST(request:Request){
   const cancelProtection=async()=>{
     for(const order of protectiveOrders){
       if(order.broker_order_id){
-        try{await alpaca(`orders/${encodeURIComponent(order.broker_order_id)}`,{method:"DELETE"});}catch{}
+        try{
+          await alpaca(`orders/${encodeURIComponent(order.broker_order_id)}`,{method:"DELETE"});
+        }catch(error){
+          const reason=error instanceof Error?error.message.slice(0,180):"Protective-order cancellation failed.";
+          await journalFailure({
+            botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
+            symbol:position.symbol,assetClass:"crypto",clientOrderId:order.client_order_id,
+            phase:"protective-order-cancel",reason,side:"sell",purpose:"protective-stop",critical:true,
+          });
+          return false;
+        }
       }
-      await patchOrder(order.client_order_id,{status:"canceled"});
+      await patchOrder(order.client_order_id,{
+        status:"canceled",
+        metadata:{...order.metadata,cancelRequestedAt:new Date().toISOString(),cancelReason:"exit-manager-replacement"},
+      });
     }
     if(protectiveOrders.some(order=>order.broker_order_id))await sleep(250);
+    return true;
   };
 
   const sellableQty=async()=>{
@@ -174,8 +192,17 @@ export async function POST(request:Request){
       }) as BrokerOrder;
       await patchOrder(clientId,{status:status(order.status),broker_order_id:order.id??null,submitted_at:new Date().toISOString()});
       return true;
-    }catch{
-      await patchOrder(clientId,{status:"error"});
+    }catch(error){
+      const failureReason=error instanceof Error?error.message.slice(0,180):"Protective stop submission failed.";
+      await patchOrder(clientId,{
+        status:"error",
+        metadata:{purpose:"protective-stop",paperOnly:true,executionError:failureReason},
+      });
+      await journalFailure({
+        botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
+        symbol:position.symbol,assetClass:"crypto",clientOrderId:clientId,
+        phase:"protective-stop-submission",reason:failureReason,side:"sell",purpose:"protective-stop",critical:true,
+      });
       return false;
     }
   };
@@ -194,7 +221,8 @@ export async function POST(request:Request){
       : position.exit_manager_state.desiredStop;
     if(!(desired&&desired>0))return reply({error:"Exit planner did not provide a valid stop."},409);
 
-    await cancelProtection();
+    const canceled=await cancelProtection();
+    if(!canceled)return reply({error:"Existing protective order could not be canceled; replacement was not submitted.",critical:true},502);
     const available=await sellableQty();
     if(!(available>0))return reply({error:"No sellable broker quantity is available for protection.",critical:true},502);
 
@@ -217,7 +245,8 @@ export async function POST(request:Request){
     const fraction=position.exit_manager_state.partialFraction??position.take_profit_fraction??strategy.risk.firstTakeProfitFraction;
     if(!(fraction>0&&fraction<1))return reply({error:"Partial-profit fraction is invalid."},409);
 
-    await cancelProtection();
+    const canceled=await cancelProtection();
+    if(!canceled)return reply({error:"Existing protective order could not be canceled; partial profit was not submitted.",critical:true},502);
     const available=await sellableQty();
     const partialQty=floorQty(Math.min(position.quantity*fraction,available*fraction));
     if(!(partialQty>0))return reply({error:"No sellable quantity is available for partial profit.",critical:true},502);
@@ -240,8 +269,17 @@ export async function POST(request:Request){
         }),
       }) as BrokerOrder;
       await patchOrder(clientId,{status:status(partial.status),broker_order_id:partial.id??null,submitted_at:new Date().toISOString()});
-    }catch{
-      await patchOrder(clientId,{status:"error"});
+    }catch(error){
+      const failureReason=error instanceof Error?error.message.slice(0,180):"Partial-profit submission failed.";
+      await patchOrder(clientId,{
+        status:"error",
+        metadata:{purpose:"take-profit-partial",paperOnly:true,executionError:failureReason},
+      });
+      await journalFailure({
+        botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
+        symbol:position.symbol,assetClass:"crypto",clientOrderId:clientId,
+        phase:"partial-profit-submission",reason:failureReason,side:"sell",purpose:"take-profit-partial",critical:true,
+      });
       const restored=await createProtection(position.protective_stop??position.average_entry,available,"Restore protection after partial-profit submission failure.");
       if(!restored)await emergencyFlatten();
       return reply({error:"Partial-profit order failed; protection restore attempted.",critical:!restored},502);
