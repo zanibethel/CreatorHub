@@ -124,14 +124,14 @@ export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   challengeStartingCash: 100,
   brokerTag: "wkd",
   strategyId: DAILY_CRYPTO_DAY_STRATEGY_V4.id,
-  style: "Daily short-horizon crypto momentum proof of concept with fee-aware risk controls",
+  style: "Continuous 24/7 short-horizon crypto momentum proof of concept with fee-aware risk controls",
   universe: {
     assetClasses: ["crypto"],
     description: "Execution pool: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD. Extended monitor-only pool: XRP, LTC, AVAX, DOGE, ADA, BCH, AAVE, HYPE, RENDER versus USD."
   },
   cadence: {
-    description: "Seven-day intraday crypto session; maximum three new entries per local day and one open position at a time.",
-    intradayOnly: true,
+    description: "Continuous 24/7 crypto scanning and entries; maximum three new entries per America/Chicago accounting day and one open position at a time.",
+    intradayOnly: false,
   },
   isolation: {
     separateVirtualLedger: true,
@@ -139,10 +139,10 @@ export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
     shareRiskBudgetWithOtherBots: false,
   },
   notes: [
-    "LINK/USD and DOT/USD are execution-eligible in v3; the extended altcoin pool is monitored but cannot submit orders yet.",
+    "LINK/USD and DOT/USD remain execution-eligible in v4; the extended altcoin pool is monitored but cannot submit orders yet.",
     "The strategy is fee-aware and requires a gross target materially larger than estimated round-trip crypto fees.",
     "No new position is allowed in a symbol already held by another bot during the proof of concept.",
-    "The stable bot ID and wkd broker tag are retained so history remains continuous across v1, v2, and the expanded-universe v3 revision.",
+    "The stable bot ID and wkd broker tag are retained so history remains continuous across v1-v4; v4 removes the artificial nightly cutoff while preserving all risk/quality gates.",
   ],
 };
 
