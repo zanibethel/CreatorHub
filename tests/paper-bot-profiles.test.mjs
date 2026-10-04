@@ -49,7 +49,7 @@ test("active $100 comparison bots stay isolated", () => {
   assert.equal(dailyCrypto.status, "active");
   assert.equal(dailyCrypto.name, "$100 Daily Crypto Day Bot");
   assert.equal(dailyCrypto.challengeStartingCash, 100);
-  assert.deepEqual(dailyCrypto.universe.assetClasses, ["crypto"]);
+  assert.deepEqual(Array.from(dailyCrypto.universe.assetClasses), ["crypto"]);
   assert.equal(dailyCrypto.cadence.intradayOnly, true);
   assert.equal(dailyCrypto.strategyId, weekendStrategy.DAILY_CRYPTO_DAY_STRATEGY_V3.id);
 
