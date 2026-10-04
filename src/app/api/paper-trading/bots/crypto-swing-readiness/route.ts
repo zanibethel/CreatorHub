@@ -85,7 +85,7 @@ export async function GET(request: Request) {
       cache:"no-store",
       signal:AbortSignal.timeout(15_000),
     });
-    if (!response.ok) throw new Error(`Alpaca crypto swing data returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Crypto swing market-data source returned HTTP ${response.status}.`);
     return response.json();
   };
 
