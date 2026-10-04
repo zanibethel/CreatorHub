@@ -106,7 +106,7 @@ export async function POST(request: Request) {
     });
     const text=await response.text();
     const body=text?JSON.parse(text):null;
-    if(!response.ok) throw new Error(typeof body?.message==="string"?body.message:`Alpaca HTTP ${response.status}`);
+    if(!response.ok) throw new Error(typeof body?.message==="string"?body.message:`PAPER execution venue HTTP ${response.status}`);
     return body;
   };
 
