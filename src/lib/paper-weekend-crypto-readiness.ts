@@ -288,10 +288,10 @@ export function evaluateWeekendCryptoReadiness(input: {
     if (input.ledger.dailyNewEntries >= strategy.cadence.maximumNewEntriesPerDay) blockers.push("Daily entry limit has been reached.");
     if (input.ledger.openPositions >= strategy.cadence.maximumOpenPositions) blockers.push("One-position limit is already occupied.");
     if (input.ledger.dailyRealizedLossPct >= strategy.risk.dailyRealizedLossLimitPct) blockers.push("Daily realized-loss kill switch is active.");
-    if (occupied.has(symbol)) blockers.push("Another bot already holds this symbol in the shared Alpaca paper account.");
+    if (occupied.has(symbol)) blockers.push("Another bot already holds this symbol in the shared PAPER execution account.");
     if (!(input.ledger.equity > 0) || !(input.ledger.buyingPower > 0)) blockers.push("Virtual equity or buying power is unavailable.");
 
-    if (age === null || age > strategy.marketData.quoteFreshnessSeconds) waitingOn.push("Waiting for a fresh Alpaca quote.");
+    if (age === null || age > strategy.marketData.quoteFreshnessSeconds) waitingOn.push("Waiting for a fresh market quote.");
     if (spread === null) waitingOn.push("Waiting for a valid non-crossed quote.");
     else if (!spreadOkay) waitingOn.push("Spread is wider than the daily crypto entry limit.");
     if (fastBars.length < strategy.marketData.fastBarsRequired) waitingOn.push("Waiting for enough completed 5-minute bars.");
