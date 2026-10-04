@@ -273,6 +273,7 @@
 @media(max-width:650px) {
   .botSwitcher button { min-width:158px; padding:11px 12px; }
   .botSwitcher button strong { font-size:21px; }
+  .watchPlan { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .portfolioHero { padding:16px; border-radius:16px; }
   .portfolioStats { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .portfolioPanel { padding:14px 12px; }
