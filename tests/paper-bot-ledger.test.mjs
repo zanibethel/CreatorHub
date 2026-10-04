@@ -58,6 +58,10 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   const requested = [];
   const route = api(url => {
     requested.push(url);
+    if (url.includes("paper_capital_plan")) return Response.json([{
+      plan_id:"main", total_capital:"1000", bot_pool_capital:"100", reserved_bot_pools:"5",
+      allocated_capital:"500", unallocated_reserve:"500", currency:"USD"
+    }]);
     if (url.includes("paper_bot_ledgers")) return Response.json(ledgerRows);
     if (url.includes("paper_bot_equity_history")) return Response.json([
       { bot_id: "default-diverse", collected_at: stamp, equity: "100" },
@@ -82,8 +86,12 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(response.status, 200);
   const body = await response.json();
   assert.equal(body.accountingModel.challengeStartingCash, 100);
+  assert.equal(body.accountingModel.programStartingCapital, 1000);
+  assert.equal(body.accountingModel.reservedBotPools, 5);
+  assert.equal(body.accountingModel.allocatedBotCapital, 500);
+  assert.equal(body.accountingModel.unallocatedReserve, 500);
   assert.equal(body.accountingModel.virtualLedgerIsAuthority, true);
-  assert.equal(body.accountingModel.brokerAccountIsExecutionVenueOnly, true);
+  assert.equal(body.accountingModel.executionVenueBalanceIsNotProgramCapital, true);
   assert.equal(body.bots[0].equity, 100);
   assert.equal(body.bots[0].buyingPower, 100);
   assert.equal(body.bots[0].positionCount, 1);
@@ -102,7 +110,7 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.tradeMetrics["default-diverse"][0].mark_count, 4);
   assert.equal(body.counterfactuals["default-diverse"][0].first_outcome, "two-r-before-stop");
   assert.equal(body.counterfactuals["default-diverse"][0].mfe_r, 2.1);
-  assert.equal(requested.length, 9);
+  assert.equal(requested.length, 10);
   assert.doesNotMatch(JSON.stringify(body), /private-value|database-secret|metadata|private-order|private-fill/);
 });
 
