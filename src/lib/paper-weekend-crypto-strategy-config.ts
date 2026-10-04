@@ -88,8 +88,24 @@ export const DAILY_CRYPTO_DAY_STRATEGY_V4 = {
   },
 } as const;
 
-// Historical v3 is retained as an immutable reference for replay/review.
-// Runtime routes import V4 explicitly.
+export const DAILY_CRYPTO_DAY_STRATEGY_V5 = {
+  ...DAILY_CRYPTO_DAY_STRATEGY_V4,
+  id: "daily-crypto-day-v5",
+  version: 5,
+  opportunity: {
+    minimumGoalR: 2.00,
+    maximumGoalR: 4.25,
+    scoreBonusR: 0.75,
+    momentumBonusR: 0.75,
+    trendBonusR: 0.50,
+    volatilityBonusR: 0.25,
+    momentumReferencePct: 0.75,
+  },
+} as const;
+
+export const ACTIVE_DAILY_CRYPTO_DAY_STRATEGY = DAILY_CRYPTO_DAY_STRATEGY_V5;
+
+// Historical v3/v4 are retained as immutable references for replay/review.
 export const DAILY_CRYPTO_DAY_STRATEGY_V3 = {
   ...DAILY_CRYPTO_DAY_STRATEGY_V4,
   id: "daily-crypto-day-v3",
