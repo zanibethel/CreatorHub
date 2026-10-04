@@ -121,3 +121,49 @@ test("session expiry distinguishes never-triggered from triggered without resolu
   assert.equal(triggered.state.status,"expired");
   assert.equal(triggered.state.firstOutcome,"session-end-before-one-r");
 });
+
+
+test("swing studies seed only during the entry window and never duplicate an actual enabled submission",()=>{
+  const base={
+    botId:"three-trade-weekly-swing-100",
+    strategyId:"three-trade-weekly-swing-v1",
+    strategyVersion:1,
+    collectedAt:"2026-10-05T14:40:00Z",
+    executionEnabled:true,
+    marketOpen:true,
+    minutesSinceOpen:10,
+    minimumMinutesAfterOpen:5,
+    maximumMinutesAfterOpen:120,
+    broadMarketSupportive:true,
+    plans:[{
+      clientOrderId:"private",
+      symbol:"QQQ",
+      assetClass:"etf",
+      createdAt:"2026-10-03T20:00:00Z",
+      entryTrigger:755,
+      maxEntryPrice:760,
+      protectiveStop:727,
+      takeProfitPrice:811,
+      plannedRiskDollars:1,
+      expiresAt:"2026-10-06T00:00:00Z",
+      stageReason:"Monday breakout continuation.",
+    }],
+    readiness:[{
+      symbol:"QQQ",state:"waiting",selectedForSubmission:false,bid:754,ask:754.5,spreadPct:0.06,
+      blockers:[],waitingOn:["Entry trigger has not been reached."],
+    }],
+    trackingBars:{QQQ:[{t:"2026-10-05T14:35:00Z",o:753,h:754,l:752,c:753.5}]},
+  };
+
+  const seeds=cf.buildSwingCounterfactualSeeds(base);
+  assert.equal(seeds.length,1);
+  assert.equal(seeds[0].symbol,"QQQ");
+  assert.equal(seeds[0].score,null);
+  assert.equal(seeds[0].last_bar_at,"2026-10-05T14:35:00Z");
+
+  const selected={...base,readiness:[{...base.readiness[0],state:"ready",selectedForSubmission:true}]};
+  assert.equal(cf.buildSwingCounterfactualSeeds(selected).length,0);
+
+  const beforeWindow={...base,minutesSinceOpen:2};
+  assert.equal(cf.buildSwingCounterfactualSeeds(beforeWindow).length,0);
+});
