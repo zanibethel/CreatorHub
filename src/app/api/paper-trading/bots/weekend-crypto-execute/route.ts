@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildPaperExecutionFailureJournalRow } from "@/lib/paper-order-lifecycle-evidence";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
 import { observeCryptoEntryFee } from "@/lib/paper-crypto-fees";
 import { DAILY_CRYPTO_DAY_STRATEGY_V3 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
@@ -309,6 +310,14 @@ export async function POST(request: Request) {
       updated_at: new Date().toISOString(),
     }, "PATCH", "return=minimal");
 
+  const journalFailure = async (input: Parameters<typeof buildPaperExecutionFailureJournalRow>[0]) => {
+    try {
+      await db("paper_bot_journal", buildPaperExecutionFailureJournalRow(input), "POST", "return=minimal");
+    } catch {
+      // Evidence failure must not change the PAPER execution outcome.
+    }
+  };
+
   let entryOrder: BrokerOrder | null = null;
   try {
     entryOrder = await alpaca("orders", {
@@ -338,20 +347,53 @@ export async function POST(request: Request) {
       },
     });
   } catch (error) {
+    const reason = error instanceof Error ? error.message.slice(0,180) : "Entry submission failed.";
     await patchOrder(clientOrderId, {
       status: "error",
       metadata: {
         paperOnly: true,
         executionMode: "paper-crypto",
-        executionError: error instanceof Error ? error.message.slice(0,180) : "Entry submission failed.",
+        executionError: reason,
       },
+    });
+    await journalFailure({
+      botId: BOT_ID,
+      strategyId: strategy.id,
+      strategyVersion: strategy.version,
+      symbol: requested.symbol,
+      assetClass: "crypto",
+      clientOrderId,
+      phase: "entry-submission",
+      reason,
+      side: "buy",
     });
     return reply({ error: "Daily crypto PAPER entry submission failed before any confirmed fill." }, 502);
   }
 
   if (!entryOrder?.id) {
-    await patchOrder(clientOrderId, { status: "error" });
-    return reply({ error: "Alpaca did not return a broker order for the daily crypto entry." }, 502);
+    const reason = "Alpaca did not return a broker order for the daily crypto entry.";
+    await patchOrder(clientOrderId, {
+      status: "error",
+      metadata: {
+        paperOnly: true,
+        executionMode: "paper-crypto",
+        executionError: reason,
+        brokerLookupPending: true,
+      },
+    });
+    await journalFailure({
+      botId: BOT_ID,
+      strategyId: strategy.id,
+      strategyVersion: strategy.version,
+      symbol: requested.symbol,
+      assetClass: "crypto",
+      clientOrderId,
+      phase: "entry-submission",
+      reason,
+      side: "buy",
+      brokerLookupPending: true,
+    });
+    return reply({ error: reason }, 502);
   }
 
   let finalEntry = entryOrder;
@@ -422,8 +464,21 @@ export async function POST(request: Request) {
 
   const protectiveQty = floorQty(numeric(position?.qty_available) ?? numeric(position?.qty) ?? 0);
   if (!(protectiveQty > 0)) {
+    const reason = "Daily crypto entry filled, but the broker sellable quantity could not be confirmed for protection.";
+    await journalFailure({
+      botId: BOT_ID,
+      strategyId: strategy.id,
+      strategyVersion: strategy.version,
+      symbol: requested.symbol,
+      assetClass: "crypto",
+      clientOrderId,
+      phase: "protection-quantity-confirmation",
+      reason,
+      side: "buy",
+      critical: true,
+    });
     return reply({
-      error: "Daily crypto entry filled, but the broker sellable quantity could not be confirmed for protection.",
+      error: reason,
       paperOnly: true,
       symbol: requested.symbol,
       critical: true,
@@ -543,14 +598,29 @@ export async function POST(request: Request) {
       takeProfitPlan: candidate.takeProfit,
     });
   } catch (protectionError) {
+    const protectionReason = protectionError instanceof Error ? protectionError.message.slice(0,180) : "Protective stop failed.";
     await patchOrder(stopClientOrderId, {
       status: "error",
       metadata: {
         purpose: "protective-stop",
         parentClientOrderId: clientOrderId,
         paperOnly: true,
-        protectionError: protectionError instanceof Error ? protectionError.message.slice(0,180) : "Protective stop failed.",
+        protectionError: protectionReason,
       },
+    });
+    await journalFailure({
+      botId: BOT_ID,
+      strategyId: strategy.id,
+      strategyVersion: strategy.version,
+      symbol: requested.symbol,
+      assetClass: "crypto",
+      clientOrderId: stopClientOrderId,
+      phase: "protective-stop-submission",
+      reason: protectionReason,
+      side: "sell",
+      purpose: "protective-stop",
+      critical: true,
+      metadata: { parentClientOrderId: clientOrderId },
     });
 
     // Fail closed: if broker protection cannot be attached, immediately submit a
@@ -596,8 +666,31 @@ export async function POST(request: Request) {
         broker_order_id: flatten.id ?? null,
         submitted_at: new Date().toISOString(),
       });
-    } catch {
-      await patchOrder(emergencyClientOrderId, { status: "error" });
+    } catch (flattenError) {
+      const flattenReason = flattenError instanceof Error ? flattenError.message.slice(0,180) : "Emergency flatten submission failed.";
+      await patchOrder(emergencyClientOrderId, {
+        status: "error",
+        metadata: {
+          purpose: "emergency-flatten",
+          parentClientOrderId: clientOrderId,
+          paperOnly: true,
+          executionError: flattenReason,
+        },
+      });
+      await journalFailure({
+        botId: BOT_ID,
+        strategyId: strategy.id,
+        strategyVersion: strategy.version,
+        symbol: requested.symbol,
+        assetClass: "crypto",
+        clientOrderId: emergencyClientOrderId,
+        phase: "emergency-flatten-submission",
+        reason: flattenReason,
+        side: "sell",
+        purpose: "emergency-flatten",
+        critical: true,
+        metadata: { parentClientOrderId: clientOrderId },
+      });
     }
 
     return reply({
