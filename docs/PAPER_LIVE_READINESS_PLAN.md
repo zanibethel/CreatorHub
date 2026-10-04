@@ -26,8 +26,8 @@ The goal is not merely to place successful orders. The system must demonstrate t
 ### Proven
 
 - Equal $100 isolated virtual ledgers.
-- Bot-specific Alpaca client-order attribution.
-- Prepared order → Alpaca paper order → broker fill → virtual-ledger reconciliation.
+- Bot-specific execution-venue client-order attribution.
+- Prepared order → PAPER execution order → fill → virtual-ledger reconciliation.
 - Fee-aware crypto accounting using an immediate estimate.
 - Live mark-to-market for virtual positions.
 - Pool usage, open planned risk, daily-loss state, weekly drawdown, equity, cash, and unrealized P/L.
@@ -85,7 +85,7 @@ For every open bot position:
 7. Persist the planned next action, current R multiple, mark, desired stop/partial fraction, and evaluation time.
 8. Log every eventual broker action, rejection, replacement, and recovery.
 
-Crypto v1 uses broker stop-limit protection because Alpaca crypto does not expose the same bracket/OCO path used for equities. Profit-taking is trigger-driven rather than leaving an independent standing take-profit order that could conflict with the full-position stop. The current planner writes `hold`, `repair_stop`, `tighten_stop_breakeven`, `partial_profit`, or `tighten_stop_trail` into the virtual position state on every marked sync.
+Crypto v1 uses broker stop-limit protection because the current crypto execution path does not expose the same bracket/OCO behavior used for equities. Profit-taking is trigger-driven rather than leaving an independent standing take-profit order that could conflict with the full-position stop. The current planner writes `hold`, `repair_stop`, `tighten_stop_breakeven`, `partial_profit`, or `tighten_stop_trail` into the virtual position state on every marked sync.
 
 ### 2. Monday Swing Revalidation Executor
 
@@ -111,9 +111,9 @@ A prepared plan is not a broker order. If multiple correlated plans become ready
 
 ### 3. Broker-Hosted Stock Protection
 
-For accepted stock/ETF swing entries, Alpaca PAPER bracket orders are the required broker-hosted protection path so stop and profit legs remain at the broker if CreatorHub or Supabase is temporarily unavailable.
+For accepted stock/ETF swing entries, PAPER bracket orders are the required broker-hosted protection path so stop and profit legs remain at the broker if CreatorHub or Supabase is temporarily unavailable.
 
-A closed-market smoke test on 2026-10-03 proved Alpaca accepted a stock bracket with both take-profit and stop child legs. The parent and both children were then canceled before any fill. Broker-generated child legs are now attributed back to the tagged parent bot plan so later child fills can reconcile to the same $100 virtual ledger.
+A closed-market smoke test on 2026-10-03 proved the PAPER execution venue accepted a stock bracket with both take-profit and stop child legs. The parent and both children were then canceled before any fill. Broker-generated child legs are now attributed back to the tagged parent bot plan so later child fills can reconcile to the same $100 virtual ledger.
 
 ### 4. Daily Crypto Day PAPER Proof of Concept
 
@@ -124,7 +124,7 @@ Current state:
 - Execution-eligible: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
 - Monitor-only: XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, RENDER/USD.
 - Continuous 24/7 entry controls; America/Chicago is used only for daily entry/loss accounting.
-- Alpaca execution-venue latest quotes and completed 5-minute / 15-minute bars.
+- Execution-venue latest quotes and completed 5-minute / 15-minute bars.
 - Fee-aware deterministic readiness scanner.
 - One-position / three-entry-per-day / 1.50% daily-loss controls.
 - Same-symbol cross-bot occupancy block.
@@ -138,7 +138,7 @@ Next: observe the first genuine tagged `wkd` v4 execution-pool setup/round trip 
 
 ### 5. Exact Fee Reconciliation
 
-Continue reserving estimated crypto fees immediately, then reconcile the official Alpaca CFEE activity when posted. The difference must true-up the appropriate bot ledger and journal entry without double-counting.
+Continue reserving estimated crypto fees immediately, then reconcile the official execution-fee activity when posted. The difference must true-up the appropriate bot ledger and journal entry without double-counting.
 
 ### 6. Monday Readiness Panel
 
