@@ -123,7 +123,9 @@ The scanner estimates round-trip entry + exit fees before a setup may qualify.
 
 The planned gross first-target profit must cover estimated round-trip fees by at least 2.50x. This is intended to prevent tiny scalps whose apparent edge disappears after crypto fees.
 
-Official Alpaca CFEE activity still needs exact fee true-up against the current estimate.
+Entry-side fee reconciliation now prefers a broker-observed value: after a fill, the executor compares gross filled quantity with Alpaca's actual post-fee sellable quantity, derives the effective entry fee bps/USD, and records that source before ledger application. The ledger will wait up to 30 seconds for that observation and then fall back to the configured estimate rather than remain stuck.
+
+Sell-side fee accounting still uses the configured estimate until Alpaca exposes a usable CFEE record. A direct CFEE activity check on the PAPER account returned no entries as of 2026-10-03, so the system does not pretend those records exist.
 
 ## Current implementation
 
@@ -139,6 +141,7 @@ Implemented:
 - Cross-bot same-symbol occupancy block.
 - Live Bot Lab readiness panel.
 - Live trade telemetry for open-position R, MFE, MAE, peak/trough marks, mark count, and durable closed-trade outcome records.
+- Broker-observed crypto entry fee reconciliation using gross fill quantity versus actual sellable quantity, with a bounded estimate fallback.
 - Closed-trade journal records include realized P/L, R multiple, MFE/MAE, estimated fees, and exit reason.
 - Service-only atomic entry claim with duplicate/risk guards.
 - Guarded PAPER crypto entry route using a max-chase limit price.
