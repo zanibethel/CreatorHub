@@ -116,7 +116,7 @@ export async function POST(request: Request) {
   if(!position) return reply({ok:true,paperOnly:true,outcome:"no-position"});
 
   // Cancel this bot's active protective/exit orders first so their reserved
-  // quantities cannot conflict with the forced session-close sell.
+  // quantities cannot conflict with the forced forced sell.
   const sellOrders=z.array(sellOrderSchema).parse(await db(
     `paper_bot_orders?select=client_order_id,broker_order_id,status,metadata&bot_id=eq.${BOT_ID}&side=eq.sell&status=in.(prepared,submitted,partially_filled)&order=created_at.desc&limit=50`
   ));
@@ -125,14 +125,14 @@ export async function POST(request: Request) {
       try{
         await alpaca(`orders/${encodeURIComponent(order.broker_order_id)}`,{method:"DELETE"});
       }catch(error){
-        const reason=error instanceof Error?error.message.slice(0,180):"Protective/exit order cancellation failed before session flatten.";
+        const reason=error instanceof Error?error.message.slice(0,180):"Protective/exit order cancellation failed before forced flatten.";
         await journalFailure({
           botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
           symbol:position.symbol,assetClass:"crypto",clientOrderId:order.client_order_id,
           phase:"pre-flatten-cancel",reason,side:"sell",
           purpose:typeof order.metadata.purpose==="string"?order.metadata.purpose:null,critical:true,
         });
-        return reply({error:"Existing protective/exit order could not be canceled; session flatten was not submitted.",critical:true},502);
+        return reply({error:"Existing protective/exit order could not be canceled; forced flatten was not submitted.",critical:true},502);
       }
     }
     await db(
@@ -140,7 +140,7 @@ export async function POST(request: Request) {
       {
         status:"canceled",
         updated_at:new Date().toISOString(),
-        metadata:{...order.metadata,cancelRequestedAt:new Date().toISOString(),cancelReason:"session-flatten"},
+        metadata:{...order.metadata,cancelRequestedAt:new Date().toISOString(),cancelReason:"forced-flatten"},
       },
       "PATCH","return=minimal"
     );
@@ -159,11 +159,11 @@ export async function POST(request: Request) {
     num(brokerPosition?.qty_available)??num(brokerPosition?.qty)??0
   ));
   if(!(available>0)){
-    const reason="Virtual position exists, but no sellable broker quantity is available for the session flatten.";
+    const reason="Virtual position exists, but no sellable broker quantity is available for the forced flatten.";
     await journalFailure({
       botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
       symbol:position.symbol,assetClass:"crypto",
-      phase:"session-flatten-quantity",reason,side:"sell",purpose:"session-flat",critical:true,
+      phase:"forced-flatten-quantity",reason,side:"sell",purpose:"forced-flat",critical:true,
     });
     return reply({
       ok:true,paperOnly:true,outcome:"no-sellable-broker-quantity",symbol:position.symbol,
@@ -183,9 +183,9 @@ export async function POST(request: Request) {
     requested_quantity:available,
     pool_id:"day",
     planned_risk_dollars:0,
-    stage_reason:"Daily crypto crypto deterministic session-close flatten.",
+    stage_reason:"Daily crypto deterministic forced PAPER flatten.",
     metadata:{
-      purpose:"session-flat",
+      purpose:"forced-flat",
       paperOnly:true,
       estimatedFeeBps:strategy.fees.estimatedTakerFeeBpsPerSide,
       timezone:strategy.timezone,
@@ -226,7 +226,7 @@ export async function POST(request: Request) {
         status:"error",
         updated_at:new Date().toISOString(),
         metadata:{
-          purpose:"session-flat",paperOnly:true,
+          purpose:"forced-flat",paperOnly:true,
           estimatedFeeBps:strategy.fees.estimatedTakerFeeBpsPerSide,
           executionError:reason,
         },
@@ -236,8 +236,8 @@ export async function POST(request: Request) {
     await journalFailure({
       botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
       symbol:position.symbol,assetClass:"crypto",clientOrderId,
-      phase:"session-flatten-submission",reason,side:"sell",purpose:"session-flat",critical:true,
+      phase:"forced-flatten-submission",reason,side:"sell",purpose:"forced-flat",critical:true,
     });
-    return reply({error:"Daily crypto PAPER session flatten failed.",critical:true},502);
+    return reply({error:"Daily crypto PAPER forced flatten failed.",critical:true},502);
   }
 }
