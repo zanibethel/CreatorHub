@@ -345,12 +345,12 @@ export default function PaperBotLab() {
         ? stagedPlan.requested_notional / stagedPlan.entry_trigger
         : null
     );
-    const referenceEntry = decision?.metrics.entry ?? null;
-    const referenceStop = decision?.riskPlan.chosenStop ?? null;
-    const referenceExit = decision?.riskPlan.projectedTwoR ?? null;
+    const referenceEntry = decision?.referencePlan.entryTrigger ?? null;
+    const referenceStop = decision?.referencePlan.stopPrice ?? null;
+    const referenceExit = decision?.referencePlan.exitPrice ?? null;
     const availableCash = Math.max(0, ledger?.cash ?? ledger?.equity ?? profile.challengeStartingCash);
-    const referencePurchase = decision?.riskPlan.uncappedPositionValue != null
-      ? Math.min(decision.riskPlan.uncappedPositionValue, availableCash)
+    const referencePurchase = decision?.referencePlan.uncappedPositionValue != null
+      ? Math.min(decision.referencePlan.uncappedPositionValue, availableCash)
       : null;
     const referenceQuantity = referencePurchase != null && referenceEntry != null && referenceEntry > 0
       ? referencePurchase / referenceEntry
@@ -456,16 +456,43 @@ export default function PaperBotLab() {
   });
 
   const cryptoTradePlans: PaperBotTradePlan[] = (cryptoReadiness?.candidates ?? []).map(candidate => {
-    const purchaseAmount = candidate.plannedNotional ?? (
-      candidate.trigger != null && candidate.plannedQuantity != null
-        ? candidate.trigger * candidate.plannedQuantity
+    const readyForExecution = candidate.selectedForSubmission || candidate.state === "ready";
+    const reference = candidate.referencePlan;
+    const executionEntry = candidate.ask ?? candidate.trigger;
+    const executionPurchase = candidate.plannedNotional ?? (
+      executionEntry != null && candidate.plannedQuantity != null
+        ? executionEntry * candidate.plannedQuantity
         : null
     );
-    const profit = candidate.estimatedGrossTargetDollars
-      ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity);
-    const phase = candidate.selectedForSubmission || candidate.state === "ready"
+    const executionProfit = candidate.estimatedGrossTargetDollars
+      ?? projectedProfit(executionEntry, candidate.takeProfit, candidate.plannedQuantity);
+
+    const entryPrice = readyForExecution
+      ? executionEntry
+      : reference?.entryPrice ?? candidate.trigger;
+    const purchaseAmount = readyForExecution
+      ? executionPurchase
+      : reference?.plannedNotional ?? null;
+    const stopPrice = readyForExecution
+      ? candidate.protectiveStop
+      : reference?.protectiveStop ?? null;
+    const exitPrice = readyForExecution
+      ? candidate.takeProfit
+      : reference?.takeProfit ?? null;
+    const maxLossDollars = readyForExecution
+      ? candidate.plannedRiskDollars
+      : reference?.plannedRiskDollars ?? null;
+    const profit = readyForExecution
+      ? executionProfit
+      : reference?.estimatedGrossTargetDollars ?? null;
+    const profitPct = readyForExecution
+      ? purchaseAmount != null && purchaseAmount > 0 && profit != null
+        ? profit / purchaseAmount * 100
+        : null
+      : reference?.projectedProfitPct ?? null;
+    const phase = readyForExecution
       ? "ready" as const
-      : candidate.trigger != null && candidate.protectiveStop != null && candidate.takeProfit != null
+      : reference
         ? "reference" as const
         : "awaiting-data" as const;
 
@@ -480,7 +507,7 @@ export default function PaperBotLab() {
       currentPrice: midPrice(candidate.bid, candidate.ask),
       state: candidate.selectedForSubmission ? "SELECTED" : candidate.state.toUpperCase(),
       score: candidate.score,
-      detail: candidate.waitingOn[0] ?? candidate.blockers[0] ?? "All currently evaluated gates pass.",
+      detail: candidate.blockers[0] ?? candidate.waitingOn[0] ?? "All currently evaluated gates pass.",
       horizons: ["day"],
       executionEligible: candidate.executionEligible,
       selectedForSubmission: candidate.selectedForSubmission,
@@ -488,15 +515,13 @@ export default function PaperBotLab() {
       warnings: candidate.waitingOn,
       plan: {
         phase,
-        entryPrice: candidate.trigger,
+        entryPrice,
         purchaseAmount,
-        stopPrice: candidate.protectiveStop,
-        maxLossDollars: candidate.plannedRiskDollars,
-        exitPrice: candidate.takeProfit,
+        stopPrice,
+        maxLossDollars,
+        exitPrice,
         projectedProfitDollars: profit,
-        projectedProfitPct: purchaseAmount != null && purchaseAmount > 0 && profit != null
-          ? profit / purchaseAmount * 100
-          : null,
+        projectedProfitPct: profitPct,
       },
     };
   });
