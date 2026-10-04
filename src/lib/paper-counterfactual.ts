@@ -80,6 +80,99 @@ export type PaperCounterfactualState = {
 const finitePositive = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
 
+export type SwingCounterfactualPlan = {
+  clientOrderId: string;
+  symbol: string;
+  assetClass: "stock" | "etf";
+  createdAt: string;
+  entryTrigger: number;
+  maxEntryPrice: number;
+  protectiveStop: number;
+  takeProfitPrice: number | null;
+  plannedRiskDollars: number;
+  expiresAt: string;
+  stageReason: string | null;
+};
+
+export type SwingCounterfactualReadiness = {
+  symbol: string;
+  state: "ready" | "waiting" | "blocked";
+  selectedForSubmission: boolean;
+  bid: number | null;
+  ask: number | null;
+  spreadPct: number | null;
+  blockers: string[];
+  waitingOn: string[];
+};
+
+export function buildSwingCounterfactualSeeds(input: {
+  botId: string;
+  strategyId: string;
+  strategyVersion: number;
+  collectedAt: string;
+  executionEnabled: boolean;
+  marketOpen: boolean;
+  minutesSinceOpen: number | null;
+  minimumMinutesAfterOpen: number;
+  maximumMinutesAfterOpen: number;
+  broadMarketSupportive: boolean;
+  plans: SwingCounterfactualPlan[];
+  readiness: SwingCounterfactualReadiness[];
+  trackingBars: Record<string, CounterfactualBar[]>;
+}) {
+  if (
+    !input.marketOpen
+    || input.minutesSinceOpen === null
+    || input.minutesSinceOpen < input.minimumMinutesAfterOpen
+    || input.minutesSinceOpen > input.maximumMinutesAfterOpen
+  ) return [];
+
+  return input.plans.flatMap(plan => {
+    const readiness = input.readiness.find(item => item.symbol === plan.symbol);
+    if (!readiness) return [];
+    if (Date.parse(plan.expiresAt) <= Date.parse(input.collectedAt)) return [];
+
+    const actualSubmissionPlanned = input.executionEnabled && readiness.selectedForSubmission;
+    if (actualSubmissionPlanned) return [];
+    if (!(plan.protectiveStop > 0 && plan.entryTrigger > plan.protectiveStop && plan.maxEntryPrice >= plan.entryTrigger)) return [];
+
+    const bars = input.trackingBars[plan.symbol] ?? [];
+    return [{
+      setup_key: `swing:${input.strategyId}:v${input.strategyVersion}:${plan.symbol}:${plan.createdAt}`,
+      bot_id: input.botId,
+      strategy_id: input.strategyId,
+      strategy_version: input.strategyVersion,
+      symbol: plan.symbol,
+      asset_class: plan.assetClass,
+      source_event_type: readiness.state === "blocked" ? "rejected" : "candidate",
+      decision_state: readiness.state,
+      decision_at: input.collectedAt,
+      session_key: input.collectedAt.slice(0,10),
+      status: "watching",
+      score: null,
+      trigger_price: plan.entryTrigger,
+      max_entry_price: plan.maxEntryPrice,
+      protective_stop: plan.protectiveStop,
+      planned_take_profit: plan.takeProfitPrice,
+      last_bar_at: bars.at(-1)?.t ?? null,
+      blockers: readiness.blockers,
+      warnings: readiness.waitingOn,
+      metadata: {
+        source: "swing-5m-revalidation",
+        paperOnly: true,
+        broadMarketSupportive: input.broadMarketSupportive,
+        initialBid: readiness.bid,
+        initialAsk: readiness.ask,
+        initialSpreadPct: readiness.spreadPct,
+        plannedRiskDollars: plan.plannedRiskDollars,
+        stageReason: plan.stageReason,
+        expiresAt: plan.expiresAt,
+        trackingPolicy: "one-study-per-prepared-plan",
+      },
+    }];
+  });
+}
+
 function setupKey(snapshot: DailyCryptoCounterfactualSnapshot, symbol: string) {
   return `daily-crypto:${snapshot.strategyId}:v${snapshot.strategyVersion}:${snapshot.session.localDate}:${symbol}`;
 }
