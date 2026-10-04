@@ -45,7 +45,7 @@ type WatchRow = {
   projectedProfit?: number | null;
   projectedProfitPct?: number | null;
   planLabel?: "REFERENCE PLAN" | "PREPARED PLAN" | "READY PLAN" | "AWAITING DATA";
-  lifecycleStage?: WatchLifecycleStage;
+  lifecycleStage?: PaperBotLifecycleStage;
   lifecycleDetail?: string;
   executionEligible?: boolean;
 };
@@ -128,7 +128,7 @@ function StrategyLegend() {
   </div>;
 }
 
-const WATCH_LIFECYCLE: Array<{ id: WatchLifecycleStage; short: string; label: string }> = [
+const WATCH_LIFECYCLE: Array<{ id: PaperBotLifecycleStage; short: string; label: string }> = [
   { id: "WATCHING", short: "Watch", label: "Watching" },
   { id: "PREPARED", short: "Plan", label: "Prepared plan" },
   { id: "READY", short: "Ready", label: "Ready to act" },
@@ -137,7 +137,7 @@ const WATCH_LIFECYCLE: Array<{ id: WatchLifecycleStage; short: string; label: st
   { id: "EXITED", short: "Exit", label: "Exited" },
 ];
 
-function WatchLifecycle({ stage = "WATCHING", detail }: { stage?: WatchLifecycleStage; detail?: string }) {
+function WatchLifecycle({ stage = "WATCHING", detail }: { stage?: PaperBotLifecycleStage; detail?: string }) {
   const activeIndex = Math.max(0, WATCH_LIFECYCLE.findIndex(item => item.id === stage));
   const active = WATCH_LIFECYCLE[activeIndex];
   return <div className={styles.watchLifecycle}>
