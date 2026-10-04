@@ -3,7 +3,7 @@
   "crons": [
     {
       "path": "/api/paper-trading/bots/weekend-crypto-run",
-      "schedule": "*/5 * * * 0,1,6"
+      "schedule": "*/5 * * * *"
     }
   ]
 }
