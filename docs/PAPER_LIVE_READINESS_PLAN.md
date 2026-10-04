@@ -32,7 +32,7 @@ The goal is not merely to place successful orders. The system must demonstrate t
 - Three-Trade Weekly Swing Bot v1 active for staging.
 - QQQ, NVDA, and MSFT Monday plans persisted with trigger, max-chase, stop, risk, take-profit, and expiration values.
 - Bot Lab and Paper Trading Orders views expose safe monitoring information without public broker identifiers.
-- Daily Crypto Day v2 has its own isolated $100 ledger, stable `wkd` attribution tag, fee-aware BTC/ETH/SOL scanner, seven-day session logic, and live Bot Lab readiness panel.
+- Daily Crypto Day v3 has its own isolated $100 ledger, stable `wkd` attribution tag, five-symbol execution pool (BTC/ETH/SOL/LINK/DOT), nine-symbol monitor-only pool, seven-day session logic, and live Bot Lab readiness panel.
 - Paper trade telemetry now captures live MFE/MAE and persistent closed-trade R/P&L/fee/exit-reason outcomes without exposing broker identifiers.
 - Crypto entry fees now prefer broker-observed post-fee quantity over the 25-bps estimate; ledger application waits briefly for that observation, then safely falls back to the estimate.
 - Daily crypto execution enforces a $12 notional floor, buffered above the broker's observed $10 crypto minimum.
@@ -106,7 +106,8 @@ Source of truth: `docs/PAPER_DAILY_CRYPTO_DAY.md`.
 
 Current state:
 - Separate active $100 virtual ledger.
-- BTC/USD, ETH/USD, SOL/USD only.
+- Execution-eligible: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
+- Monitor-only: XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, RENDER/USD.
 - Seven-day intraday session controls in America/Chicago.
 - Alpaca execution-venue latest quotes and completed 5-minute / 15-minute bars.
 - Fee-aware deterministic readiness scanner.
@@ -115,7 +116,7 @@ Current state:
 - Live Bot Lab monitoring.
 - PAPER execution is armed after a controlled broker smoke verified limit-entry, fee-adjusted quantity, protective stop-limit, cancellation, and flatten behavior; live-money execution remains disabled.
 
-Next: observe the first genuine tagged `wkd` v2 setup/round trip on any day and verify +1R/+2R/trailing/23:45 behavior, telemetry, and fee reconciliation.
+Next: observe the first genuine tagged `wkd` v3 execution-pool setup/round trip on any day and verify +1R/+2R/trailing/23:45 behavior, telemetry, and fee reconciliation.
 
 ### 5. Exact Fee Reconciliation
 
