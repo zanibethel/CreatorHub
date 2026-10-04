@@ -56,5 +56,6 @@ export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = {
     paperOnly: true,
     executionEnabledByDefault: false,
     oneSymbolPerBrokerAccountAcrossBots: true,
+    minimumOrderNotionalUsd: 12,
   },
 } as const;
