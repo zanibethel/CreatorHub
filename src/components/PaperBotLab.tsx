@@ -37,6 +37,7 @@ type WatchRow = {
   exitPrice?: number | null;
   projectedProfit?: number | null;
   projectedProfitPct?: number | null;
+  planLabel?: "REFERENCE PLAN" | "PREPARED PLAN" | "READY PLAN" | "AWAITING DATA";
   executionEligible?: boolean;
 };
 
@@ -136,6 +137,7 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
         {!row.strategies.length ? <span className={styles.strategyMarkerNone}>—</span> : null}
       </div>
       <div className={styles.watchPlan}>
+        <div className={styles.watchPlanMode}>{row.planLabel ?? "REFERENCE PLAN"}</div>
         <span><small>Target entry</small><strong>{money(row.targetEntry)}</strong></span>
         <span><small>Planned buy</small><strong>{money(row.projectedPurchase)}</strong></span>
         <span><small>Stop price</small><strong>{money(row.stopPrice)}</strong></span>
@@ -258,7 +260,7 @@ export default function PaperBotLab() {
         ? midPrice(cryptoQuote.bestBid?.price, cryptoQuote.bestAsk?.price)
         : null;
     const assetClass = watchlist.stocks.some(stock => stock.symbol === item.symbol) ? "stock" as const : "crypto" as const;
-    const score = marketSnapshot ? (() => {
+    const decision = marketSnapshot ? (() => {
       const now = Date.parse(marketSnapshot.collectedAt);
       if (assetClass === "stock") {
         return evaluatePaperCandidate({
@@ -273,7 +275,7 @@ export default function PaperBotLab() {
           benchmarkCandles: marketSnapshot.stockBars.SPY ?? [],
           now,
           risk: { accountEquity: ledger?.equity ?? profile.challengeStartingCash },
-        }).score;
+        });
       }
       return evaluatePaperCandidate({
         candidate: item,
@@ -287,14 +289,29 @@ export default function PaperBotLab() {
         benchmarkCandles: marketSnapshot.crypto.find(entry => normalizedSymbol(entry.product) === "BTC-USD")?.candles ?? [],
         now,
         risk: { accountEquity: ledger?.equity ?? profile.challengeStartingCash },
-      }).score;
+      });
     })() : null;
+    const score = decision?.score ?? null;
     const stagedPlan = stagedOrders.find(order => normalizedSymbol(order.symbol) === normalizedSymbol(item.symbol));
     const stagedQuantity = stagedPlan?.requested_quantity ?? (
       stagedPlan?.requested_notional != null && stagedPlan.entry_trigger != null && stagedPlan.entry_trigger > 0
         ? stagedPlan.requested_notional / stagedPlan.entry_trigger
         : null
     );
+    const referenceEntry = decision?.metrics.entry ?? null;
+    const referenceStop = decision?.riskPlan.chosenStop ?? null;
+    const referenceExit = decision?.riskPlan.projectedTwoR ?? null;
+    const availableCash = Math.max(0, ledger?.cash ?? ledger?.equity ?? profile.challengeStartingCash);
+    const referencePurchase = decision?.riskPlan.uncappedPositionValue != null
+      ? Math.min(decision.riskPlan.uncappedPositionValue, availableCash)
+      : null;
+    const referenceQuantity = referencePurchase != null && referenceEntry != null && referenceEntry > 0
+      ? referencePurchase / referenceEntry
+      : null;
+    const referenceProfit = projectedProfit(referenceEntry, referenceExit, referenceQuantity);
+    const referenceLoss = referenceEntry != null && referenceStop != null && referenceQuantity != null && referenceStop < referenceEntry
+      ? (referenceEntry - referenceStop) * referenceQuantity
+      : null;
     return {
       symbol: item.symbol.replace("-", "/"),
       label: item.label,
@@ -307,47 +324,60 @@ export default function PaperBotLab() {
         ...(item.pools.includes("multi-day") ? ["swing" as const] : []),
         ...(item.pools.includes("multi-week") ? ["long" as const] : []),
       ],
-      targetEntry: stagedPlan?.entry_trigger ?? null,
+      targetEntry: stagedPlan?.entry_trigger ?? referenceEntry,
       projectedPurchase: stagedPlan?.requested_notional ?? (
         stagedQuantity != null && stagedPlan?.entry_trigger != null
           ? stagedQuantity * stagedPlan.entry_trigger
-          : null
+          : referencePurchase
       ),
-      stopPrice: stagedPlan?.protective_stop ?? null,
-      projectedLoss: stagedPlan?.planned_risk_dollars ?? null,
-      exitPrice: stagedPlan?.take_profit_price ?? null,
+      stopPrice: stagedPlan?.protective_stop ?? referenceStop,
+      projectedLoss: stagedPlan?.planned_risk_dollars ?? referenceLoss,
+      exitPrice: stagedPlan?.take_profit_price ?? referenceExit,
       projectedProfit: stagedPlan
         ? projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1)
-        : null,
+        : referenceProfit,
       projectedProfitPct: stagedPlan && stagedPlan.requested_notional != null && stagedPlan.requested_notional > 0
         ? (projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1) ?? 0) / stagedPlan.requested_notional * 100
         : stagedPlan && stagedQuantity != null && stagedPlan.entry_trigger != null && stagedPlan.entry_trigger > 0
           ? (projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1) ?? 0) / (stagedQuantity * stagedPlan.entry_trigger) * 100
-          : null,
+          : referenceProfit != null && referencePurchase != null && referencePurchase > 0
+            ? referenceProfit / referencePurchase * 100
+            : null,
+      planLabel: stagedPlan
+        ? "PREPARED PLAN"
+        : referenceEntry != null && referenceStop != null && referenceExit != null
+          ? "REFERENCE PLAN"
+          : "AWAITING DATA",
     };
   });
 
-  const swingWatchRows: WatchRow[] = (swingReadiness?.plans ?? []).map(plan => ({
-    symbol: plan.symbol,
-    label: "Weekly swing candidate",
-    currentPrice: midPrice(plan.bid, plan.ask),
-    state: plan.selectedForSubmission ? "SELECTED" : plan.state.toUpperCase(),
-    score: null,
-    detail: plan.waitingOn[0] ?? plan.blockers[0] ?? "All currently evaluated gates pass.",
-    strategies: ["swing"],
-    targetEntry: plan.executionPreview?.entryReference ?? null,
-    projectedPurchase: plan.executionPreview?.estimatedNotional ?? null,
-    stopPrice: plan.executionPreview?.stopLoss ?? null,
-    projectedLoss: plan.executionPreview?.plannedRiskDollars ?? null,
-    exitPrice: plan.executionPreview?.takeProfit ?? null,
-    projectedProfit: plan.executionPreview
+  const swingWatchRows: WatchRow[] = (swingReadiness?.plans ?? []).map(plan => {
+    const activePlan = plan.executionPreview ?? plan.referencePlan;
+    const planProfit = plan.executionPreview
       ? projectedProfit(plan.executionPreview.entryReference, plan.executionPreview.takeProfit, plan.executionPreview.quantity)
-      : null,
-    projectedProfitPct: plan.executionPreview?.estimatedNotional
-      ? ((projectedProfit(plan.executionPreview.entryReference, plan.executionPreview.takeProfit, plan.executionPreview.quantity) ?? 0) / plan.executionPreview.estimatedNotional) * 100
-      : null,
-    executionEligible: true,
-  }));
+      : plan.referencePlan?.projectedProfitDollars ?? null;
+    const planProfitPct = plan.executionPreview?.estimatedNotional
+      ? ((planProfit ?? 0) / plan.executionPreview.estimatedNotional) * 100
+      : plan.referencePlan?.projectedProfitPct ?? null;
+    return {
+      symbol: plan.symbol,
+      label: "Weekly swing candidate",
+      currentPrice: midPrice(plan.bid, plan.ask),
+      state: plan.selectedForSubmission ? "SELECTED" : plan.state.toUpperCase(),
+      score: null,
+      detail: plan.waitingOn[0] ?? plan.blockers[0] ?? "All currently evaluated gates pass.",
+      strategies: ["swing"],
+      targetEntry: activePlan?.entryReference ?? null,
+      projectedPurchase: activePlan?.estimatedNotional ?? null,
+      stopPrice: activePlan?.stopLoss ?? null,
+      projectedLoss: activePlan?.plannedRiskDollars ?? null,
+      exitPrice: activePlan?.takeProfit ?? null,
+      projectedProfit: planProfit,
+      projectedProfitPct: planProfitPct,
+      planLabel: plan.executionPreview ? "READY PLAN" : plan.referencePlan ? "REFERENCE PLAN" : "AWAITING DATA",
+      executionEligible: true,
+    };
+  });
 
   const cryptoWatchRows: WatchRow[] = (cryptoReadiness?.candidates ?? []).map(candidate => ({
     symbol: candidate.symbol,
@@ -375,6 +405,11 @@ export default function PaperBotLab() {
       ? ((candidate.estimatedGrossTargetDollars ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity) ?? 0) /
           (candidate.plannedNotional ?? (candidate.trigger! * candidate.plannedQuantity!))) * 100
       : null,
+    planLabel: candidate.selectedForSubmission || candidate.state === "ready"
+      ? "READY PLAN"
+      : candidate.trigger != null && candidate.protectiveStop != null && candidate.takeProfit != null
+        ? "REFERENCE PLAN"
+        : "AWAITING DATA",
     executionEligible: candidate.executionEligible,
   }));
 
