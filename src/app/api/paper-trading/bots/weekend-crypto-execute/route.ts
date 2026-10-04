@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
 import { observeCryptoEntryFee } from "@/lib/paper-crypto-fees";
-import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
@@ -41,7 +41,7 @@ const readinessSchema = z.object({
   selectedSymbol: z.enum(["BTC/USD","ETH/USD","SOL/USD"]).nullable(),
   session: z.object({
     localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
-    isWeekend: z.boolean(),
+    isTradingDay: z.boolean(),
     entriesOpen: z.boolean(),
     flattenDue: z.boolean(),
   }),
@@ -133,14 +133,14 @@ export async function POST(request: Request) {
   const alpacaKey = process.env.ALPACA_API_KEY_ID?.trim() ?? "";
   const alpacaSecret = process.env.ALPACA_API_SECRET_KEY?.trim() ?? "";
   if (!supabaseSecret || !alpacaKey || !alpacaSecret) {
-    return reply({ error: "Weekend PAPER execution dependencies are not configured." }, 503);
+    return reply({ error: "Daily crypto PAPER execution dependencies are not configured." }, 503);
   }
 
   let requested: z.infer<typeof requestSchema>;
   try {
     requested = requestSchema.parse(await request.json());
   } catch {
-    return reply({ error: "A supported weekend crypto symbol is required." }, 400);
+    return reply({ error: "A supported daily crypto symbol is required." }, 400);
   }
 
   const supabaseHeaders: Record<string,string> = {
@@ -165,7 +165,7 @@ export async function POST(request: Request) {
     const text = await response.text();
     if (!response.ok) {
       const detail = text ? (() => { try { return JSON.parse(text)?.message; } catch { return ""; } })() : "";
-      throw new Error(detail || `Weekend PAPER storage returned HTTP ${response.status}.`);
+      throw new Error(detail || `Daily crypto PAPER storage returned HTTP ${response.status}.`);
     }
     return text ? JSON.parse(text) : null;
   };
@@ -200,7 +200,7 @@ export async function POST(request: Request) {
     cache: "no-store",
     signal: AbortSignal.timeout(20_000),
   });
-  if (!readinessResponse.ok) return reply({ error: "Weekend readiness recheck failed." }, 503);
+  if (!readinessResponse.ok) return reply({ error: "Daily crypto readiness recheck failed." }, 503);
 
   const readiness = readinessSchema.parse(await readinessResponse.json());
   const candidate = readiness.candidates.find(item => item.symbol === requested.symbol);
@@ -209,7 +209,7 @@ export async function POST(request: Request) {
     !readiness.paperOnly
     || !readiness.executionEnabled
     || !readiness.submissionReady
-    || !readiness.session.isWeekend
+    || !readiness.session.isTradingDay
     || !readiness.session.entriesOpen
     || readiness.session.flattenDue
     || readiness.selectedSymbol !== requested.symbol
@@ -217,7 +217,7 @@ export async function POST(request: Request) {
     || !candidate.selectedForSubmission
   ) {
     return reply({
-      error: "Weekend PAPER entry is not authorized by the current readiness state.",
+      error: "Daily crypto PAPER entry is not authorized by the current readiness state.",
       symbol: requested.symbol,
       state: candidate?.state ?? "blocked",
     }, 423);
@@ -235,7 +235,7 @@ export async function POST(request: Request) {
     || candidate.maxEntry <= candidate.protectiveStop
     || candidate.takeProfit <= candidate.maxEntry
   ) {
-    return reply({ error: "Selected weekend setup is missing a valid execution/risk plan." }, 409);
+    return reply({ error: "Selected daily crypto setup is missing a valid execution/risk plan." }, 409);
   }
 
   // Shared PAPER-account guard: no broker position or open order may already exist
@@ -262,13 +262,13 @@ export async function POST(request: Request) {
     ? candidate.plannedRiskDollars / worstRiskPerUnit
     : quantityByNotional;
   const entryQty = floorQty(Math.min(quantityByNotional, quantityByRisk));
-  if (!(entryQty > 0)) return reply({ error: "Weekend entry quantity is below the supported minimum." }, 409);
+  if (!(entryQty > 0)) return reply({ error: "Daily crypto entry quantity is below the supported minimum." }, 409);
 
   const claimedNotional = entryQty * candidate.maxEntry;
   const worstRiskDollars = entryQty * worstRiskPerUnit;
   if (claimedNotional < strategy.execution.minimumOrderNotionalUsd) {
     return reply({
-      error: `Weekend entry is below the ${strategy.execution.minimumOrderNotionalUsd.toFixed(0)} broker-minimum buffer.`,
+      error: `Daily crypto entry is below the ${strategy.execution.minimumOrderNotionalUsd.toFixed(0)} broker-minimum buffer.`,
     }, 409);
   }
   const clientOrderId = createPaperClientOrderId(BOT_ID, strategy.version, crypto.randomUUID());
@@ -297,7 +297,7 @@ export async function POST(request: Request) {
     }, "POST");
   } catch (error) {
     return reply({
-      error: error instanceof Error ? error.message : "Weekend entry claim failed.",
+      error: error instanceof Error ? error.message : "Daily crypto entry claim failed.",
     }, 409);
   }
 
@@ -344,7 +344,7 @@ export async function POST(request: Request) {
         executionError: error instanceof Error ? error.message.slice(0,180) : "Entry submission failed.",
       },
     });
-    return reply({ error: "Weekend PAPER entry submission failed before any confirmed fill." }, 502);
+    return reply({ error: "Daily crypto PAPER entry submission failed before any confirmed fill." }, 502);
   }
 
   if (!entryOrder?.id) {
@@ -421,7 +421,7 @@ export async function POST(request: Request) {
   const protectiveQty = floorQty(numeric(position?.qty_available) ?? numeric(position?.qty) ?? 0);
   if (!(protectiveQty > 0)) {
     return reply({
-      error: "Weekend entry filled, but the broker sellable quantity could not be confirmed for protection.",
+      error: "Daily crypto entry filled, but the broker sellable quantity could not be confirmed for protection.",
       paperOnly: true,
       symbol: requested.symbol,
       critical: true,
@@ -476,7 +476,7 @@ export async function POST(request: Request) {
     protective_stop: stopPrice,
     planned_risk_dollars: 0,
     expires_at: null,
-    stage_reason: "Protective stop-limit for weekend crypto day position.",
+    stage_reason: "Protective stop-limit for daily crypto day position.",
     take_profit_price: candidate.takeProfit,
     take_profit_fraction: strategy.risk.firstTakeProfitFraction,
     take_profit_r: strategy.risk.firstTakeProfitR,
