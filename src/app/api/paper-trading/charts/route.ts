@@ -73,7 +73,7 @@ export async function GET(request: Request) {
       cache:"no-store",
       signal:AbortSignal.timeout(15_000),
     });
-    if (!response.ok) throw new Error(`Alpaca chart request returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Market chart request returned HTTP ${response.status}.`);
     return response.json() as Promise<unknown>;
   };
 
