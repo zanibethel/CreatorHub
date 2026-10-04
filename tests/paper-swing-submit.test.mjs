@@ -23,6 +23,7 @@ function load(path, imports = {}, globals = {}) {
 
 const config=load("../src/lib/paper-swing-strategy-config.ts");
 const execution=load("../src/lib/paper-swing-execution.ts",{"./paper-swing-strategy-config":config});
+const lifecycle=load("../src/lib/paper-order-lifecycle-evidence.ts");
 const token="x".repeat(64);
 
 function route(fetcher, extraEnv={}) {
@@ -30,6 +31,7 @@ function route(fetcher, extraEnv={}) {
     "next/server":{NextResponse:Response},
     "zod":{z},
     "@/lib/paper-swing-execution":execution,
+    "@/lib/paper-order-lifecycle-evidence":lifecycle,
   },{
     fetch:fetcher,
     process:{env:{
@@ -145,4 +147,32 @@ test("failed atomic claim never reaches Alpaca", async()=>{
   const response=await api.POST(request());
   assert.equal(response.status,409);
   assert.equal(alpacaPosts,0);
+});
+
+
+test("ambiguous broker submission is journaled without exposing broker identifiers", async()=>{
+  const calls=[];
+  const api=route((url,options={})=>{
+    const target=String(url); const method=options.method??"GET";
+    calls.push({target,method,body:options.body ? JSON.parse(options.body) : null});
+    if(target.includes("/swing-readiness")) return Response.json(readiness(true));
+    if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="GET") return Response.json([prepared]);
+    if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="PATCH" && target.includes("status=eq.prepared")) {
+      return Response.json([{...prepared,status:"submitted",requested_quantity:0.03}]);
+    }
+    if(target==="https://paper-api.alpaca.markets/v2/orders" && method==="POST") return new Response(JSON.stringify({message:"provider unavailable"}),{status:503});
+    if(target.includes("/v2/orders:by_client_order_id")) return new Response("",{status:404});
+    if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="PATCH") return new Response(null,{status:204});
+    if(target.includes("database.test/rest/v1/paper_bot_journal") && method==="POST") return new Response(null,{status:201});
+    throw new Error(`Unexpected request: ${method} ${target}`);
+  });
+
+  const response=await api.POST(request());
+  assert.equal(response.status,502);
+  const journal=calls.find(call=>call.target.includes("/paper_bot_journal") && call.method==="POST");
+  assert.ok(journal);
+  assert.equal(journal.body.event_type,"execution_error");
+  assert.equal(journal.body.client_order_id,prepared.client_order_id);
+  assert.equal(journal.body.metadata.brokerLookupPending,true);
+  assert.equal(Object.hasOwn(journal.body,"broker_order_id"),false);
 });
