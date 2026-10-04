@@ -14,7 +14,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwd
 const ALPACA_PAPER = "https://paper-api.alpaca.markets/v2";
 
 const requestSchema = z.object({
-  symbol: z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]),
+  symbol: z.enum(strategy.executionUniverse),
 }).strict();
 
 const candidateSchema = z.object({
@@ -40,7 +40,7 @@ const readinessSchema = z.object({
   paperOnly: z.literal(true),
   executionEnabled: z.boolean(),
   submissionReady: z.boolean(),
-  selectedSymbol: z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]).nullable(),
+  selectedSymbol: z.enum(strategy.executionUniverse).nullable(),
   session: z.object({
     localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     isTradingDay: z.boolean(),
