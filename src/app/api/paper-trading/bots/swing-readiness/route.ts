@@ -221,10 +221,22 @@ export async function GET(request: Request) {
     const broadMarketSupportive = spyMid !== null && spySma20 !== null && spyMid >= spySma20;
 
     let minutesSinceOpen: number | null = null;
+    let currentSessionOpen: number | null = null;
     if (clock.is_open && clock.next_close) {
       const close = Date.parse(clock.next_close);
-      if (Number.isFinite(close)) minutesSinceOpen = Math.max(0, (now - (close - 390*60_000)) / 60_000);
+      if (Number.isFinite(close)) {
+        currentSessionOpen = close - 390*60_000;
+        minutesSinceOpen = Math.max(0, (now - currentSessionOpen) / 60_000);
+      }
     }
+    const nextOpen = clock.next_open ? Date.parse(clock.next_open) : Number.NaN;
+    const entryWindowOpen = currentSessionOpen ?? (Number.isFinite(nextOpen) ? nextOpen : null);
+    const entryWindowStart = entryWindowOpen === null
+      ? null
+      : new Date(entryWindowOpen + strategy.execution.minimumMinutesAfterOpen * 60_000).toISOString();
+    const entryWindowEnd = entryWindowOpen === null
+      ? null
+      : new Date(entryWindowOpen + strategy.execution.maximumMinutesAfterOpen * 60_000).toISOString();
 
     const plans: SwingPreparedPlan[] = planRows.map(plan => ({
       symbol: plan.symbol,
@@ -445,6 +457,10 @@ export async function GET(request: Request) {
       collectedAt: new Date(now).toISOString(),
       nextMarketOpen: clock.next_open ?? null,
       nextMarketClose: clock.next_close ?? null,
+      entryWindowStart,
+      entryWindowEnd,
+      minimumMinutesAfterOpen: strategy.execution.minimumMinutesAfterOpen,
+      maximumMinutesAfterOpen: strategy.execution.maximumMinutesAfterOpen,
       broadMarketSupportive,
       marketClockAvailable: typeof clock.is_open === "boolean",
       ...result,
