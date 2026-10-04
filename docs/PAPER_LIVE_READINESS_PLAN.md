@@ -116,6 +116,8 @@ Current state:
 - Live Bot Lab monitoring.
 - PAPER execution is armed after a controlled broker smoke verified limit-entry, fee-adjusted quantity, protective stop-limit, cancellation, and flatten behavior; live-money execution remains disabled.
 
+The authenticated five-minute runner now persists the full 14-symbol v3 scan into the private paper journal on each scheduled decision cycle. This provides durable execution-vs-monitor evidence while the strategy waits for a genuine setup and does not loosen any trading threshold.
+
 Next: observe the first genuine tagged `wkd` v3 execution-pool setup/round trip on any day and verify +1R/+2R/trailing/23:45 behavior, telemetry, and fee reconciliation.
 
 ### 5. Exact Fee Reconciliation
