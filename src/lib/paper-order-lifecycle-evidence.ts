@@ -4,7 +4,7 @@ export type PaperExecutionFailureInput = {
   strategyVersion: number;
   symbol: string;
   assetClass: "stock" | "etf" | "crypto" | "unknown";
-  clientOrderId: string;
+  clientOrderId?: string | null;
   occurredAt?: string;
   phase: string;
   reason: string;
@@ -24,7 +24,7 @@ export function buildPaperExecutionFailureJournalRow(input: PaperExecutionFailur
     symbol: input.symbol,
     asset_class: input.assetClass,
     occurred_at: input.occurredAt ?? new Date().toISOString(),
-    client_order_id: input.clientOrderId,
+    client_order_id: input.clientOrderId ?? null,
     blockers: [input.reason],
     warnings: [],
     component_scores: {},
