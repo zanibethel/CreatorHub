@@ -50,7 +50,13 @@ type WatchRow = {
   executionEligible?: boolean;
 };
 
-const ACTIVE_PROFILES = PAPER_BOT_PROFILES.filter(profile => profile.status === "active");
+const ACTIVE_PROFILES = PAPER_BOT_PROFILES.filter(profile => {
+  if (profile.status !== "active") return false;
+  if (profile.tradePlan.source === "not-configured") {
+    throw new Error(`Active PAPER bot ${profile.id} is missing a trade-plan adapter.`);
+  }
+  return true;
+});
 const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const signedMoney = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${money(value)}`;
 const percent = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
