@@ -141,7 +141,21 @@ async function persistCounterfactuals(readiness: z.infer<typeof readinessSchema>
   };
   if (supabaseSecret.startsWith("eyJ")) headers.Authorization = `Bearer ${supabaseSecret}`;
 
-  const seeds = buildDailyCryptoCounterfactualSeeds(BOT_ID, readiness);
+  const activeResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?select=*&bot_id=eq.${BOT_ID}&status=in.(watching,triggered)&order=decision_at.asc`,
+    {
+      headers:{...headers,Accept:"application/json"},
+      cache:"no-store",
+      signal:AbortSignal.timeout(10_000),
+    },
+  );
+  if (!activeResponse.ok) throw new Error(`Counterfactual read returned HTTP ${activeResponse.status}.`);
+
+  const rows = z.array(counterfactualRowSchema).parse(await activeResponse.json());
+  const proposedSeeds = buildDailyCryptoCounterfactualSeeds(BOT_ID, readiness);
+  const activeSymbols = new Set(rows.map(row => row.symbol));
+  const seeds = proposedSeeds.filter(seed => !activeSymbols.has(seed.symbol));
+
   if (seeds.length) {
     const seedResponse = await fetch(
       `${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?on_conflict=setup_key`,
@@ -156,17 +170,6 @@ async function persistCounterfactuals(readiness: z.infer<typeof readinessSchema>
     if (!seedResponse.ok) throw new Error(`Counterfactual seed storage returned HTTP ${seedResponse.status}.`);
   }
 
-  const activeResponse = await fetch(
-    `${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?select=*&bot_id=eq.${BOT_ID}&status=in.(watching,triggered)&order=decision_at.asc`,
-    {
-      headers:{...headers,Accept:"application/json"},
-      cache:"no-store",
-      signal:AbortSignal.timeout(10_000),
-    },
-  );
-  if (!activeResponse.ok) throw new Error(`Counterfactual read returned HTTP ${activeResponse.status}.`);
-
-  const rows = z.array(counterfactualRowSchema).parse(await activeResponse.json());
   let updates = 0;
 
   for (const row of rows) {
