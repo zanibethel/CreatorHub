@@ -88,8 +88,19 @@ export const DAILY_CRYPTO_DAY_STRATEGY_V4 = {
   },
 } as const;
 
-// Compatibility aliases retained while the stable bot ID / broker tag continue
-// across strategy revisions. Runtime routes should import V4 explicitly.
-export const DAILY_CRYPTO_DAY_STRATEGY_V3 = DAILY_CRYPTO_DAY_STRATEGY_V4;
-export const DAILY_CRYPTO_DAY_STRATEGY_V2 = DAILY_CRYPTO_DAY_STRATEGY_V4;
-export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = DAILY_CRYPTO_DAY_STRATEGY_V4;
+// Historical v3 is retained as an immutable reference for replay/review.
+// Runtime routes import V4 explicitly.
+export const DAILY_CRYPTO_DAY_STRATEGY_V3 = {
+  ...DAILY_CRYPTO_DAY_STRATEGY_V4,
+  id: "daily-crypto-day-v3",
+  version: 3,
+  session: {
+    tradingDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+    stopNewEntriesLocal: "22:30",
+    flatByLocal: "23:45",
+  },
+} as const;
+
+// Older compatibility exports remain historical aliases rather than runtime defaults.
+export const DAILY_CRYPTO_DAY_STRATEGY_V2 = DAILY_CRYPTO_DAY_STRATEGY_V3;
+export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = DAILY_CRYPTO_DAY_STRATEGY_V3;
