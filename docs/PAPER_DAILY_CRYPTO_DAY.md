@@ -12,7 +12,7 @@ This is a separate $100 challenge. It does not share capital, positions, P/L, or
 
 - Stable bot ID: `weekend-crypto-day-100`
 - Stable broker tag: `wkd`
-- Current strategy: `daily-crypto-day-v4`
+- Current strategy: `daily-crypto-day-v5`
 - Starting virtual equity: $100
 - Execution venue: Alpaca Paper
 - Live-money execution: disabled
@@ -122,15 +122,18 @@ Position size is the smaller of the risk-based size, 30% allocation cap, and ava
 
 ## Profit / exit plan
 
-Daily v3 profit framework:
+Daily v5 separates the **opportunity goal** from the **risk-management checkpoint**.
 
-- Protective stop defined before entry.
-- Winner protection around +1R.
-- First target: +2R.
-- First partial: 50%.
-- Remaining 50% trails.
-- Stop may tighten only; never widen to avoid realizing a loss.
-- No routine clock-based flatten; protected positions continue under +1R protection, +2R partial, trailing, stop, or risk-driven forced flatten.
+- Protective stop is defined before entry and may tighten only.
+- +1R remains a winner-protection checkpoint.
+- +2R is a de-risk checkpoint, not the headline profit goal.
+- At +2R, the manager may trim 25% and protect the remainder.
+- The scanner estimates a fresh goal exit on every reevaluation from current range expansion, ATR, momentum, and the current entry/stop structure.
+- Execution requires a projected opportunity of at least 5%; the displayed goal is capped at 20% for this strategy version.
+- The dashboard's projected profit is entry-to-goal profit, not the +2R trim.
+- When an order executes, the latest goal exit is persisted to the position plan.
+- If the adaptive goal is reached, the remaining position is exited; before then, the remainder can trail as the trade develops.
+- These are strategy targets, not guaranteed returns. If current conditions do not support the minimum opportunity, the bot waits rather than inventing upside.
 
 ## Fee hurdle
 
@@ -282,3 +285,12 @@ Unchanged safeguards:
 - Live money remains disabled.
 
 The forced-flatten endpoint is retained for protection failures and other deterministic risk exits, but the five-minute runner no longer calls it because of the clock.
+
+
+## v5 adaptive-opportunity revision — 2026-10-04
+
+`daily-crypto-day-v5` changes the meaning of the displayed target. The prior v4 first-target calculation often produced a 1.6% projected gain because the minimum 0.8% stop multiplied by the +2R checkpoint. In v5, +2R remains a partial-profit/risk checkpoint, while the watchlist's goal exit is recalculated from the current market opportunity.
+
+The v5 opportunity estimator compares the 2R floor with recent 5-minute range expansion, recent 15-minute range expansion, ATR expansion, and positive short/slow momentum. A candidate cannot become execution-ready unless the resulting opportunity estimate reaches at least 5%. Goal estimates are capped at 20% in this version. This keeps the bot focused on larger asymmetric opportunities without assuming that 5-20% returns will occur regularly.
+
+The plan is reevaluated before execution. Entry, stop, position size, goal exit, and projected profit can all change while a candidate remains on the watchlist. At execution, the current plan is snapshotted; +2R trims 25%, +1R can protect the winner, trailing can protect the remainder, and reaching the stored adaptive goal exits the remaining position.
