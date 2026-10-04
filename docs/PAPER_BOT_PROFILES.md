@@ -40,10 +40,10 @@ Purpose: test a fee-aware, short-horizon daily crypto strategy against the other
 
 Persisted challenge intent:
 - Starting capital: $100.
-- Execution pool in v3: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
-- Monitor-only pool in v3: XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, RENDER/USD.
-- Seven-day intraday crypto sessions in America/Chicago.
-- Maximum three new entries per local session day.
+- Execution pool in v4: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
+- Monitor-only pool in v4: XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, RENDER/USD.
+- Continuous 24/7 crypto entry eligibility; America/Chicago is retained only as the daily accounting boundary.
+- Maximum three new entries per America/Chicago accounting day.
 - Maximum one open position at a time.
 - Alpaca execution-venue quotes plus completed 5-minute / 15-minute bars.
 - 0.50% risk budget per trade, 30% maximum initial allocation, and 1.50% daily realized-loss kill switch.
@@ -159,7 +159,7 @@ Current registry:
 1. `default-diverse` — active.
 2. `penny-volatility-day-100` — planned.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
-4. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v3` with seven-day PAPER execution armed and live money disabled.
+4. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v4` with continuous 24/7 PAPER execution armed and live money disabled.
 
 New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
 
