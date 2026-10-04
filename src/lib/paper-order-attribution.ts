@@ -21,7 +21,7 @@ export function createPaperClientOrderId(botId: string, strategyVersion: number,
   if (cleanNonce.length < 6) throw new Error("Order nonce is too short.");
   const created = Date.now().toString(36);
   const value = `${PREFIX}-${brokerTag}-v${strategyVersion}-${created}-${cleanNonce}`;
-  if (value.length > 128) throw new Error("Generated client order ID exceeds Alpaca's limit.");
+  if (value.length > 128) throw new Error("Generated client order ID exceeds the execution venue limit.");
   return value;
 }
 
