@@ -1,8 +1,10 @@
 import { PAPER_STRATEGY_V1 } from "./paper-strategy-config";
 import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
 import { DAILY_CRYPTO_DAY_STRATEGY_V4 } from "./paper-weekend-crypto-strategy-config";
+import { PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION } from "./paper-bot-trade-plan";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
+export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "not-configured";
 
 export type PaperBotProfile = {
   id: string;
@@ -11,6 +13,10 @@ export type PaperBotProfile = {
   challengeStartingCash: number;
   brokerTag: string;
   strategyId: string | null;
+  tradePlan: {
+    contractVersion: typeof PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION;
+    source: PaperBotPlanSource;
+  };
   style: string;
   universe: {
     assetClasses: Array<"stock" | "etf" | "crypto">;
@@ -38,6 +44,7 @@ export const DEFAULT_DIVERSE_BOT: PaperBotProfile = {
   challengeStartingCash: 100,
   brokerTag: "div",
   strategyId: PAPER_STRATEGY_V1.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "decision-engine" },
   style: "Diversified medium-to-high opportunity strategy with deterministic downside controls",
   universe: {
     assetClasses: ["stock", "etf", "crypto"],
@@ -65,6 +72,7 @@ export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
   challengeStartingCash: 100,
   brokerTag: "pny",
   strategyId: null,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "not-configured" },
   style: "Higher-volatility intraday penny-stock experiment",
   universe: {
     assetClasses: ["stock"],
@@ -94,6 +102,7 @@ export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
   challengeStartingCash: 100,
   brokerTag: "sw3",
   strategyId: THREE_TRADE_SWING_STRATEGY_V1.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "swing-readiness" },
   style: "Selective swing-trading experiment with intentionally low trade frequency",
   universe: {
     assetClasses: ["stock", "etf"],
@@ -124,6 +133,7 @@ export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   challengeStartingCash: 100,
   brokerTag: "wkd",
   strategyId: DAILY_CRYPTO_DAY_STRATEGY_V4.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "crypto-readiness" },
   style: "Continuous 24/7 short-horizon crypto momentum proof of concept with fee-aware risk controls",
   universe: {
     assetClasses: ["crypto"],
