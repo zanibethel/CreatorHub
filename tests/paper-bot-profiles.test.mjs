@@ -38,7 +38,7 @@ test("Default Diverse remains the default active profile", () => {
 
 test("active $100 comparison bots stay isolated", () => {
   const swing = profiles.THREE_TRADE_SWING_BOT;
-  const weekend = profiles.WEEKEND_CRYPTO_DAY_BOT;
+  const dailyCrypto = profiles.DAILY_CRYPTO_DAY_BOT;
 
   assert.equal(swing.status, "active");
   assert.equal(swing.challengeStartingCash, 100);
@@ -46,13 +46,14 @@ test("active $100 comparison bots stay isolated", () => {
   assert.equal(swing.cadence.swingOnly, true);
   assert.equal(swing.strategyId, swingStrategy.THREE_TRADE_SWING_STRATEGY_V1.id);
 
-  assert.equal(weekend.status, "active");
-  assert.equal(weekend.challengeStartingCash, 100);
-  assert.deepEqual(weekend.universe.assetClasses, ["crypto"]);
-  assert.equal(weekend.cadence.intradayOnly, true);
-  assert.equal(weekend.strategyId, weekendStrategy.WEEKEND_CRYPTO_DAY_STRATEGY_V1.id);
+  assert.equal(dailyCrypto.status, "active");
+  assert.equal(dailyCrypto.name, "$100 Daily Crypto Day Bot");
+  assert.equal(dailyCrypto.challengeStartingCash, 100);
+  assert.deepEqual(dailyCrypto.universe.assetClasses, ["crypto"]);
+  assert.equal(dailyCrypto.cadence.intradayOnly, true);
+  assert.equal(dailyCrypto.strategyId, weekendStrategy.DAILY_CRYPTO_DAY_STRATEGY_V2.id);
 
-  for (const profile of [swing, weekend]) {
+  for (const profile of [swing, dailyCrypto]) {
     assert.equal(profile.isolation.separateVirtualLedger, true);
     assert.equal(profile.isolation.sharePositionsWithOtherBots, false);
     assert.equal(profile.isolation.shareRiskBudgetWithOtherBots, false);
