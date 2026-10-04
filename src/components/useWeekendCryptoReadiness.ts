@@ -5,7 +5,9 @@ import { useEffect, useState } from "react";
 export type CryptoReferencePlan = {
   entryPrice: number;
   protectiveStop: number;
+  firstTakeProfitPrice: number;
   takeProfit: number;
+  estimatedOpportunityPct: number;
   plannedNotional: number;
   plannedQuantity: number;
   plannedRiskDollars: number;
@@ -31,7 +33,9 @@ export type WeekendCryptoCandidate = {
   trigger: number | null;
   maxEntry: number | null;
   protectiveStop: number | null;
+  firstTakeProfitPrice: number | null;
   takeProfit: number | null;
+  estimatedOpportunityPct: number | null;
   plannedNotional: number | null;
   plannedQuantity: number | null;
   plannedRiskDollars: number | null;
