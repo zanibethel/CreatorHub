@@ -6,7 +6,7 @@ import {
   type CryptoBar,
   type CryptoQuote,
 } from "@/lib/paper-weekend-crypto-readiness";
-import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
