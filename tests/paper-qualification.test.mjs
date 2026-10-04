@@ -14,7 +14,7 @@ test('fresh quotes never authorize orders and every funded research pool remains
  for(const item of [...list.stocks,...list.crypto].filter(x=>!['SH','PSQ'].includes(x.symbol))) {
   const r=evaluate(item,quote,time,candles,now);
   assert.equal(r.status,'Awaiting validated rules');assert.equal(r.valid,true);assert.equal(r.fresh,true);
-  assert.deepEqual(Array.from(r.pools,p=>p.cap),[18,36,36]);assert.ok(r.blockers.some(x=>x.includes('not validated')));
+  assert.deepEqual(Array.from(r.pools,p=>p.cap),[20,40,40]);assert.ok(r.blockers.some(x=>x.includes('not validated')));
  }
 });
 test('inverse candidates are watched with no funded pools',()=>{
