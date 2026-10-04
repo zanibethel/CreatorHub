@@ -4,7 +4,7 @@ import Link from "next/link";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import useAccountReport from "./useAccountReport";
-import usePaperBotLedgers, { type PaperPositionPlan, type PaperTradeMetric, type StagedPaperOrder } from "./usePaperBotLedgers";
+import usePaperBotLedgers, { type PaperCounterfactual, type PaperPositionPlan, type PaperTradeMetric, type StagedPaperOrder } from "./usePaperBotLedgers";
 import useSwingReadiness from "./useSwingReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
@@ -46,13 +46,14 @@ function ExitManagerRow({ position, metric }: { position: PaperPositionPlan; met
   </div>;
 }
 
-function BotCard({ profile, ledger, history, staged, positions, trades }: {
+function BotCard({ profile, ledger, history, staged, positions, trades, counterfactuals }: {
   profile: PaperBotProfile;
   ledger: PaperBotSummary | null;
   history: Array<{ time: string; equity: number }>;
   staged: StagedPaperOrder[];
   positions: PaperPositionPlan[];
   trades: PaperTradeMetric[];
+  counterfactuals: PaperCounterfactual[];
 }) {
   const active = (ledger?.status ?? profile.status) === "active";
   const equity = ledger?.equity ?? profile.challengeStartingCash;
@@ -95,6 +96,23 @@ function BotCard({ profile, ledger, history, staged, positions, trades }: {
       <p className={styles.meta}>Staged means prepared only. These plans require fresh quote/spread/risk revalidation before paper submission.</p>
     </div> : null}
 
+    {counterfactuals.length ? <div>
+      <h3>Counterfactual studies</h3>
+      <div className={styles.botRuleGrid}>
+        {counterfactuals.slice(0, 3).map(item => <div key={`${item.symbol}-${item.decision_at}`}>
+          <span>{item.symbol} · {item.source_event_type.replaceAll("_"," ")}</span>
+          <strong>{item.status.toUpperCase()}{item.first_outcome ? ` · ${item.first_outcome.replaceAll("-"," ")}` : ""}</strong>
+          <small>Decision {new Date(item.decision_at).toLocaleString()} · score {item.score === null ? "—" : item.score.toFixed(0)}</small>
+          <small>Trigger {money(item.trigger_price)} · max entry {money(item.max_entry_price)} · stop {money(item.protective_stop)}</small>
+          <small>Assumed entry {money(item.assumed_entry_price)} · +1R {money(item.one_r_price)} · +2R {money(item.two_r_price)}</small>
+          <small>MFE {item.mfe_r >= 0 ? "+" : ""}{item.mfe_r.toFixed(2)}R · MAE {item.mae_r >= 0 ? "+" : ""}{item.mae_r.toFixed(2)}R · {item.mark_count} completed bars</small>
+          {item.triggered_at ? <small>Triggered {new Date(item.triggered_at).toLocaleString()}{item.one_r_hit_at ? ` · +1R ${new Date(item.one_r_hit_at).toLocaleTimeString()}` : ""}{item.two_r_hit_at ? ` · +2R ${new Date(item.two_r_hit_at).toLocaleTimeString()}` : ""}{item.stop_hit_at ? ` · stop ${new Date(item.stop_hit_at).toLocaleTimeString()}` : ""}</small> : null}
+        </div>)}
+      </div>
+      <p className={styles.meta}>Counterfactuals are observation-only. They never submit broker orders; same-candle stop/target sequencing is labeled ambiguous instead of guessed.</p>
+    </div> : null}
+
+
     {trades.some(trade => trade.status === "closed") ? <div>
       <h3>Recent trade outcomes</h3>
       <div className={styles.botRuleGrid}>
@@ -123,6 +141,7 @@ export default function PaperBotLab() {
   const stagedFor = (botId: string) => ledgerReport?.stagedOrders?.[botId] ?? [];
   const positionsFor = (botId: string) => ledgerReport?.positionPlans?.[botId] ?? [];
   const tradesFor = (botId: string) => ledgerReport?.tradeMetrics?.[botId] ?? [];
+  const counterfactualsFor = (botId: string) => ledgerReport?.counterfactuals?.[botId] ?? [];
   const historyFor = (botId: string) => ledgerReport?.history?.[botId] ?? [];
   const brokerEquity = accountReport?.snapshot?.account.equity ?? null;
 
@@ -140,6 +159,7 @@ export default function PaperBotLab() {
       <div><span>Challenge baseline</span><strong>$100 each</strong></div>
       <div><span>Active bots</span><strong>{PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length}</strong></div>
       <div><span>Prepared plans</span><strong>{Object.values(ledgerReport?.stagedOrders ?? {}).reduce((sum, orders) => sum + orders.length, 0)}</strong></div>
+      <div><span>Counterfactual studies</span><strong>{Object.values(ledgerReport?.counterfactuals ?? {}).reduce((sum, items) => sum + items.length, 0)}</strong></div>
       <div><span>Alpaca paper balance</span><strong>{money(brokerEquity)}</strong></div>
     </section>
 
@@ -230,6 +250,7 @@ export default function PaperBotLab() {
         staged={stagedFor(profile.id)}
         positions={positionsFor(profile.id)}
         trades={tradesFor(profile.id)}
+        counterfactuals={counterfactualsFor(profile.id)}
       />)}
     </section>
 
@@ -243,6 +264,7 @@ export default function PaperBotLab() {
           <tr><td>Prepared plans</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{stagedFor(profile.id).length}</td>)}</tr>
           <tr><td>Open risk</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{percent(ledgerFor(profile.id)?.openPlannedRiskPct ?? 0)}</td>)}</tr>
           <tr><td>Ledger-applied fills</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{ledgerFor(profile.id)?.brokerFillCount ?? 0}</td>)}</tr>
+          <tr><td>Counterfactual studies</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{counterfactualsFor(profile.id).length}</td>)}</tr>
         </tbody>
       </table></div>
       <p className={styles.meta}>No performance winner is declared from an empty or tiny sample. Prepared plans are not broker orders.</p>
