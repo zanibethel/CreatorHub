@@ -2,15 +2,20 @@
 
 import { useEffect, useState } from "react";
 import type { AccountReport, AccountHistoryPoint } from "@/lib/account-report";
+import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
 import usePaperBotLedgers, { type PaperCounterfactual, type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
-import useSwingReadiness from "./useSwingReadiness";
+import useSwingReadiness, { type SwingReadinessPlan } from "./useSwingReadiness";
 import useWeekendCryptoReadiness, { type WeekendCryptoCandidate } from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null | undefined) => value == null ? "—" : formatPaperMoney(value);
 const stamp = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : "—";
 const pct = (value: number | null | undefined) => value == null ? "—" : `${(value * 100).toFixed(0)}%`;
+const signedMoney = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${money(value)}`;
+const midPrice = (bid: number | null | undefined, ask: number | null | undefined) => bid != null && ask != null && bid > 0 && ask > 0 ? (bid + ask) / 2 : bid ?? ask ?? null;
+const projectedProfit = (entry: number | null | undefined, target: number | null | undefined, quantity: number | null | undefined, fraction = 1) =>
+  entry != null && target != null && quantity != null && entry > 0 && quantity > 0 ? (target - entry) * quantity * fraction : null;
 
 function History({ points }: { points: AccountHistoryPoint[] }) {
   if (points.length < 2) return <p>{points.length ? "First account snapshot recorded. The next minute checkpoint will extend the chart." : "Portfolio history begins with the first saved account snapshot."}</p>;
@@ -25,7 +30,7 @@ function History({ points }: { points: AccountHistoryPoint[] }) {
   </div>;
 }
 
-function ProfitPlan({ plan, botName }: { plan: PaperPositionPlan; botName: string }) {
+function ProfitPlan({ plan, botName, ledger }: { plan: PaperPositionPlan; botName: string; ledger: PaperBotSummary | null }) {
   if (plan.take_profit_price === null || plan.take_profit_fraction === null) return null;
   const quantity = plan.quantity * plan.take_profit_fraction;
   const proceeds = quantity * plan.take_profit_price;
@@ -33,11 +38,15 @@ function ProfitPlan({ plan, botName }: { plan: PaperPositionPlan; botName: strin
   const manager = plan.exit_manager_state;
   const managerR = manager.rMultiple;
   const managerAction = manager.plannedAction ?? "hold";
+  const currentPrice = manager.markPrice ?? null;
+  const targetProfit = projectedProfit(plan.average_entry, plan.take_profit_price, plan.quantity, plan.take_profit_fraction);
   return <div className={styles.botRuleGrid}>
     <div>
       <span>{botName} · planned profit management</span>
       <strong>Take profit {money(plan.take_profit_price)} · sell {pct(plan.take_profit_fraction)}</strong>
-      <small>Approx. {quantity.toFixed(8)} units · {money(proceeds)} at that price</small>
+      <small>Current price {money(currentPrice)} · average fill {money(plan.average_entry)}</small>
+      <small>{plan.take_profit_fraction < 1 ? "Projected first-target P/L" : "Projected target P/L"} {signedMoney(targetProfit)} · approx. {quantity.toFixed(8)} units · {money(proceeds)} proceeds at target</small>
+      {ledger ? <small>Bot ledger: equity {money(ledger.equity)} · realized {signedMoney(ledger.realizedPl)} · unrealized {signedMoney(ledger.unrealizedPl)}</small> : null}
       <small>{plan.protect_winner_at_r ? `Tighten protection around +${plan.protect_winner_at_r.toFixed(0)}R` : "Protection adjustment not set"}{plan.trail_remainder ? ` · trail remaining ${pct(remainder)}` : ""}</small>
       <small>Exit manager: <strong>{managerAction.replaceAll("_", " ")}</strong>{managerR !== undefined ? ` · ${managerR >= 0 ? "+" : ""}${managerR.toFixed(2)}R` : ""}{manager.desiredStop ? ` · planned stop ${money(manager.desiredStop)}` : ""}</small>
       <small>{manager.reason ?? "Waiting for the next marked exit evaluation."}{plan.last_exit_manager_at ? ` · evaluated ${stamp(plan.last_exit_manager_at)}` : ""}</small>
@@ -46,7 +55,7 @@ function ProfitPlan({ plan, botName }: { plan: PaperPositionPlan; botName: strin
   </div>;
 }
 
-function CryptoSetupPlan({ candidate, collectedAt, evidence }: { candidate: WeekendCryptoCandidate; collectedAt: string; evidence: PaperCounterfactual | null }) {
+function CryptoSetupPlan({ candidate, collectedAt, evidence, ledger }: { candidate: WeekendCryptoCandidate; collectedAt: string; evidence: PaperCounterfactual | null; ledger: PaperBotSummary | null }) {
   const validUntil = new Date(Date.parse(collectedAt) + 5 * 60_000).toISOString();
   const observedEntry = evidence?.triggered_at && evidence.assumed_entry_price !== null
     ? { price: evidence.assumed_entry_price, at: evidence.triggered_at }
@@ -64,6 +73,10 @@ function CryptoSetupPlan({ candidate, collectedAt, evidence }: { candidate: Week
           ? "ready"
           : "watching";
   const reasons = candidate.blockers.length ? candidate.blockers : candidate.waitingOn;
+  const currentPrice = midPrice(candidate.bid, candidate.ask);
+  const projectedNetTarget = candidate.estimatedGrossTargetDollars === null
+    ? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity)
+    : candidate.estimatedGrossTargetDollars - (candidate.estimatedRoundTripFees ?? 0);
 
   return <article className={styles.record}>
     <div className={styles.cardHeader}><h3>{candidate.symbol} · Daily Crypto</h3><span className={styles.meta}>{status}</span></div>
@@ -72,20 +85,25 @@ function CryptoSetupPlan({ candidate, collectedAt, evidence }: { candidate: Week
       <span>Score <strong>{candidate.score.toFixed(0)}/100</strong></span>
       <span>Planned entry <strong>{money(candidate.trigger)}</strong></span>
       <span>Maximum entry <strong>{money(candidate.maxEntry)}</strong></span>
+      <span>Current price <strong>{money(currentPrice)}</strong></span>
       <span>Current bid / ask <strong>{money(candidate.bid)} / {money(candidate.ask)}</strong></span>
+      <span>Current price <strong>{money(currentPrice)}</strong></span>
       <span>Observed entry <strong>{observedEntry ? money(observedEntry.price) : "—"}</strong></span>
       <span>Setup valid through <strong>{stamp(validUntil)}</strong></span>
       <span>Protective stop <strong>{money(candidate.protectiveStop)}</strong></span>
       <span>Take profit <strong>{money(candidate.takeProfit)}</strong></span>
       <span>Planned notional <strong>{money(candidate.plannedNotional)}</strong></span>
       <span>Planned risk <strong>{money(candidate.plannedRiskDollars)}</strong></span>
+      <span>Projected target P/L <strong>{signedMoney(projectedNetTarget)}</strong></span>
+      <span>Est. round-trip fees <strong>{money(candidate.estimatedRoundTripFees)}</strong></span>
+      {ledger ? <><span>Bot equity <strong>{money(ledger.equity)}</strong></span><span>Bot P/L <strong>{signedMoney(ledger.realizedPl + ledger.unrealizedPl)}</strong></span></> : null}
     </div>
     <p className={styles.meta}>{reasons.length ? reasons.join(" · ") : "All currently evaluated gates pass."}</p>
     <p className={styles.meta}>{observedEntry ? `Entry condition observed ${stamp(observedEntry.at)} · review evidence only, not an Alpaca fill.` : "Scanner setup only · actual broker fill appears separately above as Average entry fill."}</p>
   </article>;
 }
 
-function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWindowEnd }: { order: StagedPaperOrder; botName: string; evidence: PaperCounterfactual | null; now: number; entryWindowStart?: string | null; entryWindowEnd?: string | null }) {
+function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWindowEnd, currentPrice, readiness, ledger }: { order: StagedPaperOrder; botName: string; evidence: PaperCounterfactual | null; now: number; entryWindowStart?: string | null; entryWindowEnd?: string | null; currentPrice?: number | null; readiness?: SwingReadinessPlan | null; ledger: PaperBotSummary | null }) {
   const fraction = order.take_profit_fraction;
   const observedEntry = evidence?.triggered_at && evidence.assumed_entry_price !== null
     ? { price: evidence.assumed_entry_price, at: evidence.triggered_at }
@@ -101,6 +119,9 @@ function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWind
       : actualWindowEnd
         ? `Enter near ${money(order.entry_trigger)} if reached by ${stamp(actualWindowEnd)}.`
         : `Enter near ${money(order.entry_trigger)} when the setup confirms.`;
+  const plannedQuantity = order.requested_quantity ?? (order.requested_notional !== null && order.entry_trigger !== null && order.entry_trigger > 0 ? order.requested_notional / order.entry_trigger : null);
+  const targetFraction = fraction ?? 1;
+  const targetProfit = projectedProfit(order.entry_trigger, order.take_profit_price, plannedQuantity, targetFraction);
   const windowStatus = observedEntry
     ? `Entry condition observed at ${money(observedEntry.price)} · ${stamp(observedEntry.at)}`
     : expired
@@ -110,7 +131,7 @@ function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWind
         : "Entry window is open · waiting for the planned entry condition.";
 
   return <article className={styles.record}>
-    <div className={styles.cardHeader}><h3>{order.symbol} · {botName}</h3><span className={styles.meta}>{observedEntry ? "entry observed" : expired ? "window ended" : "prepared"}</span></div>
+    <div className={styles.cardHeader}><h3>{order.symbol} · {botName}</h3><span className={styles.meta}>{readiness ? `${readiness.state}${readiness.selectedForSubmission ? " · selected" : ""}` : observedEntry ? "entry observed" : expired ? "window ended" : "prepared"}</span></div>
     <p><strong>{entryPlan}</strong></p>
     <div className={styles.recordFields}>
       <span>Planned entry <strong>{money(order.entry_trigger)}</strong></span>
@@ -122,6 +143,8 @@ function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWind
       <span>Take profit <strong>{money(order.take_profit_price)}</strong></span>
       <span>Profit sale <strong>{pct(fraction)}</strong></span>
       <span>Planned risk <strong>{money(order.planned_risk_dollars)}</strong></span>
+      <span>{targetFraction < 1 ? "Projected first-target P/L" : "Projected target P/L"} <strong>{signedMoney(targetProfit)}</strong></span>
+      {ledger ? <><span>Bot equity <strong>{money(ledger.equity)}</strong></span><span>Bot P/L <strong>{signedMoney(ledger.realizedPl + ledger.unrealizedPl)}</strong></span></> : null}
     </div>
     <p className={styles.meta}>{windowStatus}{observedEntry ? " · review evidence only, not an Alpaca fill" : ""}</p>
     <p className={styles.meta}>{order.stage_reason ?? "Prepared strategy plan."}{order.trail_remainder && fraction ? ` · trail remaining ${pct(1 - fraction)}` : ""}</p>
@@ -145,7 +168,8 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
   const title = { portfolio: "Portfolio overview", trades: "Recent fills", orders: "Upcoming orders", positions: "Open positions" }[view];
   const waiting = error || report?.message || "Waiting for the first saved Alpaca paper-account snapshot.";
   const snapshotAge = snapshot ? now - Date.parse(snapshot.collectedAt) : 0;
-  const botName = (botId: string) => botReport?.bots.find(bot => bot.botId === botId)?.displayName ?? botId;
+  const botLedger = (botId: string) => botReport?.bots.find(bot => bot.botId === botId) ?? null;
+  const botName = (botId: string) => botLedger(botId)?.displayName ?? botId;
   const matchingPlans = (symbol: string) => Object.entries(botReport?.positionPlans ?? {})
     .flatMap(([botId, plans]) => plans.filter(plan => plan.symbol === symbol).map(plan => ({ botId, plan })));
   const staged = Object.entries(botReport?.stagedOrders ?? {})
@@ -163,6 +187,21 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
       && item.strategy_version === cryptoReadiness?.strategyVersion
       && ["watching","triggered"].includes(item.status)
     ) ?? null;
+  const swingPlan = (symbol: string) => swingReadiness?.plans.find(plan => plan.symbol === symbol) ?? null;
+  const cryptoCandidate = (symbol: string) => cryptoReadiness?.candidates.find(candidate => candidate.symbol === symbol) ?? null;
+  const positionMarketPrice = (symbol: string) => {
+    const position = snapshot?.positions?.find(item => item.symbol === symbol);
+    return position?.quantity && position.marketValue !== null ? Math.abs(position.marketValue / position.quantity) : null;
+  };
+  const marketPrice = (symbol: string) => {
+    const positionPrice = positionMarketPrice(symbol);
+    if (positionPrice !== null) return positionPrice;
+    const crypto = cryptoCandidate(symbol);
+    if (crypto) return midPrice(crypto.bid, crypto.ask);
+    const swing = swingPlan(symbol);
+    if (swing) return midPrice(swing.bid, swing.ask);
+    return null;
+  };
   const cryptoPlans = (cryptoReadiness?.candidates ?? [])
     .filter(candidate => candidate.executionEligible && candidate.score >= 60)
     .sort((a,b) => b.score - a.score)
@@ -196,7 +235,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
             <span>Stop trigger <strong>{money(order.stop)}</strong></span>
           </div>
           <p className={styles.meta}>{order.type} · submitted {stamp(order.submittedAt)}</p>
-          {plans.map(({ botId, plan }) => <ProfitPlan key={`${botId}-${plan.symbol}`} plan={plan} botName={botName(botId)} />)}
+          {plans.map(({ botId, plan }) => <ProfitPlan key={`${botId}-${plan.symbol}`} plan={plan} botName={botName(botId)} ledger={botLedger(botId)} />)}
         </article>;
       })}</div>}
       {snapshot.orders && snapshot.orders.length > 50 ? <p className={styles.meta}>Showing the latest 50 of {snapshot.orders.length} returned open orders.</p> : null}
@@ -209,6 +248,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
           candidate={candidate}
           collectedAt={cryptoReadiness.collectedAt}
           evidence={cryptoEvidence(candidate.symbol)}
+          ledger={botLedger("weekend-crypto-day-100")}
         />)}</div>
         <p className={styles.meta}>Showing execution-tier Daily Crypto candidates scoring 60+ for review. The bot still requires 80+ plus all other gates before PAPER submission.</p>
       </> : null}
@@ -223,11 +263,17 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
           now={now}
           entryWindowStart={botId === "three-trade-weekly-swing-100" ? swingReadiness?.entryWindowStart : null}
           entryWindowEnd={botId === "three-trade-weekly-swing-100" ? swingReadiness?.entryWindowEnd : null}
+          currentPrice={marketPrice(order.symbol)}
+          readiness={botId === "three-trade-weekly-swing-100" ? swingPlan(order.symbol) : null}
+          ledger={botLedger(botId)}
         />)}</div>
       </> : null}
     </> : <>
       {snapshot.positions === null ? <div className={styles.empty}>{snapshot.errors.positions || "Position data unavailable."}</div> : !snapshot.positions.length ? <div className={styles.empty}>No open positions in this paper account.</div>
-      : <div className={styles.recordList}>{snapshot.positions.slice(0, 50).map((position, index) => <article className={styles.record} key={index}><h3>{position.symbol} · {position.side}</h3><div className={styles.recordFields}><span>Quantity <strong>{position.quantity ?? "—"}</strong></span><span>Average entry <strong>{money(position.entry)}</strong></span><span>Market value <strong>{money(position.marketValue)}</strong></span><span>Unrealized P/L <strong>{money(position.unrealizedPl)}</strong></span></div>{matchingPlans(position.symbol).map(({ botId, plan }) => <ProfitPlan key={`${botId}-${plan.symbol}`} plan={plan} botName={botName(botId)} />)}</article>)}</div>}
+      : <div className={styles.recordList}>{snapshot.positions.slice(0, 50).map((position, index) => {
+        const currentPrice = position.quantity && position.marketValue !== null ? Math.abs(position.marketValue / position.quantity) : null;
+        return <article className={styles.record} key={index}><h3>{position.symbol} · {position.side}</h3><div className={styles.recordFields}><span>Quantity <strong>{position.quantity ?? "—"}</strong></span><span>Average entry <strong>{money(position.entry)}</strong></span><span>Current price <strong>{money(currentPrice)}</strong></span><span>Market value <strong>{money(position.marketValue)}</strong></span><span>Unrealized P/L <strong>{signedMoney(position.unrealizedPl)}</strong></span></div>{matchingPlans(position.symbol).map(({ botId, plan }) => <ProfitPlan key={`${botId}-${plan.symbol}`} plan={plan} botName={botName(botId)} ledger={botLedger(botId)} />)}</article>;
+      })}</div>}
       {snapshot.positions && snapshot.positions.length > 50 ? <p className={styles.meta}>Showing 50 of {snapshot.positions.length} open positions.</p> : null}
       <p className={styles.meta}>Recorded protective orders appear on Orders. Planned take-profit/trailing levels come from the bot strategy and are labeled separately until submitted.</p>
     </>}
