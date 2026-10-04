@@ -183,7 +183,7 @@ export default function PaperBotLab() {
       <div className={styles.cardHeader}>
         <div>
           <h2>Daily crypto day readiness</h2>
-          <p>Seven-day BTC / ETH / SOL proof-of-concept scanner using Alpaca quotes plus completed 5-minute and 15-minute bars.</p>
+          <p>Seven-day crypto scanner. BTC / ETH / SOL / LINK / DOT are execution-eligible; XRP / LTC / AVAX / DOGE / ADA / BCH / AAVE / HYPE / RENDER are monitor-only.</p>
         </div>
         <span className={styles.meta}>{weekendCrypto ? `PAPER ONLY · EXECUTOR ${weekendCrypto.executionEnabled ? "ARMED" : "DISABLED"}` : "PAPER ONLY"}</span>
       </div>
@@ -194,12 +194,12 @@ export default function PaperBotLab() {
         <div><span>Selected</span><strong>{weekendCrypto?.selectedSymbol ?? "None"}</strong></div>
       </div>
       <p className={styles.meta}>
-        Entry window {weekendCrypto?.session.entriesOpen ? "open" : "closed"} · one-position slots {weekendCrypto?.openPositionSlotsRemaining ?? "—"} · submission gate {weekendCrypto?.submissionReady ? "ready" : "closed"}
+        Entry window {weekendCrypto?.session.entriesOpen ? "open" : "closed"} · one-position slots {weekendCrypto?.openPositionSlotsRemaining ?? "—"} · submission gate {weekendCrypto?.submissionReady ? "ready" : "closed"} · execute pool {weekendCrypto?.executionUniverse.length ?? "—"} · monitor pool {weekendCrypto?.monitorOnlyUniverse.length ?? "—"}
         {weekendCrypto?.occupiedByOtherBots.length ? ` · held by other bots: ${weekendCrypto.occupiedByOtherBots.join(", ")}` : ""}
       </p>
       <div className={styles.botRuleGrid}>
         {(weekendCrypto?.candidates ?? []).map(candidate => <div key={candidate.symbol}>
-          <span>{candidate.symbol}</span>
+          <span>{candidate.symbol} · {candidate.executionEligible ? "EXECUTE" : "MONITOR ONLY"}</span>
           <strong className={candidate.state === "ready" ? styles.fresh : candidate.state === "blocked" ? styles.stale : styles.meta}>
             {candidate.state.toUpperCase()}{candidate.selectedForSubmission ? " · SELECTED" : ""} · {candidate.score}/100
           </strong>
