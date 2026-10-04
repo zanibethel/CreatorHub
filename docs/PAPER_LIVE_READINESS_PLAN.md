@@ -35,6 +35,7 @@ The goal is not merely to place successful orders. The system must demonstrate t
 - Three-Trade Weekly Swing Bot v1 active for staging.
 - QQQ, NVDA, and MSFT Monday plans persisted with trigger, max-chase, stop, risk, take-profit, and expiration values.
 - Bot Lab and Paper Trading Orders views expose safe monitoring information without public broker identifiers.
+- Trading cards now show current market price where available, planned/actual entry, stop/target, isolated bot ledger equity/P&L, and projected target P/L. Projections use actual position average entry when filled, planned entry/size before fill, subtract estimated round-trip fees for Daily Crypto, and label partial-target strategies as first-target P/L because the trailed remainder has no fixed final profit.
 - Daily Crypto Day v4 has its own isolated $100 ledger, stable `wkd` attribution tag, five-symbol execution pool (BTC/ETH/SOL/LINK/DOT), nine-symbol monitor-only pool, continuous 24/7 entry logic, and live Bot Lab readiness panel.
 - Paper trade telemetry now captures live MFE/MAE and persistent closed-trade R/P&L/fee/exit-reason outcomes without exposing broker identifiers.
 - Crypto entry fees now prefer broker-observed post-fee quantity over the 25-bps estimate; ledger application waits briefly for that observation, then safely falls back to the estimate.
