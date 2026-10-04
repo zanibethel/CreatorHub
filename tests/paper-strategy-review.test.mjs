@@ -110,3 +110,23 @@ test("score bands and symbol summaries combine observations without treating cou
   assert.equal(bot.symbols.find(item=>item.symbol==="DOT/USD").observations,2);
   assert.equal(bot.scoreBands.find(item=>item.band==="70-79").resolvedStudies,1);
 });
+
+
+test("monitor-only observations are visible but excluded from recommendation score bands and top reasons",()=>{
+  const report=review.buildPaperStrategyReview({
+    collectedAt:"2026-10-04T05:00:00Z",
+    ledgers:[ledger],
+    journal:[
+      {bot_id:ledger.bot_id,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:00:00Z",score:65,qualification:"watch",regime:"bullish",blockers:[],warnings:["Execution reason"],metadata:{executionEligible:true}},
+      {bot_id:ledger.bot_id,event_type:"candidate",symbol:"BCH/USD",occurred_at:"2026-10-04T01:00:00Z",score:85,qualification:"qualified",regime:"bullish",blockers:[],warnings:["Monitor-only reason"],metadata:{executionEligible:false}},
+    ],
+    trades:[],
+    counterfactuals:[],
+  });
+  const bot=report.bots[0];
+  assert.equal(bot.decisions.observations,2);
+  assert.equal(bot.decisions.executionRelevantObservations,1);
+  assert.equal(bot.decisions.monitorOnlyObservations,1);
+  assert.equal(bot.scoreBands.find(item=>item.band==="80-100").observations,0);
+  assert.equal(bot.decisions.topReasons[0].reason,"Execution reason");
+});
