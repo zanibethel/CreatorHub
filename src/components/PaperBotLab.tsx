@@ -714,16 +714,19 @@ export default function PaperBotLab() {
     </header>
 
     <nav className={styles.botSwitcher} aria-label="Paper bot portfolios">
-      {ACTIVE_PROFILES.map(item => {
+      {PAPER_BOT_PROFILES.map(item => {
         const itemLedger = ledgerReport?.bots.find(bot => bot.botId === item.id);
+        const active = item.status === "active";
         return <button
           key={item.id}
-          aria-pressed={item.id === profile.id}
-          onClick={() => { setSelectedBotId(item.id); setView("portfolio"); }}
+          aria-pressed={active && item.id === profile.id}
+          disabled={!active}
+          onClick={() => { if (active) { setSelectedBotId(item.id); setView("portfolio"); } }}
+          title={active ? item.style : "Reserved $100 pool · strategy setup pending"}
         >
           <span>{botShortName(item)}</span>
           <strong>{money(itemLedger?.equity ?? item.challengeStartingCash)}</strong>
-          <small>{signedMoney((itemLedger?.equity ?? item.challengeStartingCash) - item.challengeStartingCash)}</small>
+          <small>{active ? signedMoney((itemLedger?.equity ?? item.challengeStartingCash) - item.challengeStartingCash) : "Reserved · planned"}</small>
         </button>;
       })}
     </nav>
