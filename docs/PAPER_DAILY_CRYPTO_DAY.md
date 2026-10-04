@@ -4,7 +4,7 @@ Status: live scanner + automated PAPER execution armed; live money disabled.
 
 ## Purpose
 
-Test whether a tightly constrained, short-horizon crypto strategy can produce usable PAPER evidence across all seven days after Alpaca crypto fees and execution drag.
+Test whether a tightly constrained, short-horizon crypto strategy can produce usable PAPER evidence across all seven days after configured crypto fees and execution drag.
 
 This is a separate $100 challenge. It does not share capital, positions, P/L, or risk budget with Default Diverse, the swing bot, or the penny-stock experiment.
 
@@ -14,7 +14,7 @@ This is a separate $100 challenge. It does not share capital, positions, P/L, or
 - Stable broker tag: `wkd`
 - Current strategy: `daily-crypto-day-v5`
 - Starting virtual equity: $100
-- Execution venue: Alpaca Paper
+- Execution venue: configured PAPER venue
 - Live-money execution: disabled
 - PAPER execution: armed under deterministic scanner/risk/cron gates
 
@@ -44,7 +44,7 @@ Monitor-only:
 
 Monitor-only symbols run through the same quote freshness, spread, trend, momentum, breakout, ATR, fee-coverage, and score logic so we can collect comparable evidence. They may display READY, but they are never eligible for selection or broker submission in v3.
 
-Promoting a monitor-only symbol into execution requires a new versioned strategy revision. Because all bots share the same Alpaca PAPER account, v3 also blocks a new Daily Crypto Day entry in a symbol already held by another bot.
+Promoting a monitor-only symbol into execution requires a new versioned strategy revision. Because all bots share the same shared PAPER execution account, v3 also blocks a new Daily Crypto Day entry in a symbol already held by another bot.
 
 ## Session
 
@@ -62,9 +62,9 @@ America/Chicago remains the accounting timezone for daily entry count and daily 
 
 ## Market data
 
-Execution qualification uses Alpaca crypto data because Alpaca is the execution venue.
+Execution qualification uses execution-venue crypto market data so the plan is checked against the same venue used for PAPER orders.
 
-- Latest Alpaca crypto quote.
+- Latest execution-venue crypto quote.
 - Completed 5-minute bars for short-horizon momentum, breakout, ATR, and stop structure.
 - Completed 15-minute bars for trend confirmation.
 - BTC/USD 15-minute trend acts as the broad crypto long-regime gate.
@@ -110,7 +110,7 @@ The score never overrides a mandatory risk/session/liquidity blocker.
 
 - Risk budget per trade: 0.50% of current virtual equity.
 - Maximum initial allocation: 30% of current virtual equity.
-- Minimum executable notional: $12, providing a buffer above Alpaca's observed $10 crypto minimum.
+- Minimum executable notional: $12, providing a buffer above the execution venue's observed $10 crypto minimum.
 - Maximum open planned risk: 0.75%.
 - Daily realized-loss kill switch: 1.50%.
 - Minimum stop distance: 0.80%.
@@ -143,9 +143,9 @@ The scanner estimates round-trip entry + exit fees before a setup may qualify.
 
 The planned gross first-target profit must cover estimated round-trip fees by at least 2.50x.
 
-Entry-side fee reconciliation prefers a broker-observed value: after a fill, the executor compares gross filled quantity with Alpaca's actual post-fee sellable quantity, derives the effective entry fee bps/USD, and records that source before ledger application. The ledger waits up to 30 seconds for that observation and then falls back to the configured estimate rather than remaining stuck.
+Entry-side fee reconciliation prefers a broker-observed value: after a fill, the executor compares gross filled quantity with the execution venue's actual post-fee sellable quantity, derives the effective entry fee bps/USD, and records that source before ledger application. The ledger waits up to 30 seconds for that observation and then falls back to the configured estimate rather than remaining stuck.
 
-Sell-side fee accounting still uses the configured estimate until Alpaca exposes a usable CFEE record. A direct CFEE activity check on the PAPER account returned no entries as of 2026-10-03, so the system does not pretend those records exist.
+Sell-side fee accounting still uses the configured estimate until the execution venue exposes a usable fee-activity record. A direct CFEE activity check on the PAPER account returned no entries as of 2026-10-03, so the system does not pretend those records exist.
 
 ## Current implementation
 
@@ -157,7 +157,7 @@ Implemented:
 - Execution pool: BTC/ETH/SOL/LINK/DOT.
 - Monitor-only pool: XRP/LTC/AVAX/DOGE/ADA/BCH/AAVE/HYPE/RENDER.
 - Continuous 24/7 session controls with America/Chicago used only for daily accounting.
-- Alpaca quote + completed 5m/15m execution-data path.
+- Execution-venue quote + completed 5m/15m market-data path.
 - Deterministic fee-aware readiness engine.
 - Cross-bot same-symbol occupancy block.
 - Live Bot Lab readiness panel.
@@ -199,11 +199,11 @@ Any future live mode requires a separate explicit approval and must promote the 
 
 ## Controlled broker smoke — 2026-10-03
 
-A deliberately untagged Alpaca PAPER BTC smoke test was used so isolated $100 bot ledgers would ignore the activity.
+A deliberately untagged PAPER BTC smoke test was used so isolated $100 bot ledgers would ignore the activity.
 
 Observed broker behavior:
 
-- Alpaca rejected an approximately $5 BTC order because crypto cost basis must be at least $10.
+- The PAPER execution venue rejected an approximately $5 BTC order because crypto cost basis must be at least $10.
 - A roughly $12 BTC marketable-limit buy was accepted and filled.
 - Gross buy quantity: 0.00014155 BTC.
 - Fee-adjusted broker sellable quantity: 0.000141196 BTC.
@@ -215,14 +215,14 @@ Observed broker behavior:
 
 Implications retained in v3:
 
-- Planned trades must remain above Alpaca's observed $10 crypto minimum; the strategy enforces a $12 floor.
-- Protective orders use Alpaca's actual post-fee `qty_available`, not gross fill quantity.
+- Planned trades must remain above the execution venue's observed $10 crypto minimum; the strategy enforces a $12 floor.
+- Protective orders use the execution venue's actual post-fee `qty_available`, not gross fill quantity.
 - The guarded executor follows broker quantity rather than estimating sellable units locally.
 
 
 ## Live v3 expansion verification — 2026-10-03
 
-Verified against current `main`, Vercel Production, Supabase, and the connected Alpaca PAPER account after the two-tier universe expansion.
+Verified against current `main`, Vercel Production, Supabase, and the configured PAPER execution account after the two-tier universe expansion.
 
 - Production strategy: `daily-crypto-day-v3`, stable bot ID `weekend-crypto-day-100`, stable broker tag `wkd`.
 - Execution-eligible pool is BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD.
@@ -235,7 +235,7 @@ Verified against current `main`, Vercel Production, Supabase, and the connected 
 - Supabase ledger metadata records the execution and monitor-only universes with PAPER execution enabled and `liveMoneyEnabled=false`.
 - A v3 migration defect was found during reconciliation: the claim function identified orders as `daily-crypto-day-v3` but inserted prepared orders with `strategy_version=2`. The repository migration and live Supabase function were corrected to persist strategy version 3.
 - The live claim RPC remains restricted to `service_role`/database administration roles; monitor-only XRP/USD is rejected by the database whitelist while LINK/USD and DOT/USD are accepted.
-- No Daily Crypto Day `wkd` virtual position or recent bot order was present during verification. The shared Alpaca PAPER account still contained the existing Default Diverse SOL/USD position and its protective order, so SOL/USD remained cross-bot blocked for Daily Crypto Day.
+- No Daily Crypto Day `wkd` virtual position or recent bot order was present during verification. The shared PAPER execution account still contained the existing Default Diverse SOL/USD position and its protective order, so SOL/USD remained cross-bot blocked for Daily Crypto Day.
 - Vercel Production was healthy with no recent runtime-error clusters, and the five-minute crypto runner was returning successful scheduled responses.
 
 Live scanner snapshot around 21:56 America/Chicago:
@@ -264,7 +264,7 @@ Each study:
 - an untriggered study expires at the next local accounting-date rollover; a study that already triggered may continue across midnight until stop or +2R resolves it;
 - labels same-bar stop/target sequencing as ambiguous.
 
-Monitor-only symbols are excluded from missed-trade counts even if they score highly. The tracker is evidence-only and cannot submit an Alpaca order.
+Monitor-only symbols are excluded from missed-trade counts even if they score highly. The tracker is evidence-only and cannot submit a PAPER execution order.
 
 
 ## v4 continuous-session revision — 2026-10-04
