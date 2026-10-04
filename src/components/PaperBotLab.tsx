@@ -290,7 +290,7 @@ export default function PaperBotLab() {
       <div className={styles.cardHeader}>
         <div>
           <h2>Daily crypto day readiness</h2>
-          <p>Seven-day crypto scanner. BTC / ETH / SOL / LINK / DOT are execution-eligible; XRP / LTC / AVAX / DOGE / ADA / BCH / AAVE / HYPE / RENDER are monitor-only.</p>
+          <p>Continuous 24/7 crypto scanner. BTC / ETH / SOL / LINK / DOT are execution-eligible; XRP / LTC / AVAX / DOGE / ADA / BCH / AAVE / HYPE / RENDER are monitor-only.</p>
         </div>
         <span className={styles.meta}>{weekendCrypto ? `PAPER ONLY · EXECUTOR ${weekendCrypto.executionEnabled ? "ARMED" : "DISABLED"}` : "PAPER ONLY"}</span>
       </div>
@@ -301,7 +301,7 @@ export default function PaperBotLab() {
         <div><span>Selected</span><strong>{weekendCrypto?.selectedSymbol ?? "None"}</strong></div>
       </div>
       <p className={styles.meta}>
-        Entry window {weekendCrypto?.session.entriesOpen ? "open" : "closed"} · one-position slots {weekendCrypto?.openPositionSlotsRemaining ?? "—"} · submission gate {weekendCrypto?.submissionReady ? "ready" : "closed"} · execute pool {weekendCrypto?.executionUniverse.length ?? "—"} · monitor pool {weekendCrypto?.monitorOnlyUniverse.length ?? "—"}
+        24/7 entries {weekendCrypto?.session.entriesOpen ? "enabled" : "disabled"} · one-position slots {weekendCrypto?.openPositionSlotsRemaining ?? "—"} · submission gate {weekendCrypto?.submissionReady ? "ready" : "closed"} · execute pool {weekendCrypto?.executionUniverse.length ?? "—"} · monitor pool {weekendCrypto?.monitorOnlyUniverse.length ?? "—"}
         {weekendCrypto?.occupiedByOtherBots.length ? ` · held by other bots: ${weekendCrypto.occupiedByOtherBots.join(", ")}` : ""}
       </p>
       <div className={styles.botRuleGrid}>
