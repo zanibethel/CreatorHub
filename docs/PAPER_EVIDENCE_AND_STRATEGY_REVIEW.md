@@ -237,3 +237,23 @@ Still required for complete coverage:
 Broker `rejected` order events and strategy-level rejected/blocked candidate events share the journal event name `rejected`; broker lifecycle records are explicitly identified with `metadata.lifecycleSource=broker-reconciliation` and `metadata.brokerStatus` so later analysis can separate execution rejection from strategy rejection.
 
 Nothing materially considered by the algorithm should be discarded merely because no trade occurred.
+
+
+## Counterfactual evidence
+
+Counterfactual studies are observation-only records for serious setups that were considered but not submitted. They never authorize or submit an order.
+
+Daily Crypto v3 is the first live counterfactual source:
+- Only execution-tier symbols can seed a missed-trade study. Monitor-only symbols never count as missed trades.
+- The existing evidence qualification is reused: score >= 60 (Watch or better).
+- Seeding only occurs while the local entry window is open.
+- A setup that is already selected for an enabled live PAPER submission is not duplicated as a missed trade.
+- One initial study is kept per execution symbol per local crypto session so five-minute rescans do not create dozens of copies of the same idea.
+- The study is frozen from the information available at the recorded decision time: trigger, maximum entry, protective stop, planned target, score, blockers, warnings, quote/spread context, and regime.
+- Tracking starts only with completed five-minute bars after the decision baseline. Earlier bars are never used to improve a historical result.
+- A move entirely above max entry does not invent a fill.
+- After an assumed trigger, +1R, +2R, stop, MFE, MAE, mark count, and session expiry are recorded.
+- If a stop and a newly reached +1R/+2R threshold occur inside the same completed candle and sequence cannot be proven, the result is `ambiguous`, not guessed.
+- Remaining watching/triggered studies expire at the deterministic session flatten boundary.
+
+The storage table is `paper_bot_counterfactuals`. It is private service-role PAPER evidence with RLS enabled and no public/client access. The schema is strategy-agnostic so swing and later bots can use the same outcome model; Daily Crypto is currently the first producer.
