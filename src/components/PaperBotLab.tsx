@@ -32,7 +32,11 @@ type WatchRow = {
   strategies: Array<"day" | "swing" | "long">;
   targetEntry?: number | null;
   projectedPurchase?: number | null;
+  stopPrice?: number | null;
+  projectedLoss?: number | null;
+  exitPrice?: number | null;
   projectedProfit?: number | null;
+  projectedProfitPct?: number | null;
   executionEligible?: boolean;
 };
 
@@ -134,7 +138,10 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
       <div className={styles.watchPlan}>
         <span><small>Target entry</small><strong>{money(row.targetEntry)}</strong></span>
         <span><small>Planned buy</small><strong>{money(row.projectedPurchase)}</strong></span>
-        <span><small>Projected profit</small><strong>{signedMoney(row.projectedProfit)}</strong></span>
+        <span><small>Stop price</small><strong>{money(row.stopPrice)}</strong></span>
+        <span><small>Max loss</small><strong>{row.projectedLoss == null ? "—" : signedMoney(-Math.abs(row.projectedLoss))}</strong></span>
+        <span><small>Exit price</small><strong>{money(row.exitPrice)}</strong></span>
+        <span><small>Projected profit</small><strong>{signedMoney(row.projectedProfit)}{row.projectedProfitPct == null ? "" : ` · ${percent(row.projectedProfitPct)}`}</strong></span>
       </div>
       <span className={styles.portfolioScore}>Score <strong>{row.score !== null ? `${row.score.toFixed(1)}/100` : "N/A"}</strong></span>
       <small className={styles.watchDetail}>{row.detail}</small>
@@ -306,9 +313,17 @@ export default function PaperBotLab() {
           ? stagedQuantity * stagedPlan.entry_trigger
           : null
       ),
+      stopPrice: stagedPlan?.protective_stop ?? null,
+      projectedLoss: stagedPlan?.planned_risk_dollars ?? null,
+      exitPrice: stagedPlan?.take_profit_price ?? null,
       projectedProfit: stagedPlan
         ? projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1)
         : null,
+      projectedProfitPct: stagedPlan && stagedPlan.requested_notional != null && stagedPlan.requested_notional > 0
+        ? (projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1) ?? 0) / stagedPlan.requested_notional * 100
+        : stagedPlan && stagedQuantity != null && stagedPlan.entry_trigger != null && stagedPlan.entry_trigger > 0
+          ? (projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1) ?? 0) / (stagedQuantity * stagedPlan.entry_trigger) * 100
+          : null,
     };
   });
 
@@ -322,8 +337,14 @@ export default function PaperBotLab() {
     strategies: ["swing"],
     targetEntry: plan.executionPreview?.entryReference ?? null,
     projectedPurchase: plan.executionPreview?.estimatedNotional ?? null,
+    stopPrice: plan.executionPreview?.stopLoss ?? null,
+    projectedLoss: plan.executionPreview?.plannedRiskDollars ?? null,
+    exitPrice: plan.executionPreview?.takeProfit ?? null,
     projectedProfit: plan.executionPreview
       ? projectedProfit(plan.executionPreview.entryReference, plan.executionPreview.takeProfit, plan.executionPreview.quantity)
+      : null,
+    projectedProfitPct: plan.executionPreview?.estimatedNotional
+      ? ((projectedProfit(plan.executionPreview.entryReference, plan.executionPreview.takeProfit, plan.executionPreview.quantity) ?? 0) / plan.executionPreview.estimatedNotional) * 100
       : null,
     executionEligible: true,
   }));
@@ -342,7 +363,18 @@ export default function PaperBotLab() {
         ? candidate.trigger * candidate.plannedQuantity
         : null
     ),
+    stopPrice: candidate.protectiveStop,
+    projectedLoss: candidate.plannedRiskDollars,
+    exitPrice: candidate.takeProfit,
     projectedProfit: candidate.estimatedGrossTargetDollars ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity),
+    projectedProfitPct: (candidate.plannedNotional ?? (
+      candidate.trigger != null && candidate.plannedQuantity != null
+        ? candidate.trigger * candidate.plannedQuantity
+        : null
+    ))
+      ? ((candidate.estimatedGrossTargetDollars ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity) ?? 0) /
+          (candidate.plannedNotional ?? (candidate.trigger! * candidate.plannedQuantity!))) * 100
+      : null,
     executionEligible: candidate.executionEligible,
   }));
 
