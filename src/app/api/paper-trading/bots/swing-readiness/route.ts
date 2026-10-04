@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { evaluateSwingReadiness, type SwingPreparedPlan } from "@/lib/paper-swing-revalidation";
 import { buildSwingExecutionPreview } from "@/lib/paper-swing-execution";
+import { buildSwingRevalidationJournalRows } from "@/lib/paper-swing-evidence";
 
 export const dynamic = "force-dynamic";
 
@@ -21,6 +22,9 @@ const ledgerSchema = z.object({
 });
 
 const planSchema = z.object({
+  client_order_id: z.string().min(12).max(128),
+  strategy_id: z.string().min(1),
+  strategy_version: z.coerce.number().int().positive(),
   symbol: z.string().min(1).max(32),
   requested_notional: z.coerce.number().finite().positive(),
   entry_trigger: z.coerce.number().finite().positive(),
@@ -28,6 +32,14 @@ const planSchema = z.object({
   protective_stop: z.coerce.number().finite().positive(),
   planned_risk_dollars: z.coerce.number().finite().positive(),
   expires_at: z.string().max(64),
+  created_at: z.string().max(64),
+  stage_reason: z.string().nullable(),
+  take_profit_price: z.coerce.number().finite().positive().nullable(),
+  take_profit_fraction: z.coerce.number().finite().positive().nullable(),
+  take_profit_r: z.coerce.number().finite().positive().nullable(),
+  protect_winner_at_r: z.coerce.number().finite().positive().nullable(),
+  trail_remainder: z.boolean(),
+  metadata: z.record(z.string(), z.unknown()),
 });
 
 const positionSchema = z.object({
@@ -60,7 +72,7 @@ function average(values: number[]) {
   return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : null;
 }
 
-export async function GET() {
+export async function GET(request: Request) {
   const supabaseSecret = process.env.SUPABASE_SECRET_KEY;
   const alpacaKey = process.env.ALPACA_API_KEY_ID;
   const alpacaSecret = process.env.ALPACA_API_SECRET_KEY;
@@ -81,6 +93,28 @@ export async function GET() {
     return response.json();
   };
 
+  const writeDb = async (
+    path: string,
+    body: unknown,
+    method: "POST" | "PATCH" = "POST",
+    prefer = "return=minimal",
+  ) => {
+    const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      method,
+      headers: {
+        ...supabaseHeaders,
+        "Content-Type": "application/json",
+        Prefer: prefer,
+      },
+      body: JSON.stringify(body),
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!response.ok) throw new Error(`Swing evidence storage returned HTTP ${response.status}.`);
+    const text = await response.text();
+    return text ? JSON.parse(text) : null;
+  };
+
   const alpacaHeaders = {
     "APCA-API-KEY-ID": alpacaKey,
     "APCA-API-SECRET-KEY": alpacaSecret,
@@ -99,7 +133,7 @@ export async function GET() {
   try {
     const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw, quoteRaw, barsRaw] = await Promise.all([
       readDb(`paper_bot_ledgers?select=status,equity,buying_power,open_planned_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,metadata&bot_id=eq.${BOT_ID}&limit=1`),
-      readDb(`paper_bot_orders?select=symbol,requested_notional,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at&bot_id=eq.${BOT_ID}&side=eq.buy&status=eq.prepared&order=created_at.asc&limit=20`),
+      readDb(`paper_bot_orders?select=client_order_id,strategy_id,strategy_version,symbol,requested_notional,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,created_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,metadata&bot_id=eq.${BOT_ID}&side=eq.buy&status=eq.prepared&order=created_at.asc&limit=20`),
       readDb(`paper_bot_positions?select=symbol,planned_risk_dollars&bot_id=eq.${BOT_ID}&quantity=gt.0&limit=20`),
       readDb(`paper_bot_orders?select=submitted_at,status&bot_id=eq.${BOT_ID}&side=eq.buy&status=in.(submitted,partially_filled,filled)&limit=100`),
       readAlpaca("https://paper-api.alpaca.markets/v2/clock"),
@@ -154,6 +188,25 @@ export async function GET() {
       expiresAt: plan.expires_at,
     }));
 
+    const evidencePlans = planRows.map(plan => ({
+      clientOrderId: plan.client_order_id,
+      symbol: plan.symbol,
+      requestedNotional: plan.requested_notional,
+      entryTrigger: plan.entry_trigger,
+      maxEntryPrice: plan.max_entry_price,
+      protectiveStop: plan.protective_stop,
+      plannedRiskDollars: plan.planned_risk_dollars,
+      expiresAt: plan.expires_at,
+      createdAt: plan.created_at,
+      stageReason: plan.stage_reason,
+      takeProfitPrice: plan.take_profit_price,
+      takeProfitFraction: plan.take_profit_fraction,
+      takeProfitR: plan.take_profit_r,
+      protectWinnerAtR: plan.protect_winner_at_r,
+      trailRemainder: plan.trail_remainder,
+      metadata: plan.metadata,
+    }));
+
     const result = evaluateSwingReadiness({
       now,
       marketOpen: Boolean(clock.is_open),
@@ -186,6 +239,55 @@ export async function GET() {
     });
 
     const executionEnabled = ledger.metadata.executionEnabled === true;
+    const cronSecret = process.env.CRON_SECRET?.trim() ?? "";
+    const evidenceRun = Boolean(
+      cronSecret
+      && request.headers.get("authorization") === `Bearer ${cronSecret}`
+    );
+    let evidencePersisted = false;
+    let expiredPlans = 0;
+
+    if (evidenceRun && evidencePlans.length > 0) {
+      const collectedAt = new Date(now).toISOString();
+      const rows = buildSwingRevalidationJournalRows({
+        botId: BOT_ID,
+        strategyId: result.strategyId,
+        strategyVersion: result.strategyVersion,
+        collectedAt,
+        broadMarketSupportive,
+        marketOpen: Boolean(clock.is_open),
+        minutesSinceOpen,
+        weeklySlotsRemaining: result.weeklySlotsRemaining,
+        openPositionSlotsRemaining: result.openPositionSlotsRemaining,
+        executionEnabled,
+        plans: evidencePlans,
+        readiness: result.plans,
+      });
+      await writeDb("paper_bot_journal", rows);
+      evidencePersisted = true;
+
+      for (const row of rows) {
+        if (row.metadata.terminalDisposition !== "expired" || !row.client_order_id) continue;
+        const source = planRows.find(plan => plan.client_order_id === row.client_order_id);
+        if (!source) continue;
+        await writeDb(
+          `paper_bot_orders?client_order_id=eq.${encodeURIComponent(source.client_order_id)}&status=eq.prepared`,
+          {
+            status: "expired",
+            metadata: {
+              ...source.metadata,
+              terminalDisposition: "expired",
+              terminalReason: "Prepared plan expired before PAPER submission.",
+              terminalAt: collectedAt,
+            },
+            updated_at: collectedAt,
+          },
+          "PATCH",
+        );
+        expiredPlans += 1;
+      }
+    }
+
     const plansWithExecution = result.plans.map(readiness => {
       const sourcePlan = plans.find(plan => plan.symbol === readiness.symbol);
       if (!readiness.selectedForSubmission || !sourcePlan || readiness.ask === null) {
@@ -218,7 +320,8 @@ export async function GET() {
       executionEnabled,
       submissionReady: executionEnabled && result.readyCount > 0,
       brokerProtection: "bracket",
-    }, { headers: { "Cache-Control": "public, s-maxage=5, stale-while-revalidate=5" } });
+      ...(evidenceRun ? { evidencePersisted, expiredPlans } : {}),
+    }, { headers: { "Cache-Control": evidenceRun ? "no-store" : "public, s-maxage=5, stale-while-revalidate=5" } });
   } catch (error) {
     return json(error instanceof Error ? error.message : "Swing readiness is temporarily unavailable.");
   }
