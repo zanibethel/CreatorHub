@@ -4,6 +4,13 @@ import Link from "next/link";
 import { useState } from "react";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
+import {
+  PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION,
+  derivePaperBotLifecycle,
+  paperBotPlanLabel,
+  type PaperBotLifecycleStage,
+  type PaperBotTradePlan,
+} from "@/lib/paper-bot-trade-plan";
 import { evaluatePaperCandidate } from "@/lib/paper-decision-engine";
 import useAccountReport from "./useAccountReport";
 import useMarketMonitor from "./useMarketMonitor";
@@ -21,7 +28,6 @@ import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
 type PortfolioView = "portfolio" | "holdings" | "watchlist" | "orders" | "trades" | "strategy";
-type WatchLifecycleStage = "WATCHING" | "PREPARED" | "READY" | "ORDERED" | "HOLDING" | "EXITED";
 
 type WatchRow = {
   symbol: string;
@@ -286,7 +292,7 @@ export default function PaperBotLab() {
   const review = strategyReview?.bots.find(item => item.botId === profile.id) ?? null;
   const counterfactuals = ledgerReport?.counterfactuals?.[profile.id] ?? [];
 
-  const defaultWatchRows: WatchRow[] = [...watchlist.stocks, ...watchlist.crypto].map(item => {
+  const defaultTradePlans: PaperBotTradePlan[] = [...watchlist.stocks, ...watchlist.crypto].map(item => {
     const stockQuote = marketSnapshot?.stocks[item.symbol];
     const cryptoQuote = marketSnapshot?.crypto.find(entry => normalizedSymbol(entry.product) === normalizedSymbol(item.symbol));
     const currentPrice = stockQuote
@@ -326,7 +332,7 @@ export default function PaperBotLab() {
         risk: { accountEquity: ledger?.equity ?? profile.challengeStartingCash },
       });
     })() : null;
-    const score = decision?.score ?? null;
+
     const stagedPlan = stagedOrders.find(order => normalizedSymbol(order.symbol) === normalizedSymbol(item.symbol));
     const stagedQuantity = stagedPlan?.requested_quantity ?? (
       stagedPlan?.requested_notional != null && stagedPlan.entry_trigger != null && stagedPlan.entry_trigger > 0
@@ -347,46 +353,59 @@ export default function PaperBotLab() {
     const referenceLoss = referenceEntry != null && referenceStop != null && referenceQuantity != null && referenceStop < referenceEntry
       ? (referenceEntry - referenceStop) * referenceQuantity
       : null;
+    const stagedProfit = stagedPlan
+      ? projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1)
+      : null;
+    const stagedPurchase = stagedPlan?.requested_notional ?? (
+      stagedQuantity != null && stagedPlan?.entry_trigger != null
+        ? stagedQuantity * stagedPlan.entry_trigger
+        : null
+    );
+    const phase = stagedPlan
+      ? "prepared" as const
+      : referenceEntry != null && referenceStop != null && referenceExit != null
+        ? "reference" as const
+        : "awaiting-data" as const;
+
     return {
+      contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION,
+      botId: profile.id,
+      strategyId: decision?.strategyId ?? profile.strategyId,
+      strategyVersion: decision?.strategyVersion ?? null,
       symbol: item.symbol.replace("-", "/"),
       label: item.label,
+      assetClass,
       currentPrice,
+      score: decision?.score ?? null,
       state: item.tier === "reserve" ? "RESERVE" : "WATCHING",
-      score,
-      detail: item.role,
-      strategies: [
+      detail: decision?.blockers[0] ?? decision?.warnings[0] ?? item.role,
+      horizons: [
         ...(item.pools.includes("day") ? ["day" as const] : []),
         ...(item.pools.includes("multi-day") ? ["swing" as const] : []),
         ...(item.pools.includes("multi-week") ? ["long" as const] : []),
       ],
-      targetEntry: stagedPlan?.entry_trigger ?? referenceEntry,
-      projectedPurchase: stagedPlan?.requested_notional ?? (
-        stagedQuantity != null && stagedPlan?.entry_trigger != null
-          ? stagedQuantity * stagedPlan.entry_trigger
-          : referencePurchase
-      ),
-      stopPrice: stagedPlan?.protective_stop ?? referenceStop,
-      projectedLoss: stagedPlan?.planned_risk_dollars ?? referenceLoss,
-      exitPrice: stagedPlan?.take_profit_price ?? referenceExit,
-      projectedProfit: stagedPlan
-        ? projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1)
-        : referenceProfit,
-      projectedProfitPct: stagedPlan && stagedPlan.requested_notional != null && stagedPlan.requested_notional > 0
-        ? (projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1) ?? 0) / stagedPlan.requested_notional * 100
-        : stagedPlan && stagedQuantity != null && stagedPlan.entry_trigger != null && stagedPlan.entry_trigger > 0
-          ? (projectedProfit(stagedPlan.entry_trigger, stagedPlan.take_profit_price, stagedQuantity, stagedPlan.take_profit_fraction ?? 1) ?? 0) / (stagedQuantity * stagedPlan.entry_trigger) * 100
+      executionEligible: item.tradable && item.pools.length > 0,
+      selectedForSubmission: false,
+      blockers: decision?.blockers ?? [],
+      warnings: decision?.warnings ?? [],
+      plan: {
+        phase,
+        entryPrice: stagedPlan?.entry_trigger ?? referenceEntry,
+        purchaseAmount: stagedPurchase ?? referencePurchase,
+        stopPrice: stagedPlan?.protective_stop ?? referenceStop,
+        maxLossDollars: stagedPlan?.planned_risk_dollars ?? referenceLoss,
+        exitPrice: stagedPlan?.take_profit_price ?? referenceExit,
+        projectedProfitDollars: stagedPlan ? stagedProfit : referenceProfit,
+        projectedProfitPct: stagedPlan && stagedPurchase != null && stagedPurchase > 0
+          ? (stagedProfit ?? 0) / stagedPurchase * 100
           : referenceProfit != null && referencePurchase != null && referencePurchase > 0
             ? referenceProfit / referencePurchase * 100
             : null,
-      planLabel: stagedPlan
-        ? "PREPARED PLAN"
-        : referenceEntry != null && referenceStop != null && referenceExit != null
-          ? "REFERENCE PLAN"
-          : "AWAITING DATA",
+      },
     };
   });
 
-  const swingWatchRows: WatchRow[] = (swingReadiness?.plans ?? []).map(plan => {
+  const swingTradePlans: PaperBotTradePlan[] = (swingReadiness?.plans ?? []).map(plan => {
     const activePlan = plan.executionPreview ?? plan.referencePlan;
     const planProfit = plan.executionPreview
       ? projectedProfit(plan.executionPreview.entryReference, plan.executionPreview.takeProfit, plan.executionPreview.quantity)
@@ -394,99 +413,131 @@ export default function PaperBotLab() {
     const planProfitPct = plan.executionPreview?.estimatedNotional
       ? ((planProfit ?? 0) / plan.executionPreview.estimatedNotional) * 100
       : plan.referencePlan?.projectedProfitPct ?? null;
+    const phase = plan.executionPreview
+      ? "ready" as const
+      : plan.referencePlan
+        ? "reference" as const
+        : "awaiting-data" as const;
+
     return {
+      contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION,
+      botId: profile.id,
+      strategyId: swingReadiness?.strategyId ?? profile.strategyId,
+      strategyVersion: swingReadiness?.strategyVersion ?? null,
       symbol: plan.symbol,
       label: "Weekly swing candidate",
+      assetClass: plan.symbol === "QQQ" ? "etf" : "stock",
       currentPrice: midPrice(plan.bid, plan.ask),
       state: plan.selectedForSubmission ? "SELECTED" : plan.state.toUpperCase(),
       score: null,
       detail: plan.waitingOn[0] ?? plan.blockers[0] ?? "All currently evaluated gates pass.",
-      strategies: ["swing"],
-      targetEntry: activePlan?.entryReference ?? null,
-      projectedPurchase: activePlan?.estimatedNotional ?? null,
-      stopPrice: activePlan?.stopLoss ?? null,
-      projectedLoss: activePlan?.plannedRiskDollars ?? null,
-      exitPrice: activePlan?.takeProfit ?? null,
-      projectedProfit: planProfit,
-      projectedProfitPct: planProfitPct,
-      planLabel: plan.executionPreview ? "READY PLAN" : plan.referencePlan ? "REFERENCE PLAN" : "AWAITING DATA",
+      horizons: ["swing"],
       executionEligible: true,
+      selectedForSubmission: plan.selectedForSubmission,
+      blockers: plan.blockers,
+      warnings: plan.waitingOn,
+      plan: {
+        phase,
+        entryPrice: activePlan?.entryReference ?? null,
+        purchaseAmount: activePlan?.estimatedNotional ?? null,
+        stopPrice: activePlan?.stopLoss ?? null,
+        maxLossDollars: activePlan?.plannedRiskDollars ?? null,
+        exitPrice: activePlan?.takeProfit ?? null,
+        projectedProfitDollars: planProfit,
+        projectedProfitPct: planProfitPct,
+      },
     };
   });
 
-  const cryptoWatchRows: WatchRow[] = (cryptoReadiness?.candidates ?? []).map(candidate => ({
-    symbol: candidate.symbol,
-    label: candidate.executionEligible ? "Execution eligible" : "Monitor only",
-    currentPrice: midPrice(candidate.bid, candidate.ask),
-    state: candidate.selectedForSubmission ? "SELECTED" : candidate.state.toUpperCase(),
-    score: candidate.score,
-    detail: candidate.waitingOn[0] ?? candidate.blockers[0] ?? "All currently evaluated gates pass.",
-    strategies: ["day"],
-    targetEntry: candidate.trigger,
-    projectedPurchase: candidate.plannedNotional ?? (
+  const cryptoTradePlans: PaperBotTradePlan[] = (cryptoReadiness?.candidates ?? []).map(candidate => {
+    const purchaseAmount = candidate.plannedNotional ?? (
       candidate.trigger != null && candidate.plannedQuantity != null
         ? candidate.trigger * candidate.plannedQuantity
         : null
-    ),
-    stopPrice: candidate.protectiveStop,
-    projectedLoss: candidate.plannedRiskDollars,
-    exitPrice: candidate.takeProfit,
-    projectedProfit: candidate.estimatedGrossTargetDollars ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity),
-    projectedProfitPct: (candidate.plannedNotional ?? (
-      candidate.trigger != null && candidate.plannedQuantity != null
-        ? candidate.trigger * candidate.plannedQuantity
-        : null
-    ))
-      ? ((candidate.estimatedGrossTargetDollars ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity) ?? 0) /
-          (candidate.plannedNotional ?? (candidate.trigger! * candidate.plannedQuantity!))) * 100
-      : null,
-    planLabel: candidate.selectedForSubmission || candidate.state === "ready"
-      ? "READY PLAN"
+    );
+    const profit = candidate.estimatedGrossTargetDollars
+      ?? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity);
+    const phase = candidate.selectedForSubmission || candidate.state === "ready"
+      ? "ready" as const
       : candidate.trigger != null && candidate.protectiveStop != null && candidate.takeProfit != null
-        ? "REFERENCE PLAN"
-        : "AWAITING DATA",
-    executionEligible: candidate.executionEligible,
-  }));
+        ? "reference" as const
+        : "awaiting-data" as const;
 
-  const candidateWatchRows = profile.id === "weekend-crypto-day-100"
-    ? cryptoWatchRows
-    : profile.id === "three-trade-weekly-swing-100"
-      ? swingWatchRows
-      : defaultWatchRows;
+    return {
+      contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION,
+      botId: profile.id,
+      strategyId: cryptoReadiness?.strategyId ?? profile.strategyId,
+      strategyVersion: cryptoReadiness?.strategyVersion ?? null,
+      symbol: candidate.symbol,
+      label: candidate.executionEligible ? "Execution eligible" : "Monitor only",
+      assetClass: "crypto",
+      currentPrice: midPrice(candidate.bid, candidate.ask),
+      state: candidate.selectedForSubmission ? "SELECTED" : candidate.state.toUpperCase(),
+      score: candidate.score,
+      detail: candidate.waitingOn[0] ?? candidate.blockers[0] ?? "All currently evaluated gates pass.",
+      horizons: ["day"],
+      executionEligible: candidate.executionEligible,
+      selectedForSubmission: candidate.selectedForSubmission,
+      blockers: candidate.blockers,
+      warnings: candidate.waitingOn,
+      plan: {
+        phase,
+        entryPrice: candidate.trigger,
+        purchaseAmount,
+        stopPrice: candidate.protectiveStop,
+        maxLossDollars: candidate.plannedRiskDollars,
+        exitPrice: candidate.takeProfit,
+        projectedProfitDollars: profit,
+        projectedProfitPct: purchaseAmount != null && purchaseAmount > 0 && profit != null
+          ? profit / purchaseAmount * 100
+          : null,
+      },
+    };
+  });
 
-  const watchRows = candidateWatchRows.map(row => {
-    const symbol = normalizedSymbol(row.symbol);
+  const tradePlansBySource = {
+    "decision-engine": defaultTradePlans,
+    "swing-readiness": swingTradePlans,
+    "crypto-readiness": cryptoTradePlans,
+  } satisfies Record<Exclude<PaperBotProfile["tradePlan"]["source"], "not-configured">, PaperBotTradePlan[]>;
+
+  const candidateTradePlans = profile.tradePlan.source === "not-configured"
+    ? []
+    : tradePlansBySource[profile.tradePlan.source];
+
+  const watchRows: WatchRow[] = candidateTradePlans.map(tradePlan => {
+    const symbol = normalizedSymbol(tradePlan.symbol);
     const position = positions.find(item => normalizedSymbol(item.symbol) === symbol);
     const activeOrder = liveBrokerOrders.find(item => normalizedSymbol(item.symbol) === symbol);
     const latestClosed = closedTrades
       .filter(item => normalizedSymbol(item.symbol) === symbol)
       .sort((a, b) => Date.parse(b.closed_at ?? b.opened_at) - Date.parse(a.closed_at ?? a.opened_at))[0];
+    const lifecycle = derivePaperBotLifecycle(tradePlan, {
+      openPosition: Boolean(position),
+      activeOrder: activeOrder ? { side: activeOrder.side, status: activeOrder.status } : null,
+      latestClosedTrade: latestClosed ? { realizedPl: latestClosed.realized_pl } : null,
+    });
 
-    let lifecycleStage: WatchLifecycleStage = "WATCHING";
-    let lifecycleDetail = row.planLabel === "REFERENCE PLAN"
-      ? "Reference plan only — no order authorization yet."
-      : row.detail;
-
-    if (position) {
-      lifecycleStage = "HOLDING";
-      lifecycleDetail = activeOrder?.side === "sell"
-        ? `Position open · ${activeOrder.status.replaceAll("_", " ")} exit order active.`
-        : "Entry filled · position is currently open.";
-    } else if (activeOrder) {
-      lifecycleStage = "ORDERED";
-      lifecycleDetail = `${activeOrder.side.toUpperCase()} order ${activeOrder.status.replaceAll("_", " ")}.`;
-    } else if (row.planLabel === "READY PLAN" || row.state === "SELECTED" || row.state === "READY") {
-      lifecycleStage = "READY";
-      lifecycleDetail = "Execution gates currently pass; waiting for submission/fill.";
-    } else if (row.planLabel === "PREPARED PLAN") {
-      lifecycleStage = "PREPARED";
-      lifecycleDetail = "Concrete entry, size, stop, and target are prepared.";
-    } else if (row.planLabel === "AWAITING DATA" && latestClosed) {
-      lifecycleStage = "EXITED";
-      lifecycleDetail = `Last trade exited${latestClosed.realized_pl == null ? "" : ` at ${signedMoney(latestClosed.realized_pl)}`}.`;
-    }
-
-    return { ...row, lifecycleStage, lifecycleDetail };
+    return {
+      symbol: tradePlan.symbol,
+      label: tradePlan.label,
+      currentPrice: tradePlan.currentPrice,
+      state: tradePlan.state,
+      score: tradePlan.score,
+      detail: tradePlan.detail,
+      strategies: tradePlan.horizons,
+      targetEntry: tradePlan.plan.entryPrice,
+      projectedPurchase: tradePlan.plan.purchaseAmount,
+      stopPrice: tradePlan.plan.stopPrice,
+      projectedLoss: tradePlan.plan.maxLossDollars,
+      exitPrice: tradePlan.plan.exitPrice,
+      projectedProfit: tradePlan.plan.projectedProfitDollars,
+      projectedProfitPct: tradePlan.plan.projectedProfitPct,
+      planLabel: paperBotPlanLabel(tradePlan.plan.phase),
+      lifecycleStage: lifecycle.stage,
+      lifecycleDetail: lifecycle.detail,
+      executionEligible: tradePlan.executionEligible,
+    };
   });
 
   const equity = ledger?.equity ?? profile.challengeStartingCash;
