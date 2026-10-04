@@ -80,7 +80,7 @@ export function buildDailyCryptoScanJournalRows(
       fastMomentumPct: candidate.fastMomentumPct,
       slowMomentumPct: candidate.slowMomentumPct,
       atrPct: candidate.atrPct,
-      source: "alpaca-crypto-us",
+      source: "crypto-market-feed-us",
       fastTimeframe: "5Min",
       slowTimeframe: "15Min",
     },
