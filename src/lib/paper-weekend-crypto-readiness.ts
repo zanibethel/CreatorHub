@@ -1,4 +1,4 @@
-import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "./paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V3 as strategy } from "./paper-weekend-crypto-strategy-config";
 
 export type CryptoBar = {
   t: string;
@@ -28,6 +28,8 @@ export type WeekendCryptoLedgerState = {
 
 export type WeekendCryptoCandidate = {
   symbol: string;
+  tier: "execution" | "monitor";
+  executionEligible: boolean;
   state: "ready" | "waiting" | "blocked";
   selectedForSubmission: boolean;
   score: number;
@@ -166,6 +168,7 @@ export function evaluateWeekendCryptoReadiness(input: {
 }) {
   const session = dailyCryptoSession(input.now);
   const occupied = new Set(input.occupiedByOtherBots);
+  const executable = new Set<string>(strategy.executionUniverse);
   const btc15 = input.bars15m["BTC/USD"] ?? [];
   const btcFast = sma(btc15, strategy.setup.slowFastSmaPeriod);
   const btcSlow = sma(btc15, strategy.setup.slowSmaPeriod);
@@ -176,6 +179,7 @@ export function evaluateWeekendCryptoReadiness(input: {
       : false;
 
   const candidates: WeekendCryptoCandidate[] = strategy.universe.map(symbol => {
+    const executionEligible = executable.has(symbol);
     const quote = input.quotes[symbol];
     const fastBars = input.bars5m[symbol] ?? [];
     const slowBars = input.bars15m[symbol] ?? [];
@@ -310,6 +314,8 @@ export function evaluateWeekendCryptoReadiness(input: {
 
     return {
       symbol,
+      tier: executionEligible ? "execution" : "monitor",
+      executionEligible,
       state: blockers.length ? "blocked" : waitingOn.length ? "waiting" : "ready",
       selectedForSubmission: false,
       score,
@@ -337,7 +343,7 @@ export function evaluateWeekendCryptoReadiness(input: {
   });
 
   const ready = candidates
-    .filter(candidate => candidate.state === "ready")
+    .filter(candidate => candidate.executionEligible && candidate.state === "ready")
     .sort((a, b) =>
       b.score - a.score
       || (a.spreadPct ?? Number.POSITIVE_INFINITY) - (b.spreadPct ?? Number.POSITIVE_INFINITY)
@@ -349,6 +355,8 @@ export function evaluateWeekendCryptoReadiness(input: {
     strategyId: strategy.id,
     strategyVersion: strategy.version,
     paperOnly: strategy.execution.paperOnly,
+    executionUniverse: [...strategy.executionUniverse],
+    monitorOnlyUniverse: [...strategy.monitorOnlyUniverse],
     session,
     broadCryptoSupportive,
     executionEnabled: input.ledger.executionEnabled,
