@@ -207,3 +207,34 @@ Implications retained in v3:
 - Planned trades must remain above Alpaca's observed $10 crypto minimum; the strategy enforces a $12 floor.
 - Protective orders use Alpaca's actual post-fee `qty_available`, not gross fill quantity.
 - The guarded executor follows broker quantity rather than estimating sellable units locally.
+
+
+## Live v3 expansion verification — 2026-10-03
+
+Verified against current `main`, Vercel Production, Supabase, and the connected Alpaca PAPER account after the two-tier universe expansion.
+
+- Production strategy: `daily-crypto-day-v3`, stable bot ID `weekend-crypto-day-100`, stable broker tag `wkd`.
+- Execution-eligible pool is BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD.
+- Monitor-only pool is XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, and RENDER/USD.
+- The live scanner evaluates all 14 symbols through the same trend, momentum, spread, volatility, fee-coverage, breakout, regime, and score logic.
+- Selection is fail-closed: readiness filters to `executionEligible` candidates, the runner only accepts an execution-pool `selectedSymbol`, the executor request schema only accepts the five execution symbols, and the Supabase claim RPC independently whitelists the same five symbols.
+- Unit coverage explicitly verifies that every monitor-only symbol remains `selectedForSubmission=false` even when its synthetic readiness state reaches READY.
+- Live Production integration verification also showed all nine monitor-only candidates with `selectedForSubmission=false`.
+- BTC/USD remains the 15-minute broad crypto regime gate. No score, spread, or risk threshold was loosened for the larger universe.
+- Supabase ledger metadata records the execution and monitor-only universes with PAPER execution enabled and `liveMoneyEnabled=false`.
+- A v3 migration defect was found during reconciliation: the claim function identified orders as `daily-crypto-day-v3` but inserted prepared orders with `strategy_version=2`. The repository migration and live Supabase function were corrected to persist strategy version 3.
+- The live claim RPC remains restricted to `service_role`/database administration roles; monitor-only XRP/USD is rejected by the database whitelist while LINK/USD and DOT/USD are accepted.
+- No Daily Crypto Day `wkd` virtual position or recent bot order was present during verification. The shared Alpaca PAPER account still contained the existing Default Diverse SOL/USD position and its protective order, so SOL/USD remained cross-bot blocked for Daily Crypto Day.
+- Vercel Production was healthy with no recent runtime-error clusters, and the five-minute crypto runner was returning successful scheduled responses.
+
+Live scanner snapshot around 21:56 America/Chicago:
+
+- Broad BTC regime: not supportive.
+- Selected symbol: none; submission ready: false.
+- SOL/USD had the highest execution-pool score at 65/100, but it was below the 80-point threshold and independently blocked because Default Diverse already holds SOL/USD.
+- LINK/USD was 10/100 with a live spread around 0.16%, slightly wider than the 0.15% limit.
+- DOT/USD was 10/100 with a live spread around 0.25%, wider than the limit.
+- BTC/USD and ETH/USD had tight spreads but weak/negative setup conditions and scores of 5/100.
+- The highest monitor-only scores were HYPE/USD at 45/100 and LTC/USD / AVAX/USD at 40/100; they remained research-only and unselectable.
+
+Conclusion: the expanded scanner is live and PAPER-only. It should continue waiting for a genuine qualifying execution-pool setup rather than relaxing the 80/100 score, 0.15% spread, BTC-regime, or risk gates.
