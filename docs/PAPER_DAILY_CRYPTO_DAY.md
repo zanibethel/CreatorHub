@@ -12,7 +12,7 @@ This is a separate $100 challenge. It does not share capital, positions, P/L, or
 
 - Stable bot ID: `weekend-crypto-day-100`
 - Stable broker tag: `wkd`
-- Current strategy: `daily-crypto-day-v3`
+- Current strategy: `daily-crypto-day-v4`
 - Starting virtual equity: $100
 - Execution venue: Alpaca Paper
 - Live-money execution: disabled
@@ -50,14 +50,15 @@ Promoting a monitor-only symbol into execution requires a new versioned strategy
 
 Timezone: America/Chicago.
 
-- Entries are eligible seven days a week.
-- New entries stop at 22:30 local time.
-- Intraday intent is to be flat by 23:45 local time.
-- Maximum three new entries per local day.
+- Entries are eligible continuously, 24 hours a day, seven days a week.
+- There is no routine nightly entry cutoff.
+- There is no routine nightly forced flatten.
+- Maximum three new entries per America/Chicago accounting day.
 - Maximum one open Daily Crypto Day position at a time.
-- The five-minute Vercel runner executes every day; the route itself enforces the local clock rules.
+- A protected position may remain open across the local midnight boundary until normal stop/target/trailing management or a risk-driven forced flatten closes it.
+- The five-minute Vercel runner executes every day.
 
-The daily reset is deliberate. Crypto trades around the clock, but this challenge still behaves like a day-trading strategy rather than carrying positions indefinitely across calendar days.
+America/Chicago remains the accounting timezone for daily entry count and daily realized-loss controls. Midnight resets the daily accounting bucket; it is not treated as a crypto market close.
 
 ## Market data
 
@@ -129,7 +130,7 @@ Daily v3 profit framework:
 - First partial: 50%.
 - Remaining 50% trails.
 - Stop may tighten only; never widen to avoid realizing a loss.
-- Deterministic session flatten at 23:45 America/Chicago.
+- No routine clock-based flatten; protected positions continue under +1R protection, +2R partial, trailing, stop, or risk-driven forced flatten.
 
 ## Fee hurdle
 
@@ -149,10 +150,10 @@ Implemented:
 
 - Separate active $100 virtual ledger.
 - Stable `wkd` broker attribution tag.
-- Strategy promoted through seven-day v2 to expanded-universe `daily-crypto-day-v3`.
+- Strategy promoted through seven-day v2 and expanded-universe v3 to continuous `daily-crypto-day-v4`.
 - Execution pool: BTC/ETH/SOL/LINK/DOT.
 - Monitor-only pool: XRP/LTC/AVAX/DOGE/ADA/BCH/AAVE/HYPE/RENDER.
-- Seven-day session controls.
+- Continuous 24/7 session controls with America/Chicago used only for daily accounting.
 - Alpaca quote + completed 5m/15m execution-data path.
 - Deterministic fee-aware readiness engine.
 - Cross-bot same-symbol occupancy block.
@@ -166,8 +167,8 @@ Implemented:
 - Immediate broker protective stop-limit after a confirmed fill.
 - Fail-closed emergency flatten if protection cannot be attached.
 - Broker-action exit manager for repair/tighten/+2R partial/trailing protection.
-- Deterministic 23:45 America/Chicago session flatten.
-- Entry, active management, and flatten routes all derive executable symbols from the v3 `executionUniverse`, so LINK/DOT and future versioned pool additions share one validation source.
+- No routine nightly flatten; the flatten route remains available only for deterministic risk/emergency exits.
+- Entry, active management, and forced-flatten routes all derive executable symbols from the v4 `executionUniverse`, so LINK/DOT and future versioned pool additions share one validation source.
 - Broker-confirmed cancel/reject/expire/replace states are captured centrally; broker-unconfirmed entry/protection/partial/flatten failures are saved as explicit `execution_error` evidence.
 - Vercel runner scheduled every five minutes every day.
 - Server-only Cron and crypto-execution secrets configured in Vercel Production.
@@ -179,9 +180,9 @@ Daily Crypto Day follows the cross-bot evidence standard in `docs/PAPER_EVIDENCE
 
 ## Next implementation sequence
 
-1. Let the armed scanner wait for a genuine execution-pool setup instead of forcing a trade.
-2. Validate the first complete tagged `wkd` v3 PAPER round trip through entry, protection, mark-to-market, exit management, ledger reconciliation, and MFE/MAE/R telemetry.
-3. Verify +1R protection, +2R 50% partial, trailing remainder, and 23:45 flatten under actual broker state.
+1. Let the armed 24/7 scanner wait for a genuine execution-pool setup instead of forcing a trade.
+2. Validate the first complete tagged `wkd` v4 PAPER round trip through entry, protection, mark-to-market, exit management, ledger reconciliation, and MFE/MAE/R telemetry.
+3. Verify +1R protection, +2R 50% partial, trailing remainder, and cross-midnight continuity under actual broker state.
 4. Continue reconciling broker-observed fees and monitor whether sell-side CFEE activity becomes available.
 5. Compare execution-pool and monitor-only score/liquidity behavior before promoting any additional symbol.
 6. Compare weekday versus weekend outcomes before considering any separate session-specific tuning.
@@ -257,7 +258,27 @@ Each study:
 - records whether the trigger would have occurred without exceeding max entry;
 - calculates an assumed entry and +1R/+2R levels from the frozen protective stop;
 - records +1R, +2R, stop, MFE, MAE and completed-bar count;
-- expires at session flat if unresolved;
+- an untriggered study expires at the next local accounting-date rollover; a study that already triggered may continue across midnight until stop or +2R resolves it;
 - labels same-bar stop/target sequencing as ambiguous.
 
 Monitor-only symbols are excluded from missed-trade counts even if they score highly. The tracker is evidence-only and cannot submit an Alpaca order.
+
+
+## v4 continuous-session revision — 2026-10-04
+
+`daily-crypto-day-v4` removes the artificial 22:30 America/Chicago entry cutoff and 23:45 routine flatten. This is a strategy-version change because it changes when the bot is allowed to enter and how long a protected position may remain open.
+
+Unchanged safeguards:
+- PAPER-only execution.
+- Execution universe remains BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
+- Monitor-only universe remains unchanged.
+- Maximum three new entries per America/Chicago accounting day.
+- Maximum one open Daily Crypto position.
+- 0.50% risk per trade.
+- 30% allocation cap.
+- 0.75% open-risk cap.
+- 1.50% daily realized-loss kill switch.
+- Same quote freshness, spread, trend, momentum, breakout, ATR, score, fee-hurdle, cross-bot occupancy, stop, +1R, +2R, and trailing rules.
+- Live money remains disabled.
+
+The forced-flatten endpoint is retained for protection failures and other deterministic risk exits, but the five-minute runner no longer calls it because of the clock.
