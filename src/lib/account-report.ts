@@ -7,7 +7,7 @@ export const paperAccountSchema = z.object({
   collectedAt: z.string().datetime(),
   account: z.object({ equity: z.number().finite(), cash: number, previousCloseEquity: number, currency: text }),
   positions: z.array(z.object({ symbol: text, side: text, quantity: number, entry: number, marketValue: number, unrealizedPl: number })).max(1000).nullable(),
-  orders: z.array(z.object({ symbol: text, side: text, type: text, status: text, quantity: number, filled: number, limit: number, stop: number, submittedAt: time })).max(1000).nullable(),
+  orders: z.array(z.object({ symbol: text, side: text, type: text, status: text, quantity: number, filled: number, averageFillPrice: number, limit: number, stop: number, submittedAt: time })).max(1000).nullable(),
   fills: z.array(z.object({ symbol: text, side: text, quantity: number, price: number, time })).max(10).nullable(),
   errors: z.record(z.string(), z.string().max(200)),
   ordersMayBeTruncated: z.boolean(),
