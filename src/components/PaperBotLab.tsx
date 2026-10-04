@@ -212,18 +212,24 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
   if (!visible.length) return <EmptyState>Watchlist data is loading.</EmptyState>;
   return <div className={styles.watchPortfolioGrid}>
     {visible.map(row => <div className={styles.watchPortfolioItem} key={row.symbol}>
-      <div className={styles.watchIdentity}>
-        <strong>{row.symbol}</strong>
-        <small>{row.label}</small>
+      <div className={styles.watchTop}>
+        <div className={styles.watchIdentity}>
+          <strong>{row.symbol}</strong>
+          <small>{row.label}</small>
+        </div>
+        <strong className={styles.watchPrice}>{money(row.currentPrice)}</strong>
       </div>
-      <strong className={styles.watchPrice}>{money(row.currentPrice)}</strong>
-      <span className={styles.portfolioBadge}>{row.state}</span>
-      <div className={styles.strategyMarkers} aria-label={row.strategies.length ? `Strategy fit: ${row.strategies.join(", ")}` : "No funded strategy horizon"}>
-        {row.strategies.includes("day") ? <span title="Day trade">D</span> : null}
-        {row.strategies.includes("swing") ? <span title="Swing / multi-day">S</span> : null}
-        {row.strategies.includes("long") ? <span title="Longer-term / multi-week">L</span> : null}
-        {!row.strategies.length ? <span className={styles.strategyMarkerNone}>—</span> : null}
+
+      <div className={styles.watchStatusRow}>
+        <span className={styles.portfolioBadge}>{row.state}</span>
+        <div className={styles.strategyMarkers} aria-label={row.strategies.length ? `Strategy fit: ${row.strategies.join(", ")}` : "No funded strategy horizon"}>
+          {row.strategies.includes("day") ? <span title="Day trade">D</span> : null}
+          {row.strategies.includes("swing") ? <span title="Swing / multi-day">S</span> : null}
+          {row.strategies.includes("long") ? <span title="Longer-term / multi-week">L</span> : null}
+          {!row.strategies.length ? <span className={styles.strategyMarkerNone}>—</span> : null}
+        </div>
       </div>
+
       <WatchLifecycle stage={row.lifecycleStage} detail={row.lifecycleDetail} />
       <div className={styles.watchPlan}>
         <div className={styles.watchPlanMode}>{row.planLabel ?? "REFERENCE PLAN"}</div>
@@ -234,8 +240,11 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
         <span><small>Exit price</small><strong>{money(row.exitPrice)}</strong></span>
         <span><small>Projected profit</small><strong>{signedMoney(row.projectedProfit)}{row.projectedProfitPct == null ? "" : ` · ${percent(row.projectedProfitPct)}`}</strong></span>
       </div>
-      <span className={styles.portfolioScore}>Score <strong>{row.score !== null ? `${row.score.toFixed(1)}/100` : "N/A"}</strong></span>
-      <small className={styles.watchDetail}>{row.detail}</small>
+
+      <div className={styles.watchMeta}>
+        <span className={styles.portfolioScore}>Score <strong>{row.score !== null ? `${row.score.toFixed(1)}/100` : "N/A"}</strong></span>
+        <small className={styles.watchDetail}>{row.detail}</small>
+      </div>
     </div>)}
   </div>;
 }
