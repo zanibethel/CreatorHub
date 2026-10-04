@@ -394,6 +394,7 @@ export default function PaperBotLab() {
   const history = ledgerReport?.history?.[profile.id] ?? [];
   const review = strategyReview?.bots.find(item => item.botId === profile.id) ?? null;
   const counterfactuals = ledgerReport?.counterfactuals?.[profile.id] ?? [];
+  const assignedProspects = prospectReport?.prospects.filter(item => item.assigned_bot_ids.includes(profile.id)) ?? [];
 
   const defaultTradePlans: PaperBotTradePlan[] = [...watchlist.stocks, ...watchlist.crypto].map(item => {
     const stockQuote = marketSnapshot?.stocks[item.symbol];
@@ -788,6 +789,10 @@ export default function PaperBotLab() {
     </PortfolioPanel> : null}
 
     {view === "prospects" ? <div className={styles.portfolioSingleColumn}>
+      <PortfolioPanel title={`${botShortName(profile)} prospect review queue`}>
+        <ProspectRows rows={assignedProspects} />
+        <p className={styles.portfolioNote}>These symbols crossed the 80-point Prospect Score and were automatically assigned to this bot for strategy review. They are candidates for the bot to evaluate next, not READY trades.</p>
+      </PortfolioPanel>
       <PortfolioPanel title="Market Prospect Scanner">
         <div className={styles.portfolioStats}>
           <SummaryCard label="Watchlist threshold" value={`${prospectReport?.thresholds.watchlistScore ?? 65}/100`} />
