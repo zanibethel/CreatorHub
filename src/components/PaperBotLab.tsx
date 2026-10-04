@@ -64,7 +64,7 @@ function StrategyReviewCard({ review }: { review: PaperStrategyReviewBot }) {
     <p>{review.strategyId ?? "Strategy pending"}{review.strategyVersion ? ` · v${review.strategyVersion}` : ""}</p>
 
     <div className={styles.botMetrics}>
-      <div><span>Decision observations</span><strong>{review.decisions.observations}</strong></div>
+      <div><span>Decision observations</span><strong>{review.decisions.executionRelevantObservations} execute · {review.decisions.monitorOnlyObservations} monitor</strong></div>
       <div><span>Closed trades</span><strong>{review.executed.closedTrades}</strong></div>
       <div><span>Average realized R</span><strong>{review.executed.averageR === null ? "—" : `${review.executed.averageR >= 0 ? "+" : ""}${review.executed.averageR.toFixed(2)}R`}</strong></div>
       <div><span>Win rate</span><strong>{review.executed.winRatePct === null ? "—" : `${review.executed.winRatePct.toFixed(0)}%`}</strong></div>
