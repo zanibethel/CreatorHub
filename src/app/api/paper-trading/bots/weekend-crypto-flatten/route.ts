@@ -116,7 +116,7 @@ export async function POST(request: Request) {
   if(!position) return reply({ok:true,paperOnly:true,outcome:"no-position"});
 
   // Cancel this bot's active protective/exit orders first so their reserved
-  // quantities cannot conflict with the forced forced sell.
+  // quantities cannot conflict with the forced sell.
   const sellOrders=z.array(sellOrderSchema).parse(await db(
     `paper_bot_orders?select=client_order_id,broker_order_id,status,metadata&bot_id=eq.${BOT_ID}&side=eq.sell&status=in.(prepared,submitted,partially_filled)&order=created_at.desc&limit=50`
   ));
@@ -219,7 +219,7 @@ export async function POST(request: Request) {
       ok:true,paperOnly:true,outcome:"flatten-submitted",symbol:position.symbol,quantity:available,
     });
   }catch(error){
-    const reason=error instanceof Error?error.message.slice(0,180):"Session flatten failed.";
+    const reason=error instanceof Error?error.message.slice(0,180):"Forced flatten failed.";
     await db(
       `paper_bot_orders?client_order_id=eq.${encodeURIComponent(clientOrderId)}`,
       {
