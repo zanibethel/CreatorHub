@@ -94,7 +94,7 @@ function HoldingRows({ positions, trades, accountPositions, compact = false }: {
   const visible = compact ? positions.slice(0, 3) : positions;
   if (!visible.length) return <EmptyState>No open holdings for this bot.</EmptyState>;
 
-  return <div className={styles.portfolioRows}>
+  return <div className={styles.holdingGrid}>
     {visible.map(position => {
       const metric = trades.find(item => item.symbol === position.symbol && item.status !== "closed");
       const accountPosition = accountPositions?.find(item => normalizedSymbol(item.symbol) === normalizedSymbol(position.symbol));
@@ -102,25 +102,67 @@ function HoldingRows({ positions, trades, accountPositions, compact = false }: {
         ? Math.abs(accountPosition.marketValue / accountPosition.quantity)
         : null;
       const currentPrice = position.exit_manager_state.markPrice ?? metric?.last_mark_price ?? accountMark;
-      const markPl = position.average_entry != null && currentPrice != null
-        ? (currentPrice - position.average_entry) * position.quantity
+      const fillPrice = position.average_entry;
+      const markPl = fillPrice != null && currentPrice != null
+        ? (currentPrice - fillPrice) * position.quantity
         : null;
+      const positionCost = fillPrice != null ? fillPrice * position.quantity : null;
+      const markPct = markPl != null && positionCost != null && positionCost > 0 ? markPl / positionCost * 100 : null;
       const targetFraction = position.take_profit_fraction ?? 1;
-      const targetPl = projectedProfit(position.average_entry, position.take_profit_price, position.quantity, targetFraction);
+      const targetPl = projectedProfit(fillPrice, position.take_profit_price, position.quantity, targetFraction);
+      const targetMovePct = fillPrice != null && position.take_profit_price != null && fillPrice > 0
+        ? (position.take_profit_price / fillPrice - 1) * 100
+        : null;
+      const activeStop = position.protective_stop;
+      const stopPl = fillPrice != null && activeStop != null
+        ? (activeStop - fillPrice) * position.quantity
+        : null;
+      const stopMovePct = fillPrice != null && activeStop != null && fillPrice > 0
+        ? (activeStop / fillPrice - 1) * 100
+        : null;
       const marketValue = currentPrice != null ? currentPrice * position.quantity : null;
+      const exitAction = position.exit_manager_state.plannedAction
+        ? position.exit_manager_state.plannedAction.replaceAll("_", " ")
+        : "monitoring";
+      const desiredStop = position.exit_manager_state.desiredStop;
+      const takeLabel = targetFraction < 1
+        ? `Take profit · ${Math.round(targetFraction * 100)}%`
+        : "Take profit";
 
-      return <div className={styles.portfolioRow} key={position.symbol}>
-        <div className={styles.portfolioRowMain}>
-          <strong>{position.symbol}</strong>
-          <span>{position.quantity.toFixed(position.quantity < 1 ? 8 : 4)} units</span>
+      return <div className={styles.holdingCard} key={position.symbol}>
+        <div className={styles.holdingHeader}>
+          <div>
+            <strong>{position.symbol}</strong>
+            <small>{position.quantity.toFixed(position.quantity < 1 ? 8 : 4)} units</small>
+          </div>
+          <div>
+            <small>Current</small>
+            <strong>{money(currentPrice)}</strong>
+          </div>
         </div>
-        <div><span>Current</span><strong>{money(currentPrice)}</strong></div>
-        <div><span>Avg fill</span><strong>{money(position.average_entry)}</strong></div>
-        <div><span>Value</span><strong>{money(marketValue)}</strong></div>
-        <div><span>Mark P/L</span><strong>{signedMoney(markPl)}</strong></div>
-        <div><span>Stop</span><strong>{money(position.protective_stop)}</strong></div>
-        <div><span>Target</span><strong>{money(position.take_profit_price)}</strong></div>
-        <div><span>{targetFraction < 1 ? "1st-target P/L" : "Target P/L"}</span><strong>{signedMoney(targetPl)}</strong></div>
+
+        <div className={styles.holdingStatus}>
+          <span>HOLDING</span>
+          <small>Exit manager: {exitAction}</small>
+        </div>
+
+        <div className={styles.holdingMetrics}>
+          <span><small>Filled price</small><strong>{money(fillPrice)}</strong></span>
+          <span><small>Position value</small><strong>{money(marketValue)}</strong></span>
+          <span><small>Unrealized P/L</small><strong>{signedMoney(markPl)}{markPct == null ? "" : ` · ${percent(markPct)}`}</strong></span>
+          <span><small>{takeLabel}</small><strong>{money(position.take_profit_price)}</strong></span>
+          <span><small>Profit at target</small><strong>{signedMoney(targetPl)}{targetMovePct == null ? "" : ` · ${percent(targetMovePct)}`}</strong></span>
+          <span><small>Stop loss</small><strong>{money(activeStop)}</strong></span>
+          <span><small>P/L at stop</small><strong>{signedMoney(stopPl)}{stopMovePct == null ? "" : ` · ${percent(stopMovePct)}`}</strong></span>
+          <span><small>Exit target</small><strong>{money(position.take_profit_price)}</strong></span>
+          {desiredStop != null && desiredStop !== activeStop
+            ? <span><small>Next stop</small><strong>{money(desiredStop)}</strong></span>
+            : null}
+        </div>
+
+        {position.exit_manager_state.reason
+          ? <small className={styles.holdingReason}>{position.exit_manager_state.reason}</small>
+          : null}
       </div>;
     })}
   </div>;
