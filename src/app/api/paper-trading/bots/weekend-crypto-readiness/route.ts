@@ -109,7 +109,7 @@ export async function GET() {
       cache: "no-store",
       signal: AbortSignal.timeout(12_000),
     });
-    if (!response.ok) throw new Error(`Alpaca crypto data returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Crypto market-data source returned HTTP ${response.status}.`);
     return response.json();
   };
 
@@ -201,7 +201,7 @@ export async function GET() {
 
     return reply({
       collectedAt: new Date(now).toISOString(),
-      source: "alpaca-crypto-us",
+      source: "crypto-market-feed-us",
       fastTimeframe: "5Min",
       slowTimeframe: "15Min",
       occupiedByOtherBots,
