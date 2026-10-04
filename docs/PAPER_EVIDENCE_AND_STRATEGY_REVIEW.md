@@ -137,7 +137,7 @@ Persist each meaningful management decision:
 - +1R protection,
 - partial take profit,
 - trailing-stop updates,
-- forced/session flatten,
+- forced risk flatten,
 - emergency flatten,
 - manager errors/recoveries,
 - and any broker-vs-virtual-ledger reconciliation correction.
@@ -225,7 +225,7 @@ Implemented or partially implemented:
 - executed Default Diverse broker/fill/ledger attribution,
 - central broker reconciliation now journals tagged terminal order states (`canceled`, broker `rejected`, `expired`, and `replaced`) across all PAPER bots, with broker-confirmed lifecycle events distinguished by `metadata.lifecycleSource=broker-reconciliation`,
 - route-side `execution_error` evidence for broker outcomes that cannot be confirmed, including swing submission ambiguity and Daily Crypto entry/protection/partial/flatten failures,
-- fail-closed Daily Crypto protective-order cancellation: replacement/partial/session-flatten work does not proceed when the existing broker protection cannot be confirmed canceled,
+- fail-closed Daily Crypto protective-order cancellation: replacement/partial/forced-flatten work does not proceed when the existing broker protection cannot be confirmed canceled,
 - and versioned strategy configuration.
 
 Still required for complete coverage:
@@ -243,18 +243,18 @@ Nothing materially considered by the algorithm should be discarded merely becaus
 
 Counterfactual studies are observation-only records for serious setups that were considered but not submitted. They never authorize or submit an order.
 
-Daily Crypto v3 is the first live counterfactual source:
+Daily Crypto v4 is a live counterfactual source:
 - Only execution-tier symbols can seed a missed-trade study. Monitor-only symbols never count as missed trades.
 - The existing evidence qualification is reused: score >= 60 (Watch or better).
-- Seeding only occurs while the local entry window is open.
+- Seeding can occur continuously because v4 has no nightly entry cutoff.
 - A setup that is already selected for an enabled live PAPER submission is not duplicated as a missed trade.
-- One initial study is kept per execution symbol per local crypto session so five-minute rescans do not create dozens of copies of the same idea.
+- At most one active study per execution symbol is allowed; the local accounting date is still part of the setup key so resolved/untriggered studies remain attributable to a daily evidence bucket.
 - The study is frozen from the information available at the recorded decision time: trigger, maximum entry, protective stop, planned target, score, blockers, warnings, quote/spread context, and regime.
 - Tracking starts only with completed five-minute bars after the decision baseline. Earlier bars are never used to improve a historical result.
 - A move entirely above max entry does not invent a fill.
 - After an assumed trigger, +1R, +2R, stop, MFE, MAE, mark count, and session expiry are recorded.
 - If a stop and a newly reached +1R/+2R threshold occur inside the same completed candle and sequence cannot be proven, the result is `ambiguous`, not guessed.
-- Remaining watching/triggered studies expire at the deterministic session flatten boundary.
+- An untriggered study expires at the next America/Chicago accounting-date rollover; a triggered hypothetical trade can continue across midnight until stop or +2R resolves it.
 
 The storage table is `paper_bot_counterfactuals`. It is private service-role PAPER evidence with RLS enabled and no public/client access. Daily Crypto and the Three-Trade Weekly Swing Bot now both produce records through the same strategy-agnostic outcome model.
 
