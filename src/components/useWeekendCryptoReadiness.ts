@@ -2,6 +2,18 @@
 
 import { useEffect, useState } from "react";
 
+export type CryptoReferencePlan = {
+  entryPrice: number;
+  protectiveStop: number;
+  takeProfit: number;
+  plannedNotional: number;
+  plannedQuantity: number;
+  plannedRiskDollars: number;
+  plannedRiskPct: number;
+  estimatedGrossTargetDollars: number;
+  projectedProfitPct: number;
+};
+
 export type WeekendCryptoCandidate = {
   symbol: string;
   tier: "execution" | "monitor";
@@ -27,6 +39,7 @@ export type WeekendCryptoCandidate = {
   estimatedRoundTripFees: number | null;
   estimatedGrossTargetDollars: number | null;
   feeCoverageMultiple: number | null;
+  referencePlan: CryptoReferencePlan | null;
   waitingOn: string[];
   blockers: string[];
   trackingBars: Array<{ t:string; o:number; h:number; l:number; c:number; v?:number }>;
