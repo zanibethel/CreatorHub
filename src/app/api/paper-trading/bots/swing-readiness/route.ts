@@ -296,27 +296,31 @@ export async function GET(request: Request) {
     let expiredPlans = 0;
     let counterfactualTracking = { ok:false, seedsAttempted:0, updates:0 };
 
-    if (evidenceRun && evidencePlans.length > 0) {
+    if (evidenceRun) {
       const collectedAt = new Date(now).toISOString();
-      const rows = buildSwingRevalidationJournalRows({
-        botId: BOT_ID,
-        strategyId: result.strategyId,
-        strategyVersion: result.strategyVersion,
-        collectedAt,
-        broadMarketSupportive,
-        marketOpen: Boolean(clock.is_open),
-        minutesSinceOpen,
-        weeklySlotsRemaining: result.weeklySlotsRemaining,
-        openPositionSlotsRemaining: result.openPositionSlotsRemaining,
-        executionEnabled,
-        plans: evidencePlans,
-        readiness: result.plans,
-      });
-      await writeDb("paper_bot_journal", rows);
-      evidencePersisted = true;
+      const collectedAtMs = Date.parse(collectedAt);
+      let rows: ReturnType<typeof buildSwingRevalidationJournalRows> = [];
+
+      if (evidencePlans.length > 0) {
+        rows = buildSwingRevalidationJournalRows({
+          botId: BOT_ID,
+          strategyId: result.strategyId,
+          strategyVersion: result.strategyVersion,
+          collectedAt,
+          broadMarketSupportive,
+          marketOpen: Boolean(clock.is_open),
+          minutesSinceOpen,
+          weeklySlotsRemaining: result.weeklySlotsRemaining,
+          openPositionSlotsRemaining: result.openPositionSlotsRemaining,
+          executionEnabled,
+          plans: evidencePlans,
+          readiness: result.plans,
+        });
+        await writeDb("paper_bot_journal", rows);
+        evidencePersisted = true;
+      }
 
       try {
-        const collectedAtMs = Date.parse(collectedAt);
         const seeds = buildSwingCounterfactualSeeds({
           botId: BOT_ID,
           strategyId: result.strategyId,
@@ -361,8 +365,12 @@ export async function GET(request: Request) {
         let updates = 0;
 
         for (const cf of activeRows) {
-          const sourcePlan = evidencePlans.find(plan => plan.symbol === cf.symbol);
-          const expiresAt = sourcePlan?.expiresAt ? Date.parse(sourcePlan.expiresAt) : Number.POSITIVE_INFINITY;
+          const entryWindowClosed = Boolean(
+            cf.status === "watching"
+            && clock.is_open
+            && minutesSinceOpen !== null
+            && minutesSinceOpen > strategy.execution.maximumMinutesAfterOpen
+          );
           const advanced = advancePaperCounterfactual({
             id:cf.id,setupKey:cf.setup_key,botId:cf.bot_id,strategyId:cf.strategy_id,
             strategyVersion:cf.strategy_version,symbol:cf.symbol,assetClass:cf.asset_class,
@@ -375,7 +383,7 @@ export async function GET(request: Request) {
             troughPrice:cf.trough_price,lastBarAt:cf.last_bar_at,markCount:cf.mark_count,
             mfeR:cf.mfe_r,maeR:cf.mae_r,blockers:cf.blockers,warnings:cf.warnings,metadata:cf.metadata,
           }, completedIntradayBars[cf.symbol] ?? [], {
-            expire: Number.isFinite(expiresAt) && expiresAt <= collectedAtMs,
+            expire: entryWindowClosed,
           });
           if (!advanced.changed) continue;
           await writeDb(
