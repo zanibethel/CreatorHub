@@ -42,8 +42,32 @@ const positionRow = z.object({
   exit_manager_state: exitManagerState,
 });
 const journalCountRow = z.object({ bot_id: z.string().min(1).max(64), id: z.coerce.number().int().positive() });
-const brokerOrderRow = z.object({ bot_id: z.string().min(1).max(64), broker_order_id: z.string().min(1).max(80) });
-const brokerFillRow = z.object({ bot_id: z.string().min(1).max(64), fill_activity_id: z.string().min(1).max(160), transaction_time: timestamp, ledger_applied_at: timestamp.nullable() });
+const brokerOrderRow = z.object({
+  bot_id: z.string().min(1).max(64),
+  broker_order_id: z.string().min(1).max(80),
+  symbol: z.string().min(1).max(32),
+  asset_class: z.enum(["stock","etf","crypto","unknown"]),
+  side: z.enum(["buy","sell"]),
+  order_type: z.string().max(40).nullable(),
+  order_class: z.string().max(40).nullable(),
+  status: z.string().min(1).max(40),
+  quantity: z.coerce.number().finite().nonnegative().nullable(),
+  filled_quantity: z.coerce.number().finite().nonnegative().nullable(),
+  average_fill_price: z.coerce.number().finite().positive().nullable(),
+  submitted_at: timestamp.nullable(),
+  filled_at: timestamp.nullable(),
+  last_seen_at: timestamp,
+});
+const brokerFillRow = z.object({
+  bot_id: z.string().min(1).max(64),
+  fill_activity_id: z.string().min(1).max(160),
+  symbol: z.string().min(1).max(32),
+  side: z.enum(["buy","sell"]),
+  quantity: z.coerce.number().finite().positive(),
+  price: z.coerce.number().finite().positive(),
+  transaction_time: timestamp,
+  ledger_applied_at: timestamp.nullable(),
+});
 const tradeMetricRow = z.object({
   bot_id: z.string().min(1).max(64),
   symbol: z.string().min(1).max(32),
@@ -139,8 +163,8 @@ export async function GET() {
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
       read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,initial_protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,last_exit_manager_at,exit_manager_state&limit=5000"),
       read("paper_bot_journal?select=id,bot_id&limit=10000"),
-      read("paper_bot_broker_orders?select=bot_id,broker_order_id&limit=10000"),
-      read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
+      read("paper_bot_broker_orders?select=bot_id,broker_order_id,symbol,asset_class,side,order_type,order_class,status,quantity,filled_quantity,average_fill_price,submitted_at,filled_at,last_seen_at&order=submitted_at.desc.nullslast,last_seen_at.desc&limit=10000"),
+      read("paper_bot_broker_fills?select=bot_id,fill_activity_id,symbol,side,quantity,price,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
       read("paper_bot_orders?select=bot_id,strategy_id,strategy_version,symbol,asset_class,status,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&status=eq.prepared&order=created_at.asc&limit=100"),
       read("paper_bot_trade_metrics?select=bot_id,symbol,status,opened_at,closed_at,entry_price,initial_protective_stop,initial_risk_dollars,peak_mark_price,trough_mark_price,last_mark_price,last_mark_at,mark_count,mfe_r,mae_r,exit_price,realized_pl,r_multiple,estimated_fees,exit_reason&order=opened_at.desc&limit=500"),
       read("paper_bot_counterfactuals?select=bot_id,strategy_id,strategy_version,symbol,status,source_event_type,decision_state,decision_at,session_key,score,trigger_price,max_entry_price,protective_stop,assumed_entry_price,one_r_price,two_r_price,triggered_at,stop_hit_at,one_r_hit_at,two_r_hit_at,first_outcome,mark_count,mfe_r,mae_r&order=decision_at.desc&limit=500"),
@@ -166,6 +190,14 @@ export async function GET() {
         brokerFills.filter(fill => fill.bot_id === row.bot_id && fill.ledger_applied_at !== null).length,
         brokerFills.find(fill => fill.bot_id === row.bot_id && fill.ledger_applied_at !== null)?.transaction_time ?? null,
       )),
+      brokerOrders: Object.fromEntries(ledgers.map(row => [row.bot_id, brokerOrders
+        .filter(order => order.bot_id === row.bot_id)
+        .map(({ broker_order_id: _brokerOrderId, bot_id: _botId, ...order }) => order)
+      ])),
+      brokerFills: Object.fromEntries(ledgers.map(row => [row.bot_id, brokerFills
+        .filter(fill => fill.bot_id === row.bot_id)
+        .map(({ fill_activity_id: _fillActivityId, bot_id: _botId, ...fill }) => fill)
+      ])),
       stagedOrders: Object.fromEntries(ledgers.map(row => [row.bot_id, stagedOrders.filter(order => order.bot_id === row.bot_id)])),
       positionPlans: Object.fromEntries(ledgers.map(row => [row.bot_id, positions.filter(position => position.bot_id === row.bot_id)])),
       tradeMetrics: Object.fromEntries(ledgers.map(row => [row.bot_id, tradeMetrics.filter(trade => trade.bot_id === row.bot_id)])),
