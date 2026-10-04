@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import type { AccountReport, AccountHistoryPoint } from "@/lib/account-report";
 import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
 import usePaperBotLedgers, { type PaperCounterfactual, type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
+import useSwingReadiness from "./useSwingReadiness";
 import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null | undefined) => value == null ? "—" : formatPaperMoney(value);
@@ -44,22 +45,29 @@ function ProfitPlan({ plan, botName }: { plan: PaperPositionPlan; botName: strin
   </div>;
 }
 
-function StagedPlan({ order, botName, evidence, now }: { order: StagedPaperOrder; botName: string; evidence: PaperCounterfactual | null; now: number }) {
+function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWindowEnd }: { order: StagedPaperOrder; botName: string; evidence: PaperCounterfactual | null; now: number; entryWindowStart?: string | null; entryWindowEnd?: string | null }) {
   const fraction = order.take_profit_fraction;
   const observedEntry = evidence?.triggered_at && evidence.assumed_entry_price !== null
     ? { price: evidence.assumed_entry_price, at: evidence.triggered_at }
     : null;
-  const expired = order.expires_at ? now > Date.parse(order.expires_at) : false;
+  const actualWindowStart = entryWindowStart ?? null;
+  const actualWindowEnd = entryWindowEnd ?? order.expires_at;
+  const expired = actualWindowEnd ? now > Date.parse(actualWindowEnd) : false;
+  const windowOpen = actualWindowStart ? now >= Date.parse(actualWindowStart) : true;
   const entryPlan = order.entry_trigger === null
     ? "No entry trigger recorded."
-    : order.expires_at
-      ? `Enter near ${money(order.entry_trigger)} if reached by ${stamp(order.expires_at)}.`
-      : `Enter near ${money(order.entry_trigger)} when the setup confirms.`;
+    : actualWindowStart && actualWindowEnd
+      ? `Enter near ${money(order.entry_trigger)} only between ${stamp(actualWindowStart)} and ${stamp(actualWindowEnd)}.`
+      : actualWindowEnd
+        ? `Enter near ${money(order.entry_trigger)} if reached by ${stamp(actualWindowEnd)}.`
+        : `Enter near ${money(order.entry_trigger)} when the setup confirms.`;
   const windowStatus = observedEntry
     ? `Entry condition observed at ${money(observedEntry.price)} · ${stamp(observedEntry.at)}`
     : expired
       ? "Entry window ended without an observed qualifying entry."
-      : "Waiting for the planned entry condition.";
+      : !windowOpen
+        ? `Entry window has not opened yet · starts ${stamp(actualWindowStart)}`
+        : "Entry window is open · waiting for the planned entry condition.";
 
   return <article className={styles.record}>
     <div className={styles.cardHeader}><h3>{order.symbol} · {botName}</h3><span className={styles.meta}>{observedEntry ? "entry observed" : expired ? "window ended" : "prepared"}</span></div>
@@ -68,7 +76,8 @@ function StagedPlan({ order, botName, evidence, now }: { order: StagedPaperOrder
       <span>Planned entry <strong>{money(order.entry_trigger)}</strong></span>
       <span>Maximum entry <strong>{money(order.max_entry_price)}</strong></span>
       <span>Observed entry <strong>{observedEntry ? money(observedEntry.price) : "—"}</strong></span>
-      <span>Entry window ends <strong>{stamp(order.expires_at)}</strong></span>
+      <span>Entry window starts <strong>{stamp(actualWindowStart)}</strong></span>
+      <span>Entry window ends <strong>{stamp(actualWindowEnd)}</strong></span>
       <span>Protective stop <strong>{money(order.protective_stop)}</strong></span>
       <span>Take profit <strong>{money(order.take_profit_price)}</strong></span>
       <span>Profit sale <strong>{pct(fraction)}</strong></span>
@@ -83,6 +92,7 @@ function StagedPlan({ order, botName, evidence, now }: { order: StagedPaperOrder
 export default function AccountReportPanels({ view, report, error }: { view: "portfolio" | "trades" | "orders" | "positions"; report: AccountReport | null; error: string }) {
   const [now, setNow] = useState(0);
   const { report: botReport } = usePaperBotLedgers();
+  const { report: swingReadiness } = useSwingReadiness();
 
   useEffect(() => {
     setNow(Date.now());
@@ -142,7 +152,15 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
 
       {staged.length ? <>
         <div className={styles.cardHeader}><h3>Prepared bot plans</h3><span className={styles.meta}>not submitted</span></div>
-        <div className={styles.recordList}>{staged.map(({ botId, order }) => <StagedPlan key={`${botId}-${order.symbol}`} order={order} botName={botName(botId)} evidence={planEvidence(botId, order)} now={now} />)}</div>
+        <div className={styles.recordList}>{staged.map(({ botId, order }) => <StagedPlan
+          key={`${botId}-${order.symbol}`}
+          order={order}
+          botName={botName(botId)}
+          evidence={planEvidence(botId, order)}
+          now={now}
+          entryWindowStart={botId === "three-trade-weekly-swing-100" ? swingReadiness?.entryWindowStart : null}
+          entryWindowEnd={botId === "three-trade-weekly-swing-100" ? swingReadiness?.entryWindowEnd : null}
+        />)}</div>
       </> : null}
     </> : <>
       {snapshot.positions === null ? <div className={styles.empty}>{snapshot.errors.positions || "Position data unavailable."}</div> : !snapshot.positions.length ? <div className={styles.empty}>No open positions in this paper account.</div>
