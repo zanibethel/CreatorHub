@@ -6,6 +6,16 @@ export const dynamic = "force-dynamic";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
 const timestamp = z.string().max(64).refine(value => Number.isFinite(Date.parse(value)), "Invalid timestamp");
+const capitalPlanRow = z.object({
+  plan_id: z.string(),
+  total_capital: z.coerce.number().finite().nonnegative(),
+  bot_pool_capital: z.coerce.number().finite().positive(),
+  reserved_bot_pools: z.coerce.number().int().nonnegative(),
+  allocated_capital: z.coerce.number().finite().nonnegative(),
+  unallocated_reserve: z.coerce.number().finite().nonnegative(),
+  currency: z.string(),
+});
+
 const historyRow = z.object({
   bot_id: z.string().min(1).max(64),
   collected_at: timestamp,
@@ -158,7 +168,8 @@ export async function GET() {
   };
 
   try {
-    const [ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw, tradeMetricRaw, counterfactualRaw] = await Promise.all([
+    const [capitalPlanRaw, ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw, tradeMetricRaw, counterfactualRaw] = await Promise.all([
+      read("paper_capital_plan?plan_id=eq.main&select=plan_id,total_capital,bot_pool_capital,reserved_bot_pools,allocated_capital,unallocated_reserve,currency&limit=1"),
       read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source,pool_usage&order=bot_id.asc"),
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
       read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,initial_protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,last_exit_manager_at,exit_manager_state&limit=5000"),
@@ -170,6 +181,7 @@ export async function GET() {
       read("paper_bot_counterfactuals?select=bot_id,strategy_id,strategy_version,symbol,status,source_event_type,decision_state,decision_at,session_key,score,trigger_price,max_entry_price,protective_stop,assumed_entry_price,one_r_price,two_r_price,triggered_at,stop_hit_at,one_r_hit_at,two_r_hit_at,first_outcome,mark_count,mfe_r,mae_r&order=decision_at.desc&limit=500"),
     ]);
 
+    const capitalPlan = z.array(capitalPlanRow).parse(capitalPlanRaw)[0] ?? null;
     const ledgers = z.array(paperBotLedgerRowSchema).parse(ledgerRaw);
     const history = z.array(historyRow).parse(historyRaw);
     const positions = z.array(positionRow).parse(positionRaw);
@@ -207,9 +219,14 @@ export async function GET() {
         history.filter(point => point.bot_id === row.bot_id).map(point => ({ time: point.collected_at, equity: point.equity })),
       ])),
       accountingModel: {
-        challengeStartingCash: 100,
+        challengeStartingCash: capitalPlan?.bot_pool_capital ?? 100,
+        programStartingCapital: capitalPlan?.total_capital ?? 1000,
+        reservedBotPools: capitalPlan?.reserved_bot_pools ?? 5,
+        allocatedBotCapital: capitalPlan?.allocated_capital ?? 500,
+        unallocatedReserve: capitalPlan?.unallocated_reserve ?? 500,
+        currency: capitalPlan?.currency ?? "USD",
         virtualLedgerIsAuthority: true,
-        brokerAccountIsExecutionVenueOnly: true,
+        executionVenueBalanceIsNotProgramCapital: true,
         tradeAttributionRequired: true,
       },
     };
