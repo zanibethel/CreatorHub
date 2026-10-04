@@ -12,6 +12,10 @@ import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
 const percent = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+const signedMoney = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${money(value)}`;
+const midPrice = (bid: number | null | undefined, ask: number | null | undefined) => bid != null && ask != null && bid > 0 && ask > 0 ? (bid + ask) / 2 : bid ?? ask ?? null;
+const projectedProfit = (entry: number | null | undefined, target: number | null | undefined, quantity: number | null | undefined, fraction = 1) =>
+  entry != null && target != null && quantity != null && entry > 0 && quantity > 0 ? (target - entry) * quantity * fraction : null;
 
 function maxDrawdown(history: Array<{ time: string; equity: number }>) {
   if (history.length < 2) return 0;
@@ -25,10 +29,14 @@ function maxDrawdown(history: Array<{ time: string; equity: number }>) {
 }
 
 function OrderPlan({ order }: { order: StagedPaperOrder }) {
+  const quantity = order.requested_quantity ?? (order.requested_notional !== null && order.entry_trigger !== null && order.entry_trigger > 0 ? order.requested_notional / order.entry_trigger : null);
+  const fraction = order.take_profit_fraction ?? 1;
+  const targetProfit = projectedProfit(order.entry_trigger, order.take_profit_price, quantity, fraction);
   return <div className={styles.botRuleGrid}>
     <div><span>Staged {order.symbol}</span><strong>{money(order.requested_notional)} · {order.pool_id ?? "unassigned"}</strong>
       <small>Trigger {money(order.entry_trigger)} · max chase {money(order.max_entry_price)} · stop {money(order.protective_stop)}</small>
       <small>Take profit {money(order.take_profit_price)} · sell {order.take_profit_fraction !== null ? `${(order.take_profit_fraction * 100).toFixed(0)}%` : "—"}{order.trail_remainder && order.take_profit_fraction !== null ? ` · trail remaining ${((1 - order.take_profit_fraction) * 100).toFixed(0)}%` : ""}</small>
+      <small>{fraction < 1 ? "Projected first-target P/L" : "Projected target P/L"} {signedMoney(targetProfit)}</small>
       <small>Planned loss ≤ {money(order.planned_risk_dollars)} · expires {order.expires_at ? new Date(order.expires_at).toLocaleString() : "—"}</small>
       {order.stage_reason ? <small>{order.stage_reason}</small> : null}
     </div>
@@ -38,10 +46,14 @@ function OrderPlan({ order }: { order: StagedPaperOrder }) {
 function ExitManagerRow({ position, metric }: { position: PaperPositionPlan; metric?: PaperTradeMetric }) {
   const manager = position.exit_manager_state;
   const rMultiple = manager.rMultiple;
+  const currentPrice = manager.markPrice ?? metric?.last_mark_price ?? null;
+  const fraction = position.take_profit_fraction ?? 1;
+  const targetProfit = projectedProfit(position.average_entry, position.take_profit_price, position.quantity, fraction);
   return <div>
     <span>{position.symbol}</span>
     <strong>{(manager.plannedAction ?? "hold").replaceAll("_", " ")}{rMultiple !== undefined ? ` · ${rMultiple >= 0 ? "+" : ""}${rMultiple.toFixed(2)}R` : ""}</strong>
-    <small>Mark {money(manager.markPrice ?? null)} · stop {money(position.protective_stop)}{manager.desiredStop ? ` · planned stop ${money(manager.desiredStop)}` : ""}</small>
+    <small>Current price {money(currentPrice)} · average fill {money(position.average_entry)} · stop {money(position.protective_stop)}{manager.desiredStop ? ` · planned stop ${money(manager.desiredStop)}` : ""}</small>
+    <small>Target {money(position.take_profit_price)} · {fraction < 1 ? "projected first-target P/L" : "projected target P/L"} {signedMoney(targetProfit)}</small>
     <small>{manager.reason ?? "Waiting for evaluation."}</small>
     {metric ? <small>MFE {metric.mfe_r >= 0 ? "+" : ""}{metric.mfe_r.toFixed(2)}R · MAE {metric.mae_r >= 0 ? "+" : ""}{metric.mae_r.toFixed(2)}R · {metric.mark_count} marks</small> : null}
   </div>;
@@ -163,6 +175,8 @@ function BotCard({ profile, ledger, history, staged, positions, trades, counterf
       <div><span>Open positions</span><strong>{ledger?.positionCount ?? 0}</strong></div>
       <div><span>Open planned risk</span><strong>{percent(ledger?.openPlannedRiskPct ?? 0)}</strong></div>
       <div><span>Ledger-applied fills</span><strong>{ledger?.brokerFillCount ?? 0}</strong></div>
+      <div><span>Realized P/L</span><strong>{signedMoney(ledger?.realizedPl ?? 0)}</strong></div>
+      <div><span>Unrealized P/L</span><strong>{signedMoney(ledger?.unrealizedPl ?? 0)}</strong></div>
     </div>
 
     <div className={styles.botRuleGrid}>
@@ -273,17 +287,30 @@ export default function PaperBotLab() {
       {swingReadiness?.nextMarketOpen ? <p className={styles.meta}>Next market open: {new Date(swingReadiness.nextMarketOpen).toLocaleString()}</p> : null}
       <p className={styles.meta}>Broker protection: {swingReadiness?.brokerProtection ?? "—"} · submission gate: {swingReadiness?.submissionReady ? "ready" : "closed"} · an execution preview is only generated after same-session selection.</p>
       <div className={styles.botRuleGrid}>
-        {(swingReadiness?.plans ?? []).map(plan => <div key={plan.symbol}>
-          <span>{plan.symbol}</span>
-          <strong className={plan.state === "ready" ? styles.fresh : plan.state === "blocked" ? styles.stale : styles.meta}>
-            {plan.state.toUpperCase()}{plan.selectedForSubmission ? " · SELECTED" : ""}
-          </strong>
-          <small>Bid {money(plan.bid)} · ask {money(plan.ask)} · spread {plan.spreadPct === null ? "—" : `${plan.spreadPct.toFixed(3)}%`} · quote age {plan.quoteAgeSeconds === null ? "—" : `${Math.round(plan.quoteAgeSeconds)}s`}</small>
-          <small>Allocation {percent(plan.allocationPct)} · planned risk {percent(plan.plannedRiskPct)}{plan.correlationGroup ? ` · ${plan.correlationGroup}` : ""}</small>
-          {plan.executionPreview ? <small>Bracket preview: {plan.executionPreview.quantity.toFixed(9)} shares · {money(plan.executionPreview.estimatedNotional)} · stop {money(plan.executionPreview.stopLoss)} · target {money(plan.executionPreview.takeProfit)}</small> : null}
-          {plan.waitingOn.length ? <small>Waiting: {plan.waitingOn.join(" · ")}</small> : null}
-          {plan.blockers.length ? <small>Blocked: {plan.blockers.join(" · ")}</small> : null}
-        </div>)}
+        {(swingReadiness?.plans ?? []).map(plan => {
+          const order = stagedFor("three-trade-weekly-swing-100").find(item => item.symbol === plan.symbol) ?? null;
+          const currentPrice = midPrice(plan.bid, plan.ask);
+          const entry = plan.executionPreview?.entryReference ?? order?.entry_trigger ?? null;
+          const target = plan.executionPreview?.takeProfit ?? order?.take_profit_price ?? null;
+          const stop = plan.executionPreview?.stopLoss ?? order?.protective_stop ?? null;
+          const quantity = plan.executionPreview?.quantity
+            ?? order?.requested_quantity
+            ?? (order?.requested_notional !== null && order?.requested_notional !== undefined && entry !== null && entry > 0 ? order.requested_notional / entry : null);
+          const fraction = order?.take_profit_fraction ?? 1;
+          const targetProfit = projectedProfit(entry, target, quantity, fraction);
+          return <div key={plan.symbol}>
+            <span>{plan.symbol}</span>
+            <strong className={plan.state === "ready" ? styles.fresh : plan.state === "blocked" ? styles.stale : styles.meta}>
+              {plan.state.toUpperCase()}{plan.selectedForSubmission ? " · SELECTED" : ""}
+            </strong>
+            <small>Current price {money(currentPrice)} · bid {money(plan.bid)} · ask {money(plan.ask)} · spread {plan.spreadPct === null ? "—" : `${plan.spreadPct.toFixed(3)}%`}</small>
+            <small>Planned entry {money(entry)} · max entry {money(order?.max_entry_price ?? null)} · stop {money(stop)} · target {money(target)}</small>
+            <small>{fraction < 1 ? "Projected first-target P/L" : "Projected target P/L"} {signedMoney(targetProfit)} · allocation {percent(plan.allocationPct)} · planned risk {percent(plan.plannedRiskPct)}{plan.correlationGroup ? ` · ${plan.correlationGroup}` : ""}</small>
+            {plan.executionPreview ? <small>Bracket preview: {plan.executionPreview.quantity.toFixed(9)} shares · {money(plan.executionPreview.estimatedNotional)}</small> : null}
+            {plan.waitingOn.length ? <small>Waiting: {plan.waitingOn.join(" · ")}</small> : null}
+            {plan.blockers.length ? <small>Blocked: {plan.blockers.join(" · ")}</small> : null}
+          </div>;
+        })}
       </div>
     </section>
 
@@ -306,26 +333,33 @@ export default function PaperBotLab() {
         {weekendCrypto?.occupiedByOtherBots.length ? ` · held by other bots: ${weekendCrypto.occupiedByOtherBots.join(", ")}` : ""}
       </p>
       <div className={styles.botRuleGrid}>
-        {(weekendCrypto?.candidates ?? []).map(candidate => <div key={candidate.symbol}>
-          <span>{candidate.symbol} · {candidate.executionEligible ? "EXECUTE" : "MONITOR ONLY"}</span>
-          <strong className={candidate.state === "ready" ? styles.fresh : candidate.state === "blocked" ? styles.stale : styles.meta}>
-            {candidate.state.toUpperCase()}{candidate.selectedForSubmission ? " · SELECTED" : ""} · {candidate.score}/100
-          </strong>
-          <small>
-            Bid {money(candidate.bid)} · ask {money(candidate.ask)} · spread {candidate.spreadPct === null ? "—" : `${candidate.spreadPct.toFixed(3)}%`} · quote age {candidate.quoteAgeSeconds === null ? "—" : `${Math.round(candidate.quoteAgeSeconds)}s`}
-          </small>
-          <small>
-            5m momentum {percent(candidate.fastMomentumPct)} · 15m momentum {percent(candidate.slowMomentumPct)} · 5m ATR {percent(candidate.atrPct)}
-          </small>
-          <small>
-            Trigger {money(candidate.trigger)} · max chase {money(candidate.maxEntry)} · stop {money(candidate.protectiveStop)} · target {money(candidate.takeProfit)}
-          </small>
-          <small>
-            Planned {money(candidate.plannedNotional)} · risk {money(candidate.plannedRiskDollars)} ({percent(candidate.plannedRiskPct)}) · est. round-trip fees {money(candidate.estimatedRoundTripFees)} · target/fees {candidate.feeCoverageMultiple === null ? "—" : `${candidate.feeCoverageMultiple.toFixed(2)}×`}
-          </small>
-          {candidate.waitingOn.length ? <small>Waiting: {candidate.waitingOn.join(" · ")}</small> : null}
-          {candidate.blockers.length ? <small>Blocked: {candidate.blockers.join(" · ")}</small> : null}
-        </div>)}
+        {(weekendCrypto?.candidates ?? []).map(candidate => {
+          const currentPrice = midPrice(candidate.bid, candidate.ask);
+          const projectedNetTarget = candidate.estimatedGrossTargetDollars === null
+            ? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity)
+            : candidate.estimatedGrossTargetDollars - (candidate.estimatedRoundTripFees ?? 0);
+          return <div key={candidate.symbol}>
+            <span>{candidate.symbol} · {candidate.executionEligible ? "EXECUTE" : "MONITOR ONLY"}</span>
+            <strong className={candidate.state === "ready" ? styles.fresh : candidate.state === "blocked" ? styles.stale : styles.meta}>
+              {candidate.state.toUpperCase()}{candidate.selectedForSubmission ? " · SELECTED" : ""} · {candidate.score}/100
+            </strong>
+            <small>
+              Current price {money(currentPrice)} · bid {money(candidate.bid)} · ask {money(candidate.ask)} · spread {candidate.spreadPct === null ? "—" : `${candidate.spreadPct.toFixed(3)}%`}
+            </small>
+            <small>
+              5m momentum {percent(candidate.fastMomentumPct)} · 15m momentum {percent(candidate.slowMomentumPct)} · 5m ATR {percent(candidate.atrPct)}
+            </small>
+            <small>
+              Trigger {money(candidate.trigger)} · max chase {money(candidate.maxEntry)} · stop {money(candidate.protectiveStop)} · target {money(candidate.takeProfit)}
+            </small>
+            <small>
+              Projected target P/L {signedMoney(projectedNetTarget)} net est. · planned {money(candidate.plannedNotional)} · risk {money(candidate.plannedRiskDollars)} ({percent(candidate.plannedRiskPct)})
+            </small>
+            <small>Est. round-trip fees {money(candidate.estimatedRoundTripFees)} · target/fees {candidate.feeCoverageMultiple === null ? "—" : `${candidate.feeCoverageMultiple.toFixed(2)}×`} · quote age {candidate.quoteAgeSeconds === null ? "—" : `${Math.round(candidate.quoteAgeSeconds)}s`}</small>
+            {candidate.waitingOn.length ? <small>Waiting: {candidate.waitingOn.join(" · ")}</small> : null}
+            {candidate.blockers.length ? <small>Blocked: {candidate.blockers.join(" · ")}</small> : null}
+          </div>;
+        })}
       </div>
     </section>
 
