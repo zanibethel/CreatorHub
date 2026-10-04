@@ -29,7 +29,9 @@ export type WeekendCryptoLedgerState = {
 export type CryptoReferencePlan = {
   entryPrice: number;
   protectiveStop: number;
+  firstTakeProfitPrice: number;
   takeProfit: number;
+  estimatedOpportunityPct: number;
   plannedNotional: number;
   plannedQuantity: number;
   plannedRiskDollars: number;
@@ -55,7 +57,9 @@ export type WeekendCryptoCandidate = {
   trigger: number | null;
   maxEntry: number | null;
   protectiveStop: number | null;
+  firstTakeProfitPrice: number | null;
   takeProfit: number | null;
+  estimatedOpportunityPct: number | null;
   plannedNotional: number | null;
   plannedQuantity: number | null;
   plannedRiskDollars: number | null;
@@ -94,6 +98,42 @@ const returnPct = (bars: CryptoBar[], lookback: number) => {
   const end = bars.at(-1)?.c;
   return finitePositive(start) && finitePositive(end) ? (end / start - 1) * 100 : null;
 };
+
+const observedRangePct = (bars: CryptoBar[], reference: number) => {
+  if (!finitePositive(reference) || !bars.length) return null;
+  const highs = bars.map(bar => bar.h).filter(finitePositive);
+  const lows = bars.map(bar => bar.l).filter(finitePositive);
+  if (!highs.length || !lows.length) return null;
+  return (Math.max(...highs) - Math.min(...lows)) / reference * 100;
+};
+
+function estimatedOpportunityPct(input: {
+  reference: number;
+  stopPct: number;
+  fastBars: CryptoBar[];
+  slowBars: CryptoBar[];
+  atrPct: number | null;
+  fastMomentumPct: number | null;
+  slowMomentumPct: number | null;
+}) {
+  const fastRange = observedRangePct(input.fastBars.slice(-12), input.reference) ?? 0;
+  const slowRange = observedRangePct(input.slowBars.slice(-12), input.reference) ?? 0;
+  const atrProjection = Math.max(0, input.atrPct ?? 0) * strategy.opportunity.atrExpansionMultiplier;
+  const momentumProjection =
+    Math.max(0, input.fastMomentumPct ?? 0) * strategy.opportunity.fastMomentumMultiplier
+    + Math.max(0, input.slowMomentumPct ?? 0) * strategy.opportunity.slowMomentumMultiplier;
+  const twoRProjection = input.stopPct * strategy.risk.firstTakeProfitR;
+  return Math.min(
+    strategy.opportunity.maximumGoalProfitPct,
+    Math.max(
+      twoRProjection,
+      fastRange * strategy.opportunity.fastRangeMultiplier,
+      slowRange * strategy.opportunity.slowRangeMultiplier,
+      atrProjection,
+      momentumProjection,
+    ),
+  );
+}
 
 function atr(bars: CryptoBar[], period = 14) {
   if (bars.length < period + 1) return null;
@@ -267,7 +307,9 @@ export function evaluateWeekendCryptoReadiness(input: {
     if (score < strategy.setup.minimumScore) waitingOn.push(`Setup score ${score} is below ${strategy.setup.minimumScore}.`);
 
     let protectiveStop: number | null = null;
+    let firstTakeProfitPrice: number | null = null;
     let takeProfit: number | null = null;
+    let opportunityPct: number | null = null;
     let plannedNotional: number | null = null;
     let plannedQuantity: number | null = null;
     let plannedRiskDollars: number | null = null;
@@ -278,7 +320,7 @@ export function evaluateWeekendCryptoReadiness(input: {
 
     if (finitePositive(ask) && finitePositive(currentAtr)) {
       const recentLows = fastBars.slice(-strategy.setup.breakoutLookbackBars).map(bar => bar.l).filter(finitePositive);
-      const structureDistance = recentLows.length ? ask - Math.min(...recentLows) : 0;
+      const structureDistance = recentLows.length ? Math.max(0, ask - Math.min(...recentLows)) : 0;
       const minimumDistance = ask * strategy.risk.minimumStopPct / 100;
       const atrDistance = currentAtr * strategy.risk.atrStopMultiplier;
       const stopDistance = Math.max(minimumDistance, atrDistance, structureDistance);
@@ -288,7 +330,23 @@ export function evaluateWeekendCryptoReadiness(input: {
         waitingOn.push(`Required stop distance ${stopPct.toFixed(2)}% is too wide.`);
       } else {
         protectiveStop = ask - stopDistance;
-        takeProfit = ask + stopDistance * strategy.risk.firstTakeProfitR;
+        firstTakeProfitPrice = ask + stopDistance * strategy.risk.firstTakeProfitR;
+        opportunityPct = estimatedOpportunityPct({
+          reference: ask,
+          stopPct,
+          fastBars,
+          slowBars,
+          atrPct,
+          fastMomentumPct: fastMomentum,
+          slowMomentumPct: slowMomentum,
+        });
+        takeProfit = ask * (1 + opportunityPct / 100);
+
+        if (opportunityPct < strategy.opportunity.minimumGoalProfitPct) {
+          waitingOn.push(
+            `Projected opportunity ${opportunityPct.toFixed(2)}% is below the ${strategy.opportunity.minimumGoalProfitPct.toFixed(0)}% goal threshold.`,
+          );
+        }
 
         const riskBudget = input.ledger.equity * strategy.risk.riskPerTradePct / 100;
         const notionalByRisk = riskBudget / (stopPct / 100);
@@ -300,7 +358,7 @@ export function evaluateWeekendCryptoReadiness(input: {
 
         const feeRate = strategy.fees.estimatedTakerFeeBpsPerSide / 10_000;
         estimatedRoundTripFees = plannedNotional * feeRate * 2;
-        estimatedGrossTargetDollars = plannedNotional * ((takeProfit / ask) - 1);
+        estimatedGrossTargetDollars = plannedNotional * (opportunityPct / 100);
         feeCoverageMultiple = estimatedRoundTripFees > 0
           ? estimatedGrossTargetDollars / estimatedRoundTripFees
           : null;
@@ -331,25 +389,37 @@ export function evaluateWeekendCryptoReadiness(input: {
 
       if (stopPct <= strategy.risk.maximumStopPct) {
         const referenceStop = trigger - stopDistance;
-        const referenceTarget = trigger + stopDistance * strategy.risk.firstTakeProfitR;
+        const referenceFirstTakeProfit = trigger + stopDistance * strategy.risk.firstTakeProfitR;
+        const referenceOpportunityPct = estimatedOpportunityPct({
+          reference: trigger,
+          stopPct,
+          fastBars,
+          slowBars,
+          atrPct,
+          fastMomentumPct: fastMomentum,
+          slowMomentumPct: slowMomentum,
+        });
+        const referenceTarget = trigger * (1 + referenceOpportunityPct / 100);
         const riskBudget = input.ledger.equity * strategy.risk.riskPerTradePct / 100;
         const notionalByRisk = riskBudget / (stopPct / 100);
         const allocationBudget = input.ledger.equity * strategy.risk.maximumPositionAllocationPct / 100;
         const referenceNotional = Math.min(notionalByRisk, allocationBudget, input.ledger.buyingPower);
         const referenceQuantity = referenceNotional / trigger;
         const referenceRiskDollars = referenceNotional * stopPct / 100;
-        const referenceProfitDollars = referenceNotional * ((referenceTarget / trigger) - 1);
+        const referenceProfitDollars = referenceNotional * (referenceOpportunityPct / 100);
 
         referencePlan = {
           entryPrice: trigger,
           protectiveStop: referenceStop,
+          firstTakeProfitPrice: referenceFirstTakeProfit,
           takeProfit: referenceTarget,
+          estimatedOpportunityPct: referenceOpportunityPct,
           plannedNotional: referenceNotional,
           plannedQuantity: referenceQuantity,
           plannedRiskDollars: referenceRiskDollars,
           plannedRiskPct: referenceRiskDollars / input.ledger.equity * 100,
           estimatedGrossTargetDollars: referenceProfitDollars,
-          projectedProfitPct: referenceNotional > 0 ? referenceProfitDollars / referenceNotional * 100 : 0,
+          projectedProfitPct: referenceOpportunityPct,
         };
       }
     }
@@ -371,7 +441,9 @@ export function evaluateWeekendCryptoReadiness(input: {
       trigger,
       maxEntry,
       protectiveStop,
+      firstTakeProfitPrice,
       takeProfit,
+      estimatedOpportunityPct: opportunityPct,
       plannedNotional,
       plannedQuantity,
       plannedRiskDollars,
