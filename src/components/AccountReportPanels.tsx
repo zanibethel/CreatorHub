@@ -3,7 +3,14 @@
 import { useEffect, useState } from "react";
 import type { AccountReport, AccountHistoryPoint } from "@/lib/account-report";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
-import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
+import {
+  PAPER_STARTING_CASH,
+  PAPER_PROGRAM_CAPITAL,
+  PAPER_ALLOCATED_CAPITAL,
+  PAPER_UNALLOCATED_RESERVE,
+  PAPER_RESERVED_BOT_POOLS,
+  formatPaperMoney,
+} from "@/lib/paper-trading-config";
 import usePaperBotLedgers, { type PaperCounterfactual, type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
 import useSwingReadiness, { type SwingReadinessPlan } from "./useSwingReadiness";
 import useWeekendCryptoReadiness, { type WeekendCryptoCandidate } from "./useWeekendCryptoReadiness";
