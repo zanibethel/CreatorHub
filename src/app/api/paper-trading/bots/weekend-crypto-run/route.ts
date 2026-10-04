@@ -208,8 +208,9 @@ async function persistCounterfactuals(readiness: z.infer<typeof readinessSchema>
       warnings: row.warnings,
       metadata: row.metadata,
     }, candidate.trackingBars, {
-      expire: readiness.session.flattenDue
-        || (row.session_key !== null && row.session_key !== readiness.session.localDate),
+      expire: row.status === "watching"
+        && row.session_key !== null
+        && row.session_key !== readiness.session.localDate,
     });
 
     if (!result.changed) continue;
@@ -267,27 +268,6 @@ export async function GET(request: Request) {
 
   if (!readiness.session.isTradingDay) {
     return reply({ ok: true, action: "none", reason: "outside-daily-crypto-session", journalPersisted, counterfactualTracking });
-  }
-
-  if (readiness.session.flattenDue) {
-    const flattenResponse = await fetch(
-      new URL("/api/paper-trading/bots/weekend-crypto-flatten", PUBLIC_ORIGIN),
-      {
-        method: "POST",
-        headers: { "x-paper-weekend-execution-token": executionToken },
-        cache: "no-store",
-        signal: AbortSignal.timeout(30_000),
-      },
-    );
-    const flatten = await flattenResponse.json().catch(() => ({ error: "Flatten returned an invalid response." }));
-    return reply({
-      ok: flattenResponse.ok,
-      action: "flatten",
-      localTime: readiness.session.localTime,
-      result: flatten,
-      journalPersisted,
-      counterfactualTracking,
-    }, flattenResponse.ok ? 200 : 502);
   }
 
   if (!readiness.session.entriesOpen) {
