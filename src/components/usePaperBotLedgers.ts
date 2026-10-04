@@ -78,12 +78,38 @@ export type PaperTradeMetric = {
   exit_reason: string | null;
 };
 
+export type PaperCounterfactual = {
+  bot_id: string;
+  symbol: string;
+  status: "watching" | "triggered" | "completed" | "expired" | "ambiguous" | "superseded";
+  source_event_type: string;
+  decision_state: string | null;
+  decision_at: string;
+  session_key: string | null;
+  score: number | null;
+  trigger_price: number;
+  max_entry_price: number;
+  protective_stop: number;
+  assumed_entry_price: number | null;
+  one_r_price: number | null;
+  two_r_price: number | null;
+  triggered_at: string | null;
+  stop_hit_at: string | null;
+  one_r_hit_at: string | null;
+  two_r_hit_at: string | null;
+  first_outcome: string | null;
+  mark_count: number;
+  mfe_r: number;
+  mae_r: number;
+};
+
 export type PaperBotLedgerReport = {
   collectedAt: string;
   bots: PaperBotSummary[];
   stagedOrders: Record<string, StagedPaperOrder[]>;
   positionPlans: Record<string, PaperPositionPlan[]>;
   tradeMetrics: Record<string, PaperTradeMetric[]>;
+  counterfactuals: Record<string, PaperCounterfactual[]>;
   history: Record<string, Array<{ time: string; equity: number }>>;
   accountingModel: {
     challengeStartingCash: number;
