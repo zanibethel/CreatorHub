@@ -73,7 +73,7 @@ A score of 80 or higher automatically places the prospect into the appropriate b
 
 Current routing suggestions:
 
-- Crypto: Daily Crypto and Default Diverse.
+- Crypto: Daily Crypto, Crypto Swing, and Default Diverse.
 - Stock above the penny ceiling: Default Diverse and Weekly Swing.
 - Stock at or below $5: Penny Volatility and Default Diverse.
 
