@@ -31,6 +31,7 @@ export const PAPER_STRATEGY_V1 = {
   },
   setup: {
     breakoutLookback: 20,
+    breakoutBufferPct: 0.05,
     pullbackLookback: 5,
     supportLookback: 10,
   },
