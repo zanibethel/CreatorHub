@@ -5,6 +5,7 @@ import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profil
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import useAccountReport from "./useAccountReport";
 import usePaperBotLedgers, { type PaperCounterfactual, type PaperPositionPlan, type PaperTradeMetric, type StagedPaperOrder } from "./usePaperBotLedgers";
+import usePaperStrategyReview, { type PaperStrategyReviewBot } from "./usePaperStrategyReview";
 import useSwingReadiness from "./useSwingReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
@@ -44,6 +45,90 @@ function ExitManagerRow({ position, metric }: { position: PaperPositionPlan; met
     <small>{manager.reason ?? "Waiting for evaluation."}</small>
     {metric ? <small>MFE {metric.mfe_r >= 0 ? "+" : ""}{metric.mfe_r.toFixed(2)}R · MAE {metric.mae_r >= 0 ? "+" : ""}{metric.mae_r.toFixed(2)}R · {metric.mark_count} marks</small> : null}
   </div>;
+}
+
+function StrategyReviewCard({ review }: { review: PaperStrategyReviewBot }) {
+  const maturityLabel = review.evidenceMaturity.level.toUpperCase();
+  const sampleTarget = review.evidenceMaturity.minimumForRecommendations;
+  const topSymbols = review.symbols.filter(item => item.observations || item.closedTrades || item.resolvedCounterfactuals).slice(0, 5);
+  const usefulBands = review.scoreBands.filter(item => item.observations || item.resolvedStudies);
+
+  return <article className={styles.botCard}>
+    <div className={styles.botCardHeader}>
+      <div>
+        <span className={review.evidenceMaturity.level === "collecting" ? styles.botStatusPlanned : styles.botStatusActive}>{maturityLabel}</span>
+        <h2>{review.displayName}</h2>
+      </div>
+      <strong className={styles.botCapital}>{review.evidenceMaturity.resolvedOutcomeSamples} outcomes</strong>
+    </div>
+    <p>{review.strategyId ?? "Strategy pending"}{review.strategyVersion ? ` · v${review.strategyVersion}` : ""}</p>
+
+    <div className={styles.botMetrics}>
+      <div><span>Decision observations</span><strong>{review.decisions.observations}</strong></div>
+      <div><span>Closed trades</span><strong>{review.executed.closedTrades}</strong></div>
+      <div><span>Average realized R</span><strong>{review.executed.averageR === null ? "—" : `${review.executed.averageR >= 0 ? "+" : ""}${review.executed.averageR.toFixed(2)}R`}</strong></div>
+      <div><span>Win rate</span><strong>{review.executed.winRatePct === null ? "—" : `${review.executed.winRatePct.toFixed(0)}%`}</strong></div>
+      <div><span>Counterfactual studies</span><strong>{review.counterfactual.total}</strong></div>
+      <div><span>Resolved studies</span><strong>{review.counterfactual.analyzable}</strong></div>
+    </div>
+
+    <div className={styles.botRuleGrid}>
+      <div>
+        <span>Counterfactual threshold paths</span>
+        <strong>{review.counterfactual.missedOpportunities} reached +2R first · {review.counterfactual.protectiveRejections} hit stop before +1R</strong>
+        <small>{review.counterfactual.mixed} mixed · {review.counterfactual.neverTriggered} never triggered · {review.counterfactual.ambiguous} ambiguous</small>
+        <small>Counterfactual threshold paths are evidence, not virtual or realized P/L.</small>
+      </div>
+      <div>
+        <span>Execution evidence</span>
+        <strong>{money(review.executed.totalRealizedPl)} realized · {money(review.executed.totalEstimatedFees)} estimated fees</strong>
+        <small>MFE {review.executed.averageMfeR === null ? "—" : `${review.executed.averageMfeR >= 0 ? "+" : ""}${review.executed.averageMfeR.toFixed(2)}R`} · MAE {review.executed.averageMaeR === null ? "—" : `${review.executed.averageMaeR >= 0 ? "+" : ""}${review.executed.averageMaeR.toFixed(2)}R`}</small>
+      </div>
+      <div>
+        <span>Decision lifecycle</span>
+        <strong>{review.decisions.strategyRejectedEvents} strategy rejects · {review.decisions.brokerRejectedEvents} broker rejects</strong>
+        <small>{review.decisions.canceledEvents} canceled · {review.decisions.expiredEvents} expired · {review.decisions.replacedEvents} replaced · {review.decisions.executionErrors} execution errors</small>
+      </div>
+      <div>
+        <span>Evidence maturity</span>
+        <strong>{maturityLabel}</strong>
+        <small>{review.evidenceMaturity.resolvedOutcomeSamples < sampleTarget ? `${sampleTarget - review.evidenceMaturity.resolvedOutcomeSamples} more resolved outcomes before parameter recommendations unlock.` : "Minimum evidence threshold reached; recommendations remain advisory and version-gated."}</small>
+      </div>
+    </div>
+
+    {review.decisions.topReasons.length ? <div>
+      <h3>Most common gates / waiting reasons</h3>
+      <div className={styles.botRuleGrid}>{review.decisions.topReasons.map(item => <div key={item.reason}><span>{item.reason}</span><strong>{item.count} observations</strong></div>)}</div>
+    </div> : null}
+
+    {usefulBands.length ? <div>
+      <h3>Score-band evidence</h3>
+      <div className={styles.botRuleGrid}>{usefulBands.map(item => <div key={item.band}>
+        <span>Score {item.band}</span>
+        <strong>{item.observations} scans · {item.resolvedStudies} resolved studies</strong>
+        <small>Missed +2R rate {item.missedOpportunityRatePct === null ? "—" : `${item.missedOpportunityRatePct.toFixed(0)}%`} · protective rejection rate {item.protectiveRejectionRatePct === null ? "—" : `${item.protectiveRejectionRatePct.toFixed(0)}%`}</small>
+      </div>)}</div>
+    </div> : null}
+
+    {topSymbols.length ? <div>
+      <h3>Symbol evidence</h3>
+      <div className={styles.botRuleGrid}>{topSymbols.map(item => <div key={item.symbol}>
+        <span>{item.symbol}</span>
+        <strong>{item.observations} observations · max score {item.maxScore === null ? "—" : item.maxScore.toFixed(0)}</strong>
+        <small>{item.closedTrades} closed trades · avg executed R {item.averageExecutedR === null ? "—" : `${item.averageExecutedR >= 0 ? "+" : ""}${item.averageExecutedR.toFixed(2)}R`} · {item.resolvedCounterfactuals} resolved counterfactuals</small>
+      </div>)}</div>
+    </div> : null}
+
+    <div>
+      <h3>Strategy recommendations</h3>
+      <div className={styles.botRuleGrid}>{review.recommendations.map(item => <div key={item.id}>
+        <span>{item.severity === "review" ? "REVIEW" : "ADVISORY"}</span>
+        <strong>{item.title}</strong>
+        <small>{item.rationale}</small>
+        <small>{item.evidenceCount} outcome samples · requires new version + PAPER validation</small>
+      </div>)}</div>
+    </div>
+  </article>;
 }
 
 function BotCard({ profile, ledger, history, staged, positions, trades, counterfactuals }: {
@@ -135,6 +220,7 @@ function BotCard({ profile, ledger, history, staged, positions, trades, counterf
 export default function PaperBotLab() {
   const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
   const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
+  const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
   const { report: swingReadiness, error: swingReadinessError } = useSwingReadiness();
   const { report: weekendCrypto, error: weekendCryptoError } = useWeekendCryptoReadiness();
   const ledgerFor = (botId: string) => ledgerReport?.bots.find(bot => bot.botId === botId) ?? null;
@@ -152,7 +238,7 @@ export default function PaperBotLab() {
         <h1>Bot Lab</h1>
         <p>Every challenge starts with $100 virtual capital. The larger Alpaca paper account is the execution sandbox and audit trail, never the bot bankroll.</p>
       </div>
-      <div className={styles.botLabActions}><button onClick={() => { refreshLedgers(); refreshAccount(); }}>Refresh</button></div>
+      <div className={styles.botLabActions}><button onClick={() => { refreshLedgers(); refreshAccount(); refreshStrategyReview(); }}>Refresh</button></div>
     </header>
 
     <section className={styles.botOverview}>
@@ -167,6 +253,7 @@ export default function PaperBotLab() {
     {accountError ? <p role="status" className={styles.error}>Alpaca audit feed: {accountError}</p> : null}
     {swingReadinessError ? <p role="status" className={styles.error}>Swing readiness: {swingReadinessError}</p> : null}
     {weekendCryptoError ? <p role="status" className={styles.error}>Daily crypto readiness: {weekendCryptoError}</p> : null}
+    {strategyReviewError ? <p role="status" className={styles.error}>Strategy review: {strategyReviewError}</p> : null}
 
     <section className={styles.botCompare}>
       <div className={styles.cardHeader}>
@@ -239,6 +326,26 @@ export default function PaperBotLab() {
           {candidate.blockers.length ? <small>Blocked: {candidate.blockers.join(" · ")}</small> : null}
         </div>)}
       </div>
+    </section>
+
+    <section className={styles.botCompare}>
+      <div className={styles.cardHeader}>
+        <div>
+          <h2>Strategy review</h2>
+          <p>Executed trades, counterfactual paths, rejected/staged lifecycle evidence, score bands, and recurring blockers are reviewed together. Recommendations cannot modify a strategy.</p>
+        </div>
+        <span className={styles.meta}>ADVISORY ONLY · NEW VERSION + PAPER VALIDATION REQUIRED</span>
+      </div>
+      <div className={styles.botOverview}>
+        <div><span>Auto strategy mutation</span><strong>{strategyReview?.policy.automaticStrategyMutation ? "ON" : "OFF"}</strong></div>
+        <div><span>Auto risk increases</span><strong>{strategyReview?.policy.automaticRiskIncrease ? "ON" : "OFF"}</strong></div>
+        <div><span>Live-money changes</span><strong>{strategyReview?.policy.liveMoneyChangesAllowed ? "ON" : "OFF"}</strong></div>
+        <div><span>Recommendation threshold</span><strong>{strategyReview?.policy.minimumResolvedOutcomesForRecommendations ?? 20} outcomes</strong></div>
+      </div>
+      <div className={styles.botGrid}>
+        {(strategyReview?.bots ?? []).filter(bot => bot.status === "active").map(review => <StrategyReviewCard key={review.botId} review={review} />)}
+      </div>
+      <p className={styles.meta}>A counterfactual reaching +2R before the original stop is labeled a missed-opportunity path, not hypothetical profit. Same-bar ambiguity remains excluded from directional conclusions.</p>
     </section>
 
     <section className={styles.botGrid}>
