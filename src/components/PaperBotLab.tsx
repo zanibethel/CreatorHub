@@ -146,7 +146,7 @@ export default function PaperBotLab() {
     {ledgerError ? <p role="status" className={styles.error}>Bot ledger: {ledgerError}</p> : null}
     {accountError ? <p role="status" className={styles.error}>Alpaca audit feed: {accountError}</p> : null}
     {swingReadinessError ? <p role="status" className={styles.error}>Swing readiness: {swingReadinessError}</p> : null}
-    {weekendCryptoError ? <p role="status" className={styles.error}>Weekend crypto readiness: {weekendCryptoError}</p> : null}
+    {weekendCryptoError ? <p role="status" className={styles.error}>Daily crypto readiness: {weekendCryptoError}</p> : null}
 
     <section className={styles.botCompare}>
       <div className={styles.cardHeader}>
@@ -182,8 +182,8 @@ export default function PaperBotLab() {
     <section className={styles.botCompare}>
       <div className={styles.cardHeader}>
         <div>
-          <h2>Weekend crypto day readiness</h2>
-          <p>BTC / ETH / SOL proof-of-concept scanner using Alpaca quotes plus completed 5-minute and 15-minute bars.</p>
+          <h2>Daily crypto day readiness</h2>
+          <p>Seven-day BTC / ETH / SOL proof-of-concept scanner using Alpaca quotes plus completed 5-minute and 15-minute bars.</p>
         </div>
         <span className={styles.meta}>{weekendCrypto ? `PAPER ONLY · EXECUTOR ${weekendCrypto.executionEnabled ? "ARMED" : "DISABLED"}` : "PAPER ONLY"}</span>
       </div>
