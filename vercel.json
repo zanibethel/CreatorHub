@@ -4,6 +4,10 @@
     {
       "path": "/api/paper-trading/bots/weekend-crypto-run",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/paper-trading/bots/swing-readiness",
+      "schedule": "*/5 * * * 1-5"
     }
   ]
 }
