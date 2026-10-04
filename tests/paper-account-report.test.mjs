@@ -42,6 +42,7 @@ test('collector uses only GETs on the fixed paper host and strips broker identif
   });
   assert.equal(report.account.equity,100000,'does not scale the broker balance to the $100 virtual challenge');
   assert.equal(report.orders[0].status,'partially_filled');
+  assert.equal(report.orders[0].averageFillPrice,600);
   assert.equal(report.fills[0].quantity,0.2);
   assert.equal(report.orders[0].stop,null);
   assert.match(sourceKey,/^[a-f0-9]{64}$/);
