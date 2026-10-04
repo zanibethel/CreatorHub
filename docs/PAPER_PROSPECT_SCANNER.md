@@ -27,18 +27,18 @@ These thresholds are discovery thresholds, not trading thresholds. After a prosp
 
 Every ten minutes, the scanner combines:
 
-- Alpaca top stock gainers.
-- Alpaca top 100 stocks by volume.
-- Alpaca stock snapshots for price, quote/spread, session volume, prior-day volume, and distance from the session high.
-- Alpaca asset validation before a prospect can enter the Prospect Watchlist.
+- Top stock gainers from the configured market-data screener.
+- Top 100 stocks by volume from the configured market-data screener.
+- Stock market snapshots for price, quote/spread, session volume, prior-day volume, and distance from the session high.
+- Market-catalog validation before a prospect can enter the Prospect Watchlist.
 
 Stock market source data must be fresh. On weekends or other periods where the stock screener is stale, the scanner skips new stock promotion instead of repeatedly treating the prior session as current.
 
 ### Crypto
 
-The scanner reads Alpaca's active, tradable, fractionable crypto asset catalog and evaluates all USD pairs rather than only the Daily Crypto bot's current fixed universe.
+The scanner reads the configured active, tradable, fractionable crypto asset catalog and evaluates all USD pairs rather than only the Daily Crypto bot's current fixed universe.
 
-For those pairs it reads Alpaca crypto snapshots and measures:
+For those pairs it reads crypto market snapshots and measures:
 
 - current session percentage change,
 - current-versus-prior-day volume expansion,
@@ -116,7 +116,7 @@ A second section shows near-miss prospects within ten points of the Prospect Wat
 The scanner is discovery-only.
 
 It cannot:
-- place an Alpaca order,
+- place a PAPER execution order,
 - mark a candidate READY for a trading bot,
 - bypass a bot's strategy threshold,
 - expand the Daily Crypto execution whitelist,
