@@ -64,6 +64,14 @@ export type PaperDecision = {
     projectedTwoR: number | null;
     uncappedPositionValue: number | null;
   };
+  referencePlan: {
+    entryTrigger: number | null;
+    stopPrice: number | null;
+    stopDistancePct: number | null;
+    exitPrice: number | null;
+    riskDollars: number | null;
+    uncappedPositionValue: number | null;
+  };
   blockers: string[];
   warnings: string[];
   eligibleUnderAvailableRules: boolean;
@@ -282,6 +290,32 @@ export function evaluatePaperCandidate(input: {
   const projectedTwoR = entry !== null && chosenStop !== null && chosenStop < entry
     ? entry + (entry - chosenStop) * config.risk.minimumRewardR : null;
 
+  const referenceBars = candles.slice(-(config.setup.breakoutLookback + 1), -1);
+  const referenceHigh = referenceBars.length
+    ? Math.max(...referenceBars.map(candle => finitePositive(candle.high) ? candle.high : candle.close))
+    : null;
+  const referenceEntry = finitePositive(referenceHigh)
+    ? referenceHigh * (1 + config.setup.breakoutBufferPct / 100)
+    : null;
+  const referenceStructureStop = referenceEntry !== null && atr !== null && support !== null
+    ? support - atr * config.risk.structureBufferAtr
+    : null;
+  const referenceAtrStop = referenceEntry !== null && atr !== null
+    ? referenceEntry - atr * config.risk.atrStopMultiplier
+    : null;
+  const referenceStop = referenceStructureStop !== null && referenceAtrStop !== null
+    ? Math.min(referenceStructureStop, referenceAtrStop)
+    : null;
+  const referenceStopDistancePct = referenceEntry !== null && referenceStop !== null && referenceStop > 0 && referenceStop < referenceEntry
+    ? (referenceEntry - referenceStop) / referenceEntry * 100
+    : null;
+  const referencePositionValue = riskDollars !== null && referenceStopDistancePct !== null && referenceStopDistancePct > 0
+    ? riskDollars / (referenceStopDistancePct / 100)
+    : null;
+  const referenceExit = referenceEntry !== null && referenceStop !== null && referenceStop < referenceEntry
+    ? referenceEntry + (referenceEntry - referenceStop) * config.risk.minimumRewardR
+    : null;
+
   if (!finitePositive(equity)) blockers.push("Account equity is required for risk-based position sizing.");
   const openRisk = input.risk?.openRiskPct;
   const correlatedRisk = input.risk?.correlatedRiskPct;
@@ -347,6 +381,14 @@ export function evaluatePaperCandidate(input: {
       stopDistancePct: stopDistancePct === null ? null : round(stopDistancePct),
       projectedTwoR: projectedTwoR === null ? null : round(projectedTwoR),
       uncappedPositionValue: uncappedPositionValue === null ? null : round(uncappedPositionValue, 2),
+    },
+    referencePlan: {
+      entryTrigger: referenceEntry === null ? null : round(referenceEntry),
+      stopPrice: referenceStop !== null && referenceStop > 0 ? round(referenceStop) : null,
+      stopDistancePct: referenceStopDistancePct === null ? null : round(referenceStopDistancePct),
+      exitPrice: referenceExit === null ? null : round(referenceExit),
+      riskDollars: riskDollars === null ? null : round(riskDollars, 2),
+      uncappedPositionValue: referencePositionValue === null ? null : round(referencePositionValue, 2),
     },
     blockers: [...new Set(blockers)],
     warnings: [...new Set(warnings)],
