@@ -197,3 +197,9 @@ Changes to these requirements must be versioned and documented.
 
 ### Counterfactual readiness evidence
 Daily Crypto now has durable counterfactual tracking for Watch-or-better execution-tier setups that are not actually submitted. The tracker uses only future completed 5-minute bars, respects the original max-entry and stop plan, records +1R/+2R/MFE/MAE, and marks unknowable same-candle sequencing as ambiguous. The Three-Trade Weekly Swing Bot now uses the same evidence table for prepared QQQ/NVDA/MSFT plans during its Monday entry window, with future completed 5-minute IEX bars and multi-session follow-through after a hypothetical trigger. Records are visible in Bot Lab and cannot place orders.
+
+
+### Strategy Review engine
+The PAPER evidence loop now feeds a dedicated server-side Strategy Review API and Bot Lab panel. It aggregates executed outcomes, counterfactual threshold paths, decision/rejection lifecycle data, score bands, symbol evidence, common blockers, MFE/MAE, realized R, fees, and execution errors without exposing broker identifiers.
+
+The review layer will not recommend parameter changes before 20 resolved outcome samples for a bot. Even after that threshold, recommendations remain advisory, require a new strategy version, and require PAPER validation before promotion. Automatic strategy mutation, automatic risk increases, and live-money changes remain disabled.
