@@ -221,12 +221,12 @@ Implemented or partially implemented:
 - trade metrics with live R/MFE/MAE fields,
 - durable Daily Crypto Day five-minute evidence for all execution and monitor-only candidates,
 - prepared swing plans retained as virtual orders,
+- authenticated weekday five-minute swing revalidation journaling for QQQ/NVDA/MSFT, including market state, quote/spread freshness, blockers/waiting reasons, risk plan, selection priority, and explicit expiry terminalization,
 - executed Default Diverse broker/fill/ledger attribution,
 - and versioned strategy configuration.
 
 Still required for complete coverage:
 - wire decision/rejection journaling across every bot/evaluator,
-- persist revalidation events and terminal disposition for staged swing plans,
 - explicitly journal cancel/expire/replace reasons across all execution paths,
 - add counterfactual tracking for serious non-executed proposals,
 - aggregate closed-trade and non-trade evidence into a repeatable strategy-review dataset,
