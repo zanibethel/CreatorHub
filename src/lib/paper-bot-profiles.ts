@@ -1,6 +1,6 @@
 import { PAPER_STRATEGY_V1 } from "./paper-strategy-config";
 import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
-import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 } from "./paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V2 } from "./paper-weekend-crypto-strategy-config";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
 
@@ -117,20 +117,20 @@ export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
 };
 
 
-export const WEEKEND_CRYPTO_DAY_BOT: PaperBotProfile = {
+export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   id: "weekend-crypto-day-100",
-  name: "$100 Weekend Crypto Day Bot",
+  name: "$100 Daily Crypto Day Bot",
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "wkd",
-  strategyId: WEEKEND_CRYPTO_DAY_STRATEGY_V1.id,
-  style: "Weekend-only short-horizon crypto momentum proof of concept with fee-aware risk controls",
+  strategyId: DAILY_CRYPTO_DAY_STRATEGY_V2.id,
+  style: "Daily short-horizon crypto momentum proof of concept with fee-aware risk controls",
   universe: {
     assetClasses: ["crypto"],
-    description: "BTC/USD, ETH/USD, and SOL/USD only for the initial weekend PAPER proof of concept.",
+    description: "BTC/USD, ETH/USD, and SOL/USD only for the initial daily PAPER proof of concept.",
   },
   cadence: {
-    description: "Saturday/Sunday intraday only; maximum three new entries per local session day and one open position at a time.",
+    description: "Seven-day intraday crypto session; maximum three new entries per local day and one open position at a time.",
     intradayOnly: true,
   },
   isolation: {
@@ -142,7 +142,7 @@ export const WEEKEND_CRYPTO_DAY_BOT: PaperBotProfile = {
     "Initial universe is intentionally limited to BTC/USD, ETH/USD, and SOL/USD.",
     "The strategy is fee-aware and requires a gross target materially larger than estimated round-trip crypto fees.",
     "No new position is allowed in a symbol already held by another bot during the proof of concept.",
-    "Execution starts disabled; the live scanner can become READY without submitting a broker order.",
+    "The stable bot ID and wkd broker tag are retained from v1 so strategy history remains continuous across the daily v2 revision.",
   ],
 };
 
@@ -150,7 +150,9 @@ export const PAPER_BOT_PROFILES = [
   DEFAULT_DIVERSE_BOT,
   PENNY_VOLATILITY_DAY_BOT,
   THREE_TRADE_SWING_BOT,
-  WEEKEND_CRYPTO_DAY_BOT,
+  DAILY_CRYPTO_DAY_BOT,
 ] as const;
+
+export const WEEKEND_CRYPTO_DAY_BOT = DAILY_CRYPTO_DAY_BOT;
 
 export const ACTIVE_DEFAULT_PAPER_BOT = DEFAULT_DIVERSE_BOT;
