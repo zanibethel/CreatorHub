@@ -52,6 +52,7 @@ export type PaperProspectReport = {
   };
   prospects: PaperProspect[];
   nearMisses: PaperProspect[];
+  trends: Record<string,Array<{time:string;score:number}>>;
 };
 
 export default function usePaperProspects() {
