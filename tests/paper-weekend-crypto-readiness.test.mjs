@@ -44,9 +44,9 @@ function bars(count, minutes, base, step) {
 }
 
 function input(overrides = {}) {
-  const universe = config.DAILY_CRYPTO_DAY_STRATEGY_V4.universe;
+  const universe = config.ACTIVE_DAILY_CRYPTO_DAY_STRATEGY.universe;
   const bars5m = Object.fromEntries(universe.map(symbol => [symbol, bars(30,5,100,0.05)]));
-  const bars15m = Object.fromEntries(universe.map(symbol => [symbol, bars(20,15,95,0.20)]));
+  const bars15m = Object.fromEntries(universe.map(symbol => [symbol, bars(20,15,94,0.35)]));
   const ask = bars5m["BTC/USD"].at(-1).c + 0.09;
   const quotes = Object.fromEntries(universe.map(symbol => [
     symbol,
@@ -89,9 +89,12 @@ test("daily crypto scanner can select one qualified PAPER candidate while execut
   assert.ok(selected.plannedNotional <= 30.000001);
   assert.ok(selected.plannedRiskPct <= 0.500001);
   assert.ok(selected.feeCoverageMultiple >= 2.5);
+  assert.ok(selected.estimatedOpportunityPct >= 5);
+  assert.ok(selected.takeProfit > selected.firstTakeProfitPrice);
+  assert.ok(selected.referencePlan.projectedProfitPct >= 5);
 });
 
-test("v4 makes LINK and DOT executable while extended alts stay monitor-only", () => {
+test("v5 makes LINK and DOT executable while extended alts stay monitor-only", () => {
   const result = readiness.evaluateWeekendCryptoReadiness(input());
   for (const symbol of ["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]) {
     const candidate = result.candidates.find(item => item.symbol === symbol);
@@ -107,11 +110,11 @@ test("v4 makes LINK and DOT executable while extended alts stay monitor-only", (
 
 test("all monitor-only READY candidates can never be selected for submission", () => {
   const base = input({
-    occupiedByOtherBots: [...config.DAILY_CRYPTO_DAY_STRATEGY_V4.executionUniverse],
+    occupiedByOtherBots: [...config.ACTIVE_DAILY_CRYPTO_DAY_STRATEGY.executionUniverse],
   });
   const result = readiness.evaluateWeekendCryptoReadiness(base);
 
-  for (const symbol of config.DAILY_CRYPTO_DAY_STRATEGY_V4.monitorOnlyUniverse) {
+  for (const symbol of config.ACTIVE_DAILY_CRYPTO_DAY_STRATEGY.monitorOnlyUniverse) {
     const candidate = result.candidates.find(item => item.symbol === symbol);
     assert.equal(candidate.state, "ready");
     assert.equal(candidate.executionEligible, false);
@@ -202,7 +205,7 @@ test("armed execution still requires a selected ready setup", () => {
 });
 
 
-test("v4 keeps entries open after the old 22:30 cutoff and never schedules a routine nightly flatten", () => {
+test("v5 keeps entries open after the old 22:30 cutoff and never schedules a routine nightly flatten", () => {
   const late = Date.parse("2026-10-04T04:50:00Z"); // 23:50 Saturday America/Chicago
   const base = input();
   const quotes = Object.fromEntries(Object.entries(base.quotes).map(([symbol, quote]) => [
@@ -219,7 +222,7 @@ test("v4 keeps entries open after the old 22:30 cutoff and never schedules a rou
   );
 });
 
-test("v4 local midnight remains an accounting boundary rather than a market close", () => {
+test("v5 local midnight remains an accounting boundary rather than a market close", () => {
   const before = readiness.dailyCryptoSession(Date.parse("2026-10-04T04:59:00Z"));
   const after = readiness.dailyCryptoSession(Date.parse("2026-10-04T05:01:00Z"));
   assert.notEqual(before.localDate, after.localDate);
