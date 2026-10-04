@@ -69,7 +69,7 @@ The Prospect Score does not replace the strategy score used by any trading bot.
 
 ## Suggested bot review
 
-A score of 80 or higher allows the scanner to suggest where the prospect should be reviewed next.
+A score of 80 or higher automatically places the prospect into the appropriate bot review queue. This is a review assignment only; it does not make the symbol execution-eligible.
 
 Current routing suggestions:
 
@@ -79,7 +79,7 @@ Current routing suggestions:
 
 The Penny Volatility bot remains planned/disabled. A scanner suggestion does not activate it.
 
-The scanner stores suggestions only. `assigned_bot_ids` is kept separate so future approval/review workflows can record an actual assignment without rewriting discovery history.
+`suggested_bot_ids` records the routing logic and `assigned_bot_ids` records the bot review queues that actually received a score-80 prospect. Assignments are durable evidence even if the prospect later cools off.
 
 ## Persistence
 
