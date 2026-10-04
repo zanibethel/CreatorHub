@@ -131,6 +131,17 @@ test("one open position blocks additional entries", () => {
   assert.equal(result.candidates.every(candidate => candidate.state === "blocked"), true);
 });
 
+
+test("broker minimum buffer blocks a risk-valid but undersized challenge entry", () => {
+  const base = input();
+  const result = readiness.evaluateWeekendCryptoReadiness({
+    ...base,
+    ledger: { ...base.ledger, equity: 30, buyingPower: 30 },
+  });
+  assert.equal(result.candidates.every(candidate => candidate.state === "blocked"), true);
+  assert.match(result.candidates[0].blockers.join(" "), /broker-minimum buffer/i);
+});
+
 test("armed execution still requires a selected ready setup", () => {
   const base = input();
   const armed = readiness.evaluateWeekendCryptoReadiness({
