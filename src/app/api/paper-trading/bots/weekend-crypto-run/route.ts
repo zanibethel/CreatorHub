@@ -9,7 +9,7 @@ const readinessSchema = z.object({
   paperOnly: z.literal(true),
   executionEnabled: z.boolean(),
   submissionReady: z.boolean(),
-  selectedSymbol: z.enum(["BTC/USD","ETH/USD","SOL/USD"]).nullable(),
+  selectedSymbol: z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]).nullable(),
   session: z.object({
     localDate: z.string(),
     localWeekday: z.string(),
