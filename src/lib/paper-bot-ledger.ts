@@ -39,6 +39,7 @@ export const paperBotJournalPublicRowSchema = z.object({
   event_type: z.enum([
     "candidate", "rejected", "authorized", "submitted", "filled", "position_update",
     "stop_update", "partial_exit", "closed", "risk_event", "system",
+    "canceled", "expired", "replaced", "execution_error",
   ]),
   symbol: z.string().nullable(),
   asset_class: z.enum(["stock", "etf", "crypto", "unknown"]).nullable(),
