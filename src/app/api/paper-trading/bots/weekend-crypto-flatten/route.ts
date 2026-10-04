@@ -66,6 +66,7 @@ function mappedStatus(value: unknown) {
 
 export async function POST(request: Request) {
   if (!(await authorized(request))) return reply({ error:"Unauthorized." },401);
+  const flattenReason=request.headers.get("x-paper-flatten-reason")==="goal-exit"?"goal-exit":"forced-flat";
 
   const supabaseSecret=process.env.SUPABASE_SECRET_KEY?.trim() ?? "";
   const alpacaKey=process.env.ALPACA_API_KEY_ID?.trim() ?? "";
@@ -140,7 +141,7 @@ export async function POST(request: Request) {
       {
         status:"canceled",
         updated_at:new Date().toISOString(),
-        metadata:{...order.metadata,cancelRequestedAt:new Date().toISOString(),cancelReason:"forced-flatten"},
+        metadata:{...order.metadata,cancelRequestedAt:new Date().toISOString(),cancelReason:flattenReason},
       },
       "PATCH","return=minimal"
     );
@@ -163,7 +164,7 @@ export async function POST(request: Request) {
     await journalFailure({
       botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
       symbol:position.symbol,assetClass:"crypto",
-      phase:"forced-flatten-quantity",reason,side:"sell",purpose:"forced-flat",critical:true,
+      phase:"forced-flatten-quantity",reason,side:"sell",purpose:flattenReason,critical:true,
     });
     return reply({
       ok:true,paperOnly:true,outcome:"no-sellable-broker-quantity",symbol:position.symbol,
@@ -183,9 +184,11 @@ export async function POST(request: Request) {
     requested_quantity:available,
     pool_id:"day",
     planned_risk_dollars:0,
-    stage_reason:"Daily crypto deterministic forced PAPER flatten.",
+    stage_reason:flattenReason==="goal-exit"
+      ?"Daily crypto adaptive goal exit."
+      :"Daily crypto deterministic forced PAPER flatten.",
     metadata:{
-      purpose:"forced-flat",
+      purpose:flattenReason,
       paperOnly:true,
       estimatedFeeBps:strategy.fees.estimatedTakerFeeBpsPerSide,
       timezone:strategy.timezone,
@@ -226,7 +229,7 @@ export async function POST(request: Request) {
         status:"error",
         updated_at:new Date().toISOString(),
         metadata:{
-          purpose:"forced-flat",paperOnly:true,
+          purpose:flattenReason,paperOnly:true,
           estimatedFeeBps:strategy.fees.estimatedTakerFeeBpsPerSide,
           executionError:reason,
         },
@@ -236,7 +239,7 @@ export async function POST(request: Request) {
     await journalFailure({
       botId:BOT_ID,strategyId:strategy.id,strategyVersion:strategy.version,
       symbol:position.symbol,assetClass:"crypto",clientOrderId,
-      phase:"forced-flatten-submission",reason,side:"sell",purpose:"forced-flat",critical:true,
+      phase:"forced-flatten-submission",reason,side:"sell",purpose:flattenReason,critical:true,
     });
     return reply({error:"Daily crypto PAPER forced flatten failed.",critical:true},502);
   }
