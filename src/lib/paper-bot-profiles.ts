@@ -1,6 +1,6 @@
 import { PAPER_STRATEGY_V1 } from "./paper-strategy-config";
 import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
-import { DAILY_CRYPTO_DAY_STRATEGY_V3 } from "./paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V4 } from "./paper-weekend-crypto-strategy-config";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
 
@@ -123,7 +123,7 @@ export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "wkd",
-  strategyId: DAILY_CRYPTO_DAY_STRATEGY_V3.id,
+  strategyId: DAILY_CRYPTO_DAY_STRATEGY_V4.id,
   style: "Daily short-horizon crypto momentum proof of concept with fee-aware risk controls",
   universe: {
     assetClasses: ["crypto"],
