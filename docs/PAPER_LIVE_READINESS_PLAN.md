@@ -56,7 +56,9 @@ The goal is not merely to place successful orders. The system must demonstrate t
 
 Before treating strategy review as complete, wire a uniform evidence trail across all bots for considered candidates, proposed/staged plans, repeated revalidation, rejection/block reasons, cancellation/expiration/replacement, execution, position management, and closed outcomes.
 
-Swing revalidation evidence is now live on an authenticated weekday five-minute Vercel cron. It records each prepared QQQ/NVDA/MSFT plan's current market/readiness/risk evidence and converts a plan to an explicit `expired` terminal state after journaling its final expired revalidation. Serious non-executed proposals must receive a separately labeled counterfactual follow-up window so missed-opportunity and protective-gate behavior can be reviewed without contaminating real P/L.
+Swing revalidation evidence is now live on an authenticated weekday five-minute Vercel cron. It records each prepared QQQ/NVDA/MSFT plan's current market/readiness/risk evidence and converts a plan to an explicit `expired` terminal state after journaling its final expired revalidation.
+
+Tagged broker lifecycle reconciliation now records broker-confirmed `canceled`, `rejected`, `expired`, and `replaced` states for every attributable PAPER bot order. Broker-unconfirmed execution failures are separately journaled as `execution_error` by the swing and Daily Crypto execution paths. Daily Crypto protection replacement and session flatten are fail-closed when an existing broker order cannot be confirmed canceled. Serious non-executed proposals must receive a separately labeled counterfactual follow-up window so missed-opportunity and protective-gate behavior can be reviewed without contaminating real P/L.
 
 Evidence must feed a repeatable strategy-review dataset. Recommendations may propose a new version, but production risk/execution rules must never silently self-modify.
 
@@ -127,6 +129,7 @@ Current state:
 - Same-symbol cross-bot occupancy block.
 - Live Bot Lab monitoring.
 - PAPER execution is armed after a controlled broker smoke verified limit-entry, fee-adjusted quantity, protective stop-limit, cancellation, and flatten behavior; live-money execution remains disabled.
+- The v3 `executionUniverse` is the single source of truth for entry, manager, and flatten symbol validation, preventing LINK/DOT or future execution-pool additions from being accepted for entry but rejected by exit management.
 
 The authenticated five-minute runner now persists the full 14-symbol v3 scan into the private paper journal on each scheduled decision cycle. This provides durable execution-vs-monitor evidence while the strategy waits for a genuine setup and does not loosen any trading threshold.
 
