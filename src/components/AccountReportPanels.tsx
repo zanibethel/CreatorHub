@@ -224,8 +224,8 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
 
   return <section className={styles.card}>
     <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{view === "portfolio" ? "Virtual PAPER capital" : snapshot ? "PAPER execution feed" : "Execution feed pending"}</span></div>
-    {snapshot ? <p className={snapshotAge > 90_000 ? styles.stale : styles.meta}>Execution snapshot {stamp(snapshot.collectedAt)} · updates about every 30 seconds{snapshotAge > 90_000 ? " · update overdue" : ""}</p> : null}
-    {snapshot && (error || report?.message) ? <p role="status" className={styles.error}>{error || report?.message} Showing the last saved execution snapshot.</p> : null}
+    {view !== "portfolio" && snapshot ? <p className={snapshotAge > 90_000 ? styles.stale : styles.meta}>Execution snapshot {stamp(snapshot.collectedAt)} · updates about every 30 seconds{snapshotAge > 90_000 ? " · update overdue" : ""}</p> : null}
+    {view !== "portfolio" && snapshot && (error || report?.message) ? <p role="status" className={styles.error}>{error || report?.message} Showing the last saved execution snapshot.</p> : null}
     {!snapshot ? <div className={styles.empty}>{view === "portfolio" ? <><strong className={styles.accountValue}>{formatPaperMoney(programStart)}</strong><span>PAPER program starting capital</span></> : null}<p>{waiting}</p></div>
     : view === "portfolio" ? <>
       <div className={`${styles.empty} ${styles.growth}`}><strong>{money(currentProgramEquity)}</strong><span>Current PAPER program value · started with {money(programStart)}</span></div>
