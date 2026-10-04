@@ -22,10 +22,14 @@ function module(path, imports = {}) {
 const strategy = module("../src/lib/paper-strategy-config.ts");
 const swingStrategy = module("../src/lib/paper-swing-strategy-config.ts");
 const weekendStrategy = module("../src/lib/paper-weekend-crypto-strategy-config.ts");
+const cryptoSwingStrategy = module("../src/lib/paper-crypto-swing-strategy-config.ts");
+const tradePlan = module("../src/lib/paper-bot-trade-plan.ts");
 const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-strategy-config": strategy,
   "./paper-swing-strategy-config": swingStrategy,
   "./paper-weekend-crypto-strategy-config": weekendStrategy,
+  "./paper-crypto-swing-strategy-config": cryptoSwingStrategy,
+  "./paper-bot-trade-plan": tradePlan,
 });
 
 test("Default Diverse remains the default active profile", () => {
@@ -39,6 +43,7 @@ test("Default Diverse remains the default active profile", () => {
 test("active $100 comparison bots stay isolated", () => {
   const swing = profiles.THREE_TRADE_SWING_BOT;
   const dailyCrypto = profiles.DAILY_CRYPTO_DAY_BOT;
+  const cryptoSwing = profiles.CRYPTO_SWING_BOT;
 
   assert.equal(swing.status, "active");
   assert.equal(swing.challengeStartingCash, 100);
@@ -53,7 +58,13 @@ test("active $100 comparison bots stay isolated", () => {
   assert.equal(dailyCrypto.cadence.intradayOnly, false);
   assert.equal(dailyCrypto.strategyId, weekendStrategy.ACTIVE_DAILY_CRYPTO_DAY_STRATEGY.id);
 
-  for (const profile of [swing, dailyCrypto]) {
+  assert.equal(cryptoSwing.status, "active");
+  assert.equal(cryptoSwing.challengeStartingCash, 100);
+  assert.deepEqual(Array.from(cryptoSwing.universe.assetClasses), ["crypto"]);
+  assert.equal(cryptoSwing.cadence.swingOnly, true);
+  assert.equal(cryptoSwing.strategyId, cryptoSwingStrategy.CRYPTO_SWING_STRATEGY_V1.id);
+
+  for (const profile of [swing, dailyCrypto, cryptoSwing]) {
     assert.equal(profile.isolation.separateVirtualLedger, true);
     assert.equal(profile.isolation.sharePositionsWithOtherBots, false);
     assert.equal(profile.isolation.shareRiskBudgetWithOtherBots, false);
@@ -69,7 +80,7 @@ test("penny experiment remains planned and disabled", () => {
   assert.equal(penny.strategyId, null);
 });
 
-test("registry includes three active challenges and one planned experiment", () => {
-  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length, 3);
+test("registry includes four active challenges and one planned experiment", () => {
+  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length, 4);
   assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "planned").length, 1);
 });
