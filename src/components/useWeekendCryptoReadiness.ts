@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 
 export type WeekendCryptoCandidate = {
   symbol: string;
+  tier: "execution" | "monitor";
+  executionEligible: boolean;
   state: "ready" | "waiting" | "blocked";
   selectedForSubmission: boolean;
   score: number;
@@ -37,6 +39,8 @@ export type WeekendCryptoReadiness = {
   strategyId: string;
   strategyVersion: number;
   paperOnly: boolean;
+  executionUniverse: string[];
+  monitorOnlyUniverse: string[];
   session: {
     localDate: string;
     localWeekday: string;
