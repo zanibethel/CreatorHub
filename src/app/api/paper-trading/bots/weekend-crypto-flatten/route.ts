@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
-import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
@@ -70,7 +70,7 @@ export async function POST(request: Request) {
   const alpacaKey=process.env.ALPACA_API_KEY_ID?.trim() ?? "";
   const alpacaSecret=process.env.ALPACA_API_SECRET_KEY?.trim() ?? "";
   if (!supabaseSecret || !alpacaKey || !alpacaSecret) {
-    return reply({ error:"Weekend flatten dependencies are not configured." },503);
+    return reply({ error:"Daily crypto flatten dependencies are not configured." },503);
   }
 
   const dbHeaders:Record<string,string>={apikey:supabaseSecret,"Content-Type":"application/json"};
@@ -85,7 +85,7 @@ export async function POST(request: Request) {
       signal:AbortSignal.timeout(10_000),
     });
     const text=await response.text();
-    if(!response.ok) throw new Error(`Weekend flatten storage returned HTTP ${response.status}.`);
+    if(!response.ok) throw new Error(`Daily crypto flatten storage returned HTTP ${response.status}.`);
     return text?JSON.parse(text):null;
   };
 
@@ -158,7 +158,7 @@ export async function POST(request: Request) {
     requested_quantity:available,
     pool_id:"day",
     planned_risk_dollars:0,
-    stage_reason:"Weekend crypto deterministic session-close flatten.",
+    stage_reason:"Daily crypto crypto deterministic session-close flatten.",
     metadata:{
       purpose:"session-flat",
       paperOnly:true,
@@ -207,6 +207,6 @@ export async function POST(request: Request) {
       },
       "PATCH","return=minimal"
     );
-    return reply({error:"Weekend PAPER session flatten failed.",critical:true},502);
+    return reply({error:"Daily crypto PAPER session flatten failed.",critical:true},502);
   }
 }
