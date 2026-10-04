@@ -50,6 +50,8 @@ export type PaperStrategyReviewBot = {
   };
   decisions:{
     observations:number;
+    executionRelevantObservations:number;
+    monitorOnlyObservations:number;
     candidateEvents:number;
     authorizedEvents:number;
     strategyRejectedEvents:number;
