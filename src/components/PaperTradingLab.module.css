@@ -351,3 +351,57 @@
   .portfolioPanelHeader { align-items:flex-start; }
   .portfolioFooter { flex-direction:column; }
 }
+
+
+/* Read-only trading visualizations */
+.chartBlock { display:grid; gap:10px; min-width:0; }
+.chartSummary { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; }
+.chartSummary > span { display:grid; gap:3px; padding:8px 10px; border:1px solid var(--border); border-radius:9px; background:rgba(255,255,255,.012); min-width:0; }
+.chartSummary small { color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.05em; }
+.chartSummary strong { font-size:12px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.equityChart,.priceChart,.scoreChart,.outcomeChart { width:100%; height:auto; display:block; overflow:visible; }
+.equityChart { min-height:150px; }
+.priceChartWrap { display:grid; gap:5px; padding:8px; border:1px solid rgba(98,217,170,.12); border-radius:10px; background:rgba(98,217,170,.025); min-width:0; }
+.priceChartMeta { display:flex; align-items:center; justify-content:space-between; gap:8px; color:var(--muted); font-size:8px; text-transform:uppercase; letter-spacing:.045em; }
+.priceChart { min-height:92px; }
+.chartLinePrimary { fill:none; stroke:#9f8cff; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; vector-effect:non-scaling-stroke; }
+.chartGridLine { stroke:rgba(255,255,255,.14); stroke-width:1; stroke-dasharray:5 5; vector-effect:non-scaling-stroke; }
+.chartPoint { fill:#f7f2ff; stroke:#9f8cff; stroke-width:2; vector-effect:non-scaling-stroke; }
+.chartAxisLabel { fill:#8f879b; font-size:8px; }
+.chartValueLabel { fill:#d8d2e0; font-size:8px; font-weight:700; }
+.chartMarkerLabel { fill:#d8d2e0; font-size:8px; font-weight:700; paint-order:stroke; stroke:#15121a; stroke-width:3px; stroke-linejoin:round; }
+.chartMarkerTarget { stroke:#62d9aa; stroke-width:1.4; stroke-dasharray:6 4; vector-effect:non-scaling-stroke; }
+.chartMarkerEntry { stroke:#a78bfa; stroke-width:1.2; stroke-dasharray:4 4; vector-effect:non-scaling-stroke; }
+.chartMarkerFill { stroke:#73b7ff; stroke-width:1.5; stroke-dasharray:2 3; vector-effect:non-scaling-stroke; }
+.chartMarkerStop { stroke:#ff8f8f; stroke-width:1.4; stroke-dasharray:6 4; vector-effect:non-scaling-stroke; }
+.chartMarkerCurrent { stroke:rgba(247,242,255,.48); stroke-width:1; vector-effect:non-scaling-stroke; }
+.chartEmpty,.chartEmptyCompact { color:var(--muted); border:1px dashed var(--border); border-radius:10px; text-align:center; }
+.chartEmpty { padding:24px 12px; font-size:11px; }
+.chartEmptyCompact { padding:12px 8px; font-size:9px; }
+.scoreChartWrap { display:grid; gap:2px; min-width:0; }
+.scoreChart { height:58px; }
+.scoreThresholdWatch { stroke:rgba(245,184,72,.38); stroke-width:1; stroke-dasharray:4 4; vector-effect:non-scaling-stroke; }
+.scoreThresholdReview { stroke:rgba(98,217,170,.46); stroke-width:1; stroke-dasharray:4 4; vector-effect:non-scaling-stroke; }
+.scoreChartLegend { display:flex; justify-content:flex-end; gap:10px; color:var(--muted); font-size:7px; text-transform:uppercase; letter-spacing:.04em; }
+.outcomeGain { fill:rgba(98,217,170,.72); }
+.outcomeLoss { fill:rgba(255,143,143,.72); }
+.chartPageGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; }
+.chartPageFull { grid-column:1 / -1; }
+.chartSymbolGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.chartSymbolCard { border:1px solid var(--border); border-radius:12px; padding:10px; display:grid; gap:8px; min-width:0; background:rgba(255,255,255,.012); }
+.chartSymbolHeader { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+.chartSymbolHeader > div { display:grid; gap:2px; min-width:0; }
+.chartSymbolHeader strong { font-size:14px; }
+.chartSymbolHeader small { color:var(--muted); font-size:9px; }
+.chartSymbolHeader > strong { font-variant-numeric:tabular-nums; white-space:nowrap; }
+
+@media(max-width:850px) {
+  .chartPageGrid,.chartSymbolGrid { grid-template-columns:1fr; }
+  .chartPageFull { grid-column:auto; }
+}
+
+@media(max-width:650px) {
+  .chartSummary { grid-template-columns:1fr; }
+  .priceChartWrap { padding:7px; }
+  .chartMarkerLabel { font-size:7px; }
+}
