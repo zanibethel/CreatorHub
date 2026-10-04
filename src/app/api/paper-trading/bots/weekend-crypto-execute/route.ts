@@ -265,6 +265,11 @@ export async function POST(request: Request) {
 
   const claimedNotional = entryQty * candidate.maxEntry;
   const worstRiskDollars = entryQty * worstRiskPerUnit;
+  if (claimedNotional < strategy.execution.minimumOrderNotionalUsd) {
+    return reply({
+      error: `Weekend entry is below the ${strategy.execution.minimumOrderNotionalUsd.toFixed(0)} broker-minimum buffer.`,
+    }, 409);
+  }
   const clientOrderId = createPaperClientOrderId(BOT_ID, strategy.version, crypto.randomUUID());
   const expiresAt = new Date(Date.now() + 5 * 60_000).toISOString();
 
