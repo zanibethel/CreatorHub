@@ -22,12 +22,13 @@ import usePaperBotLedgers, {
   type StagedPaperOrder,
 } from "./usePaperBotLedgers";
 import usePaperStrategyReview from "./usePaperStrategyReview";
+import usePaperProspects, { type PaperProspect } from "./usePaperProspects";
 import useSharedWatchlist from "./useSharedWatchlist";
 import useSwingReadiness from "./useSwingReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
-type PortfolioView = "portfolio" | "holdings" | "watchlist" | "orders" | "trades" | "strategy";
+type PortfolioView = "portfolio" | "holdings" | "watchlist" | "prospects" | "orders" | "trades" | "strategy";
 
 type WatchRow = {
   symbol: string;
@@ -321,6 +322,47 @@ function PortfolioPanel({ title, action, children }: { title: string; action?: R
   </section>;
 }
 
+function prospectBotLabel(id: string) {
+  const profile = PAPER_BOT_PROFILES.find(item => item.id === id);
+  return profile ? botShortName(profile) : id;
+}
+
+function ProspectRows({ rows, compact = false }: { rows: PaperProspect[]; compact?: boolean }) {
+  const visible = compact ? rows.slice(0, 4) : rows;
+  if (!visible.length) return <EmptyState>No scanner prospects currently meet this level.</EmptyState>;
+
+  return <div className={styles.prospectGrid}>
+    {visible.map(row => {
+      const isNew = row.metadata.alreadyKnown !== true;
+      return <article className={styles.prospectCard} key={`${row.asset_class}-${row.symbol}`}>
+        <div className={styles.prospectHeader}>
+          <div>
+            <strong>{row.symbol}</strong>
+            <small>{row.asset_class === "crypto" ? "Crypto" : "Stock"}{isNew ? " · NEW PROSPECT" : " · already monitored"}</small>
+          </div>
+          <div className={styles.prospectScore}><span>Prospect score</span><strong>{row.score.toFixed(0)}/100</strong></div>
+        </div>
+        <div className={styles.prospectStatus}>
+          <span>{row.status === "review-ready" ? "BOT REVIEW READY" : "PROSPECT WATCHLIST"}</span>
+          <strong>{money(row.price)}</strong>
+        </div>
+        <div className={styles.prospectMetrics}>
+          <span><small>Change</small><strong>{percent(row.percent_change)}</strong></span>
+          <span><small>Volume vs prior</small><strong>{row.volume_ratio == null ? "—" : `${row.volume_ratio.toFixed(2)}×`}</strong></span>
+          <span><small>Spread</small><strong>{row.spread_pct == null ? "—" : `${row.spread_pct.toFixed(2)}%`}</strong></span>
+          <span><small>From high</small><strong>{row.near_high_pct == null ? "—" : `${row.near_high_pct.toFixed(2)}%`}</strong></span>
+          <span><small>Activity rank</small><strong>{row.activity_rank == null ? "—" : `#${row.activity_rank}`}</strong></span>
+          <span><small>First seen</small><strong>{stamp(row.first_seen_at)}</strong></span>
+        </div>
+        {row.suggested_bot_ids.length
+          ? <div className={styles.prospectBots}><small>Suggested next review</small><strong>{row.suggested_bot_ids.map(prospectBotLabel).join(" · ")}</strong></div>
+          : null}
+        <small className={styles.prospectReason}>{row.reasons.slice(0, 4).join(" · ")}</small>
+      </article>;
+    })}
+  </div>;
+}
+
 export default function PaperBotLab() {
   const [selectedBotId, setSelectedBotId] = useState(ACTIVE_PROFILES[0]?.id ?? "default-diverse");
   const [view, setView] = useState<PortfolioView>("portfolio");
@@ -329,6 +371,7 @@ export default function PaperBotLab() {
   const { report: swingReadiness, error: swingReadinessError } = useSwingReadiness();
   const { report: cryptoReadiness, error: cryptoReadinessError } = useWeekendCryptoReadiness();
   const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
+  const { report: prospectReport, error: prospectError } = usePaperProspects();
   const { watchlist, error: watchlistError } = useSharedWatchlist();
 
   const stockSymbols = watchlist.stocks.map(item => item.symbol).join(",");
@@ -633,6 +676,7 @@ export default function PaperBotLab() {
     { id: "portfolio", label: "Portfolio" },
     { id: "holdings", label: `Holdings ${positions.length}` },
     { id: "watchlist", label: `Watchlist ${watchRows.length}` },
+    { id: "prospects", label: `Prospects ${prospectReport?.prospects.length ?? 0}` },
     { id: "orders", label: `Orders ${openOrderCount}` },
     { id: "trades", label: "Recent trades" },
     { id: "strategy", label: "Strategy" },
@@ -704,9 +748,9 @@ export default function PaperBotLab() {
       {views.map(item => <button key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
     </nav>
 
-    {ledgerError || accountError || swingReadinessError || cryptoReadinessError || strategyReviewError || watchlistError || marketError
+    {ledgerError || accountError || swingReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError
       ? <div className={styles.portfolioWarnings}>
-          {[ledgerError, accountError, swingReadinessError, cryptoReadinessError, strategyReviewError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
+          {[ledgerError, accountError, swingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)
         </div>
       : null}
 
@@ -739,6 +783,25 @@ export default function PaperBotLab() {
       {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
       {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
     </PortfolioPanel> : null}
+
+    {view === "prospects" ? <div className={styles.portfolioSingleColumn}>
+      <PortfolioPanel title="Market Prospect Scanner">
+        <div className={styles.portfolioStats}>
+          <SummaryCard label="Watchlist threshold" value={`${prospectReport?.thresholds.watchlistScore ?? 65}/100`} />
+          <SummaryCard label="Bot-review threshold" value={`${prospectReport?.thresholds.botReviewScore ?? 80}/100`} />
+          <SummaryCard label="Prospects" value={String(prospectReport?.prospects.length ?? 0)} />
+          <SummaryCard label="Review ready" value={String(prospectReport?.counts.reviewReady ?? 0)} />
+          <SummaryCard label="New symbols" value={String(prospectReport?.counts.newToExistingLists ?? 0)} />
+          <SummaryCard label="Last scan" value={stamp(prospectReport?.lastSeenAt)} />
+        </div>
+        <ProspectRows rows={prospectReport?.prospects ?? []} />
+        <p className={styles.portfolioNote}>The scanner is discovery-only. A score of 65 adds a symbol to the prospect watchlist; 80 makes it eligible for the suggested bot review queue. Neither threshold authorizes an order or silently expands a bot&apos;s execution universe.</p>
+      </PortfolioPanel>
+      <PortfolioPanel title="Near the watchlist threshold">
+        <ProspectRows rows={prospectReport?.nearMisses ?? []} />
+        <p className={styles.portfolioNote}>Near-miss prospects are retained so we can see which high-volume or fast-moving symbols are approaching the discovery threshold before their normal bot score becomes compelling.</p>
+      </PortfolioPanel>
+    </div> : null}
 
     {view === "orders" ? <div className={styles.portfolioSingleColumn}>
       <PortfolioPanel title="Live tagged PAPER orders">
