@@ -106,7 +106,7 @@ function CryptoSetupPlan({ candidate, collectedAt, evidence, ledger }: { candida
       {ledger ? <><span>Bot equity <strong>{money(ledger.equity)}</strong></span><span>Bot P/L <strong>{signedMoney(ledger.realizedPl + ledger.unrealizedPl)}</strong></span></> : null}
     </div>
     <p className={styles.meta}>{reasons.length ? reasons.join(" · ") : "All currently evaluated gates pass."}</p>
-    <p className={styles.meta}>{observedEntry ? `Entry condition observed ${stamp(observedEntry.at)} · review evidence only, not an Alpaca fill.` : "Scanner setup only · actual broker fill appears separately above as Average entry fill."}</p>
+    <p className={styles.meta}>{observedEntry ? `Entry condition observed ${stamp(observedEntry.at)} · review evidence only, not an execution-venue fill.` : "Scanner setup only · actual broker fill appears separately above as Average entry fill."}</p>
   </article>;
 }
 
@@ -153,9 +153,9 @@ function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWind
       <span>{targetFraction < 1 ? "Projected first-target P/L" : "Projected target P/L"} <strong>{signedMoney(targetProfit)}</strong></span>
       {ledger ? <><span>Bot equity <strong>{money(ledger.equity)}</strong></span><span>Bot P/L <strong>{signedMoney(ledger.realizedPl + ledger.unrealizedPl)}</strong></span></> : null}
     </div>
-    <p className={styles.meta}>{windowStatus}{observedEntry ? " · review evidence only, not an Alpaca fill" : ""}</p>
+    <p className={styles.meta}>{windowStatus}{observedEntry ? " · review evidence only, not an execution-venue fill" : ""}</p>
     <p className={styles.meta}>{order.stage_reason ?? "Prepared strategy plan."}{order.trail_remainder && fraction ? ` · trail remaining ${pct(1 - fraction)}` : ""}</p>
-    <p className={styles.meta}>Prepared only · not yet an Alpaca broker order</p>
+    <p className={styles.meta}>Prepared only · not yet a submitted PAPER execution order</p>
   </article>;
 }
 
@@ -173,7 +173,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
 
   const snapshot = report?.snapshot;
   const title = { portfolio: "Portfolio overview", trades: "Recent fills", orders: "Upcoming orders", positions: "Open positions" }[view];
-  const waiting = error || report?.message || "Waiting for the first saved Alpaca paper-account snapshot.";
+  const waiting = error || report?.message || "Waiting for the first saved PAPER execution snapshot.";
   const snapshotAge = snapshot ? now - Date.parse(snapshot.collectedAt) : 0;
   const botLedger = (botId: string) => botReport?.bots.find(bot => bot.botId === botId) ?? null;
   const botName = (botId: string) => botLedger(botId)?.displayName ?? botId;
@@ -223,21 +223,21 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
   const programPl = currentProgramEquity - programStart;
 
   return <section className={styles.card}>
-    <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{snapshot ? "Alpaca paper account" : "Account collection pending"}</span></div>
-    {snapshot ? <p className={snapshotAge > 90_000 ? styles.stale : styles.meta}>Account snapshot {stamp(snapshot.collectedAt)} · updates about every 30 seconds{snapshotAge > 90_000 ? " · update overdue" : ""}</p> : null}
-    {snapshot && (error || report?.message) ? <p role="status" className={styles.error}>{error || report?.message} Showing the last saved snapshot.</p> : null}
+    <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{view === "portfolio" ? "Virtual PAPER capital" : snapshot ? "PAPER execution feed" : "Execution feed pending"}</span></div>
+    {snapshot ? <p className={snapshotAge > 90_000 ? styles.stale : styles.meta}>Execution snapshot {stamp(snapshot.collectedAt)} · updates about every 30 seconds{snapshotAge > 90_000 ? " · update overdue" : ""}</p> : null}
+    {snapshot && (error || report?.message) ? <p role="status" className={styles.error}>{error || report?.message} Showing the last saved execution snapshot.</p> : null}
     {!snapshot ? <div className={styles.empty}>{view === "portfolio" ? <><strong className={styles.accountValue}>{formatPaperMoney(PAPER_STARTING_CASH)}</strong><span>Challenge starting amount</span></> : null}<p>{waiting}</p></div>
     : view === "portfolio" ? <>
       <div className={`${styles.empty} ${styles.growth}`}><strong>{money(snapshot.account.equity)}</strong><span>Recorded paper account value · {snapshot.account.currency}</span><History points={report?.history ?? []} /></div>
       <div className={styles.accountStats}><div><span>Paper cash</span><strong>{money(snapshot.account.cash)}</strong></div><div><span>Change vs previous close</span><strong>{money(snapshot.account.previousCloseEquity === null ? null : snapshot.account.equity - snapshot.account.previousCloseEquity)}</strong></div></div>
       <p className={styles.meta}>Challenge baseline: {formatPaperMoney(PAPER_STARTING_CASH)}. The balance above is Alpaca’s actual paper balance and is not scaled to the baseline. Equity change includes cashflows.</p>
     </> : view === "trades" ? <>
-      <p className={styles.meta}>Latest 10 executions, including partial fills and buys/sells. These are fills, not matched round-trip trade reports.</p>
-      {snapshot.fills === null ? <div className={styles.empty}>{snapshot.errors.fills || "Fill history unavailable."}</div> : !snapshot.fills.length ? <div className={styles.empty}>No fills recorded in this paper account.</div>
+      <p className={styles.meta}>Latest 10 PAPER executions, including partial fills and buys/sells. These are fills, not matched round-trip trade reports.</p>
+      {snapshot.fills === null ? <div className={styles.empty}>{snapshot.errors.fills || "Fill history unavailable."}</div> : !snapshot.fills.length ? <div className={styles.empty}>No fills recorded in the PAPER execution feed.</div>
       : <div className={styles.recordList}>{snapshot.fills.map((fill, index) => <article className={styles.record} key={index}><h3>{fill.symbol} · {fill.side}</h3><div className={styles.recordFields}><span>Quantity <strong>{fill.quantity ?? "—"}</strong></span><span>Fill price <strong>{money(fill.price)}</strong></span></div><p className={styles.meta}>{stamp(fill.time)}</p></article>)}</div>}
     </> : view === "orders" ? <>
-      <p className={styles.meta}>Live Alpaca orders are shown first. Bot take-profit levels are shown as planned unless a separate live broker order exists.</p>
-      {snapshot.orders === null ? <div className={styles.empty}>{snapshot.errors.orders || "Order data unavailable."}</div> : !snapshot.orders.length ? <div className={styles.empty}>No open orders in this paper account.</div>
+      <p className={styles.meta}>Submitted PAPER execution orders are shown first. Bot take-profit levels remain planned unless a matching execution order exists.</p>
+      {snapshot.orders === null ? <div className={styles.empty}>{snapshot.errors.orders || "Order data unavailable."}</div> : !snapshot.orders.length ? <div className={styles.empty}>No open PAPER execution orders.</div>
       : <div className={styles.recordList}>{snapshot.orders.slice(0, 50).map((order, index) => {
         const plans = matchingPlans(order.symbol);
         const stopLimit = order.type.includes("stop") && order.stop !== null;
@@ -254,7 +254,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
         </article>;
       })}</div>}
       {snapshot.orders && snapshot.orders.length > 50 ? <p className={styles.meta}>Showing the latest 50 of {snapshot.orders.length} returned open orders.</p> : null}
-      {snapshot.ordersMayBeTruncated ? <p className={styles.stale}>The provider’s 500-order limit was reached; additional orders may exist.</p> : null}
+      {snapshot.ordersMayBeTruncated ? <p className={styles.stale}>The execution feed returned its maximum order page; additional orders may exist.</p> : null}
 
       {cryptoPlans.length && cryptoReadiness ? <>
         <div className={styles.cardHeader}><h3>Current crypto setup plans</h3><span className={styles.meta}>24/7 · 5-minute setup horizon</span></div>
@@ -284,7 +284,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
         />)}</div>
       </> : null}
     </> : <>
-      {snapshot.positions === null ? <div className={styles.empty}>{snapshot.errors.positions || "Position data unavailable."}</div> : !snapshot.positions.length ? <div className={styles.empty}>No open positions in this paper account.</div>
+      {snapshot.positions === null ? <div className={styles.empty}>{snapshot.errors.positions || "Position data unavailable."}</div> : !snapshot.positions.length ? <div className={styles.empty}>No open positions in the PAPER execution feed.</div>
       : <div className={styles.recordList}>{snapshot.positions.slice(0, 50).map((position, index) => {
         const currentPrice = position.quantity && position.marketValue !== null ? Math.abs(position.marketValue / position.quantity) : null;
         return <article className={styles.record} key={index}><h3>{position.symbol} · {position.side}</h3><div className={styles.recordFields}><span>Quantity <strong>{position.quantity ?? "—"}</strong></span><span>Average entry <strong>{money(position.entry)}</strong></span><span>Current price <strong>{money(currentPrice)}</strong></span><span>Market value <strong>{money(position.marketValue)}</strong></span><span>Unrealized P/L <strong>{signedMoney(position.unrealizedPl)}</strong></span></div>{matchingPlans(position.symbol).map(({ botId, plan }) => <ProfitPlan key={`${botId}-${plan.symbol}`} plan={plan} botName={botName(botId)} ledger={botLedger(botId)} />)}</article>;
