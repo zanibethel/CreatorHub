@@ -109,11 +109,6 @@ function quoteAgeSeconds(quote: CryptoQuote | undefined, now: number) {
   return Number.isFinite(stamp) ? Math.max(0, (now - stamp) / 1000) : null;
 }
 
-function timeToMinutes(value: string) {
-  const [hours, minutes] = value.split(":").map(Number);
-  return hours * 60 + minutes;
-}
-
 export function dailyCryptoSession(now: number): DailyCryptoSessionInfo {
   const parts = new Intl.DateTimeFormat("en-US", {
     timeZone: strategy.timezone,
@@ -130,11 +125,10 @@ export function dailyCryptoSession(now: number): DailyCryptoSessionInfo {
   const localWeekday = map.weekday ?? "";
   const localTime = `${map.hour ?? "00"}:${map.minute ?? "00"}`;
   const localDate = `${map.year ?? "0000"}-${map.month ?? "00"}-${map.day ?? "00"}`;
-  const localMinutes = timeToMinutes(localTime);
   const isWeekend = localWeekday === "Sat" || localWeekday === "Sun";
   const isTradingDay = strategy.session.tradingDays.includes(localWeekday as typeof strategy.session.tradingDays[number]);
-  const entriesOpen = isTradingDay && localMinutes < timeToMinutes(strategy.session.stopNewEntriesLocal);
-  const flattenDue = isTradingDay && localMinutes >= timeToMinutes(strategy.session.flatByLocal);
+  const entriesOpen = isTradingDay && strategy.session.continuousEntries;
+  const flattenDue = false;
 
   return { localDate, localWeekday, localTime, isTradingDay, isWeekend, entriesOpen, flattenDue };
 }
@@ -236,8 +230,8 @@ export function evaluateWeekendCryptoReadiness(input: {
     const blockers: string[] = [];
 
     if (!input.ledger.active) blockers.push("Daily crypto bot ledger is not active.");
-    if (!session.isTradingDay) blockers.push("Crypto day session is closed.");
-    if (session.isTradingDay && !session.entriesOpen) blockers.push("New-entry window has closed for the local session day.");
+    if (!session.isTradingDay) blockers.push("Crypto trading day is disabled by strategy configuration.");
+    if (!session.entriesOpen) blockers.push("Continuous crypto entries are disabled by strategy configuration.");
     if (input.ledger.dailyNewEntries >= strategy.cadence.maximumNewEntriesPerDay) blockers.push("Daily entry limit has been reached.");
     if (input.ledger.openPositions >= strategy.cadence.maximumOpenPositions) blockers.push("One-position limit is already occupied.");
     if (input.ledger.dailyRealizedLossPct >= strategy.risk.dailyRealizedLossLimitPct) blockers.push("Daily realized-loss kill switch is active.");
