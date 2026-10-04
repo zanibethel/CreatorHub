@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
+import { observeCryptoEntryFee } from "@/lib/paper-crypto-fees";
 import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
@@ -428,15 +429,14 @@ export async function POST(request: Request) {
   }
 
   const filledAveragePrice = numeric(finalEntry.filled_avg_price);
-  const observedEntryFeeQuantity = protectiveQty <= filledQty
-    ? Math.max(0, filledQty - protectiveQty)
-    : null;
-  const observedEntryFeeBps = observedEntryFeeQuantity !== null && filledQty > 0
-    ? observedEntryFeeQuantity / filledQty * 10_000
-    : null;
-  const observedEntryFeeUsd = observedEntryFeeQuantity !== null && filledAveragePrice
-    ? observedEntryFeeQuantity * filledAveragePrice
-    : null;
+  const observedEntryFee = observeCryptoEntryFee(
+    filledQty,
+    protectiveQty,
+    filledAveragePrice,
+  );
+  const observedEntryFeeQuantity = observedEntryFee.feeQuantity;
+  const observedEntryFeeBps = observedEntryFee.feeBps;
+  const observedEntryFeeUsd = observedEntryFee.feeUsd;
 
   await patchOrder(clientOrderId, {
     metadata: {
