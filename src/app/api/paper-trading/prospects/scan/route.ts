@@ -68,7 +68,11 @@ function snapshotMetrics(snapshot: JsonRecord) {
   const previous = record(snapshot.prevDailyBar);
   const trade = record(snapshot.latestTrade);
   const minute = record(snapshot.minuteBar);
-  const price = num(trade.p) ?? num(minute.c) ?? num(daily.c);
+  const quote = record(snapshot.latestQuote);
+  const bid = num(quote.bp);
+  const ask = num(quote.ap);
+  const quoteMid = bid !== null && ask !== null && bid > 0 && ask >= bid ? (bid + ask) / 2 : null;
+  const price = quoteMid ?? num(trade.p) ?? num(minute.c) ?? num(daily.c);
   const previousClose = num(previous.c);
   const change = price !== null && previousClose !== null && previousClose > 0
     ? (price / previousClose - 1) * 100
@@ -239,7 +243,7 @@ export async function GET(request: Request) {
         price,
         percentChange,
         spreadPct: metrics.spreadPct,
-        volume: Math.max(metrics.volume ?? 0, activity?.volume ?? 0) || null,
+        volume: metrics.volume,
         previousVolume: metrics.previousVolume,
         activityRank: activity?.rank ?? null,
         nearHighPct: metrics.nearHighPct,
@@ -248,6 +252,7 @@ export async function GET(request: Request) {
         metadata: {
           moverRank: mover?.rank ?? null,
           tradeCount: activity?.tradeCount ?? null,
+          marketVolume: activity?.volume ?? null,
           quoteAt: metrics.quoteAt,
           snapshotDay: metrics.dailyAt,
         },
@@ -298,17 +303,19 @@ export async function GET(request: Request) {
     .map(item => item.input.symbol);
 
   const stockValidation = new Map<string, { valid: boolean; name: string | null }>();
-  await Promise.all(stockNeedsValidation.slice(0, 40).map(async symbol => {
-    try {
-      const asset = record(await fetchJson(`${TRADING_URL}/v2/assets/${encodeURIComponent(symbol)}`));
-      stockValidation.set(symbol, {
-        valid: asset.status === "active" && asset.tradable === true && asset.fractionable === true,
-        name: str(asset.name),
-      });
-    } catch {
-      stockValidation.set(symbol, { valid: false, name: null });
-    }
-  }));
+  for (const validationBatch of chunk(stockNeedsValidation, 10)) {
+    await Promise.all(validationBatch.map(async symbol => {
+      try {
+        const asset = record(await fetchJson(`${TRADING_URL}/v2/assets/${encodeURIComponent(symbol)}`));
+        stockValidation.set(symbol, {
+          valid: asset.status === "active" && asset.tradable === true && asset.fractionable === true,
+          name: str(asset.name),
+        });
+      } catch {
+        stockValidation.set(symbol, { valid: false, name: null });
+      }
+    }));
+  }
 
   const rows = provisional.map(({ input, scored }) => {
     const validation = input.assetClass === "stock" && scored.watchlistEligible
