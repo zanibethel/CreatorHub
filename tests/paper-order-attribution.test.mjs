@@ -54,9 +54,9 @@ test("unrecognized or malformed broker activity is not attributed to a bot", () 
 
 test("active comparison bot tags remain independently parseable", () => {
   const swingId = attribution.createPaperClientOrderId("three-trade-weekly-swing-100", 1, "abcdef654321");
-  const weekendId = attribution.createPaperClientOrderId("weekend-crypto-day-100", 1, "abcdef112233");
+  const weekendId = attribution.createPaperClientOrderId("weekend-crypto-day-100", 2, "abcdef112233");
   assert.equal(attribution.parsePaperClientOrderId(swingId).botId, "three-trade-weekly-swing-100");
   assert.equal(attribution.parsePaperClientOrderId(weekendId).botId, "weekend-crypto-day-100");
   assert.equal(profiles.THREE_TRADE_SWING_BOT.status, "active");
-  assert.equal(profiles.WEEKEND_CRYPTO_DAY_BOT.status, "active");
+  assert.equal(profiles.DAILY_CRYPTO_DAY_BOT.status, "active");
 });
