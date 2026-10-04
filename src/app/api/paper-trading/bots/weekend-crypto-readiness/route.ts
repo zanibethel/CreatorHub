@@ -6,7 +6,7 @@ import {
   type CryptoBar,
   type CryptoQuote,
 } from "@/lib/paper-weekend-crypto-readiness";
-import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V3 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
@@ -77,7 +77,7 @@ export async function GET() {
   const alpacaSecret = process.env.ALPACA_API_SECRET_KEY?.trim() ?? "";
   const supabaseSecret = process.env.SUPABASE_SECRET_KEY?.trim() ?? "";
   if (!alpacaKey || !alpacaSecret || !supabaseSecret) {
-    return reply({ error: "Weekend crypto readiness dependencies are not configured." }, 503);
+    return reply({ error: "Daily crypto readiness dependencies are not configured." }, 503);
   }
 
   const now = Date.now();
@@ -99,7 +99,7 @@ export async function GET() {
       cache: "no-store",
       signal: AbortSignal.timeout(10_000),
     });
-    if (!response.ok) throw new Error(`Weekend crypto storage returned HTTP ${response.status}.`);
+    if (!response.ok) throw new Error(`Daily crypto storage returned HTTP ${response.status}.`);
     return response.json();
   };
 
@@ -120,7 +120,7 @@ export async function GET() {
       timeframe: "5Min",
       start: new Date(now - 12 * 60 * 60 * 1000).toISOString(),
       end: new Date(now).toISOString(),
-      limit: "1000",
+      limit: "10000",
       sort: "asc",
     });
     const bars15Query = new URLSearchParams({
@@ -128,7 +128,7 @@ export async function GET() {
       timeframe: "15Min",
       start: new Date(now - 36 * 60 * 60 * 1000).toISOString(),
       end: new Date(now).toISOString(),
-      limit: "1000",
+      limit: "10000",
       sort: "asc",
     });
     const orderCutoff = encodeURIComponent(new Date(now - 48 * 60 * 60 * 1000).toISOString());
@@ -144,7 +144,7 @@ export async function GET() {
 
     const ledgerRows = z.array(ledgerSchema).parse(ledgerRaw);
     const ledger = ledgerRows[0];
-    if (!ledger) return reply({ error: "Weekend crypto virtual ledger is missing." }, 503);
+    if (!ledger) return reply({ error: "Daily crypto virtual ledger is missing." }, 503);
 
     const positions = z.array(positionSchema).parse(positionsRaw);
     const recentOrders = z.array(orderSchema).parse(ordersRaw);
@@ -209,7 +209,7 @@ export async function GET() {
     });
   } catch (error) {
     return reply({
-      error: error instanceof Error ? error.message : "Weekend crypto readiness unavailable.",
+      error: error instanceof Error ? error.message : "Daily crypto readiness unavailable.",
     }, 503);
   }
 }
