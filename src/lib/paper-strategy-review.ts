@@ -1,5 +1,7 @@
 export type StrategyReviewJournalRow = {
   bot_id: string;
+  strategy_id: string | null;
+  strategy_version: number | null;
   event_type: string;
   symbol: string | null;
   occurred_at: string;
@@ -114,11 +116,24 @@ export function buildPaperStrategyReview(input: {
   counterfactuals: StrategyReviewCounterfactual[];
 }) {
   const bots = input.ledgers.map(ledger => {
-    const journal = input.journal.filter(row => row.bot_id === ledger.bot_id);
+    const matchesCurrentStrategy = (row: { strategy_id: string | null; strategy_version: number | null }) =>
+      row.strategy_id === ledger.strategy_id
+      && row.strategy_version === ledger.strategy_version;
+
+    const allBotJournal = input.journal.filter(row => row.bot_id === ledger.bot_id);
+    const allBotTrades = input.trades.filter(row => row.bot_id === ledger.bot_id);
+    const allBotCounterfactuals = input.counterfactuals.filter(row => row.bot_id === ledger.bot_id);
+
+    const journal = allBotJournal.filter(matchesCurrentStrategy);
     const executionJournal = journal.filter(row => row.metadata.executionEligible !== false);
     const monitorOnlyJournal = journal.filter(row => row.metadata.executionEligible === false);
-    const trades = input.trades.filter(row => row.bot_id === ledger.bot_id);
-    const counterfactuals = input.counterfactuals.filter(row => row.bot_id === ledger.bot_id);
+    const trades = allBotTrades.filter(matchesCurrentStrategy);
+    const counterfactuals = allBotCounterfactuals.filter(matchesCurrentStrategy);
+    const priorVersionEvidence = {
+      journal: allBotJournal.length - journal.length,
+      trades: allBotTrades.length - trades.length,
+      counterfactuals: allBotCounterfactuals.length - counterfactuals.length,
+    };
     const closedTrades = trades.filter(row => row.status === "closed");
     const closedWithR = closedTrades.filter(row => finite(row.r_multiple));
     const terminalCounterfactuals = counterfactuals.filter(row =>
@@ -268,6 +283,10 @@ export function buildPaperStrategyReview(input: {
       strategyId:ledger.strategy_id,
       strategyVersion:ledger.strategy_version,
       status:ledger.status,
+      evidenceScope:{
+        currentStrategyOnly:true,
+        priorVersionEvidence,
+      },
       evidenceMaturity:{
         ...evidenceMaturity,
         resolvedOutcomeSamples:outcomeEvidenceCount,
