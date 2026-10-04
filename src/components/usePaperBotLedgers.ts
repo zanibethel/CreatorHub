@@ -57,6 +57,30 @@ export type PaperPositionPlan = {
   exit_manager_state: ExitManagerState;
 };
 
+export type PaperBrokerOrder = {
+  symbol: string;
+  asset_class: "stock" | "etf" | "crypto" | "unknown";
+  side: "buy" | "sell";
+  order_type: string | null;
+  order_class: string | null;
+  status: string;
+  quantity: number | null;
+  filled_quantity: number | null;
+  average_fill_price: number | null;
+  submitted_at: string | null;
+  filled_at: string | null;
+  last_seen_at: string;
+};
+
+export type PaperBrokerFill = {
+  symbol: string;
+  side: "buy" | "sell";
+  quantity: number;
+  price: number;
+  transaction_time: string;
+  ledger_applied_at: string | null;
+};
+
 export type PaperTradeMetric = {
   bot_id: string;
   symbol: string;
@@ -110,6 +134,8 @@ export type PaperCounterfactual = {
 export type PaperBotLedgerReport = {
   collectedAt: string;
   bots: PaperBotSummary[];
+  brokerOrders: Record<string, PaperBrokerOrder[]>;
+  brokerFills: Record<string, PaperBrokerFill[]>;
   stagedOrders: Record<string, StagedPaperOrder[]>;
   positionPlans: Record<string, PaperPositionPlan[]>;
   tradeMetrics: Record<string, PaperTradeMetric[]>;
