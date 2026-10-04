@@ -54,7 +54,9 @@ The goal is not merely to place successful orders. The system must demonstrate t
 
 ### 0. Complete evidence lifecycle — current cross-cutting requirement
 
-Before treating strategy review as complete, wire a uniform evidence trail across all bots for considered candidates, proposed/staged plans, repeated revalidation, rejection/block reasons, cancellation/expiration/replacement, execution, position management, and closed outcomes. Serious non-executed proposals must receive a separately labeled counterfactual follow-up window so missed-opportunity and protective-gate behavior can be reviewed without contaminating real P/L.
+Before treating strategy review as complete, wire a uniform evidence trail across all bots for considered candidates, proposed/staged plans, repeated revalidation, rejection/block reasons, cancellation/expiration/replacement, execution, position management, and closed outcomes.
+
+Swing revalidation evidence is now live on an authenticated weekday five-minute Vercel cron. It records each prepared QQQ/NVDA/MSFT plan's current market/readiness/risk evidence and converts a plan to an explicit `expired` terminal state after journaling its final expired revalidation. Serious non-executed proposals must receive a separately labeled counterfactual follow-up window so missed-opportunity and protective-gate behavior can be reviewed without contaminating real P/L.
 
 Evidence must feed a repeatable strategy-review dataset. Recommendations may propose a new version, but production risk/execution rules must never silently self-modify.
 
