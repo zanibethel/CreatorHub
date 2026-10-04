@@ -226,8 +226,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
     <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{view === "portfolio" ? "Virtual PAPER capital" : snapshot ? "PAPER execution feed" : "Execution feed pending"}</span></div>
     {view !== "portfolio" && snapshot ? <p className={snapshotAge > 90_000 ? styles.stale : styles.meta}>Execution snapshot {stamp(snapshot.collectedAt)} · updates about every 30 seconds{snapshotAge > 90_000 ? " · update overdue" : ""}</p> : null}
     {view !== "portfolio" && snapshot && (error || report?.message) ? <p role="status" className={styles.error}>{error || report?.message} Showing the last saved execution snapshot.</p> : null}
-    {!snapshot ? <div className={styles.empty}>{view === "portfolio" ? <><strong className={styles.accountValue}>{formatPaperMoney(programStart)}</strong><span>PAPER program starting capital</span></> : null}<p>{waiting}</p></div>
-    : view === "portfolio" ? <>
+    {view === "portfolio" ? <>
       <div className={`${styles.empty} ${styles.growth}`}><strong>{money(currentProgramEquity)}</strong><span>Current PAPER program value · started with {money(programStart)}</span></div>
       <div className={styles.accountStats}>
         <div><span>Reserved bot capital</span><strong>{money(allocatedStart)}</strong></div>
@@ -236,7 +235,8 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
         <div><span>Program P/L</span><strong>{signedMoney(programPl)}</strong></div>
       </div>
       <p className={styles.meta}>Five {money(PAPER_STARTING_CASH)} bot pools are reserved now. The remaining capital stays unallocated for future bots. External execution-venue balances are intentionally excluded from PAPER program capital.</p>
-    </> : view === "trades" ? <>
+    </> : !snapshot ? <div className={styles.empty}><p>{waiting}</p></div>
+    : view === "trades" ? <>
       <p className={styles.meta}>Latest 10 PAPER executions, including partial fills and buys/sells. These are fills, not matched round-trip trade reports.</p>
       {snapshot.fills === null ? <div className={styles.empty}>{snapshot.errors.fills || "Fill history unavailable."}</div> : !snapshot.fills.length ? <div className={styles.empty}>No fills recorded in the PAPER execution feed.</div>
       : <div className={styles.recordList}>{snapshot.fills.map((fill, index) => <article className={styles.record} key={index}><h3>{fill.symbol} · {fill.side}</h3><div className={styles.recordFields}><span>Quantity <strong>{fill.quantity ?? "—"}</strong></span><span>Fill price <strong>{money(fill.price)}</strong></span></div><p className={styles.meta}>{stamp(fill.time)}</p></article>)}</div>}
