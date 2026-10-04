@@ -1,4 +1,4 @@
-import { DAILY_CRYPTO_DAY_STRATEGY_V4 as strategy } from "./paper-weekend-crypto-strategy-config";
+import { ACTIVE_DAILY_CRYPTO_DAY_STRATEGY as strategy } from "./paper-weekend-crypto-strategy-config";
 
 export type CryptoBar = {
   t: string;
