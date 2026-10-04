@@ -29,6 +29,7 @@ type WatchRow = {
   state: string;
   score: number | null;
   detail: string;
+  strategies: Array<"day" | "swing" | "long">;
   executionEligible?: boolean;
 };
 
@@ -102,6 +103,14 @@ function HoldingRows({ positions, trades, accountPositions, compact = false }: {
   </div>;
 }
 
+function StrategyLegend() {
+  return <div className={styles.strategyLegend} aria-label="Strategy horizon legend">
+    <span><strong>D</strong> Day trade</span>
+    <span><strong>S</strong> Swing / multi-day</span>
+    <span><strong>L</strong> Longer-term / multi-week</span>
+  </div>;
+}
+
 function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: boolean }) {
   const visible = compact ? rows.slice(0, 8) : rows;
   if (!visible.length) return <EmptyState>Watchlist data is loading.</EmptyState>;
@@ -113,6 +122,12 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
       </div>
       <strong>{money(row.currentPrice)}</strong>
       <span className={styles.portfolioBadge}>{row.state}</span>
+      <div className={styles.strategyMarkers} aria-label={row.strategies.length ? `Strategy fit: ${row.strategies.join(", ")}` : "No funded strategy horizon"}>
+        {row.strategies.includes("day") ? <span title="Day trade">D</span> : null}
+        {row.strategies.includes("swing") ? <span title="Swing / multi-day">S</span> : null}
+        {row.strategies.includes("long") ? <span title="Longer-term / multi-week">L</span> : null}
+        {!row.strategies.length ? <span className={styles.strategyMarkerNone}>—</span> : null}
+      </div>
       <span className={styles.portfolioScore}>Score <strong>{row.score !== null ? `${row.score.toFixed(1)}/100` : "N/A"}</strong></span>
       <small>{row.detail}</small>
     </div>)}
@@ -266,6 +281,11 @@ export default function PaperBotLab() {
       state: item.tier === "reserve" ? "RESERVE" : "WATCHING",
       score,
       detail: item.role,
+      strategies: [
+        ...(item.pools.includes("day") ? ["day" as const] : []),
+        ...(item.pools.includes("multi-day") ? ["swing" as const] : []),
+        ...(item.pools.includes("multi-week") ? ["long" as const] : []),
+      ],
     };
   });
 
@@ -276,6 +296,7 @@ export default function PaperBotLab() {
     state: plan.selectedForSubmission ? "SELECTED" : plan.state.toUpperCase(),
     score: null,
     detail: plan.waitingOn[0] ?? plan.blockers[0] ?? "All currently evaluated gates pass.",
+    strategies: ["swing"],
     executionEligible: true,
   }));
 
@@ -286,6 +307,7 @@ export default function PaperBotLab() {
     state: candidate.selectedForSubmission ? "SELECTED" : candidate.state.toUpperCase(),
     score: candidate.score,
     detail: candidate.waitingOn[0] ?? candidate.blockers[0] ?? "All currently evaluated gates pass.",
+    strategies: ["day"],
     executionEligible: candidate.executionEligible,
   }));
 
@@ -393,6 +415,7 @@ export default function PaperBotLab() {
           : <StagedOrderRows orders={stagedOrders} watchRows={watchRows} compact />}
       </PortfolioPanel>
       <PortfolioPanel title="Watchlist" action={<button onClick={() => setView("watchlist")}>View all</button>}>
+        <StrategyLegend />
         <WatchRows rows={watchRows} compact />
       </PortfolioPanel>
       <PortfolioPanel title="Recent trades" action={<button onClick={() => setView("trades")}>View all</button>}>
@@ -405,7 +428,9 @@ export default function PaperBotLab() {
     </PortfolioPanel> : null}
 
     {view === "watchlist" ? <PortfolioPanel title={`${botShortName(profile)} watchlist`} action={<Link href="/paper-trading/research">Research →</Link>}>
+      <StrategyLegend />
       <WatchRows rows={watchRows} />
+      <p className={styles.portfolioNote}>D / S / L describes the strategy horizon this symbol is currently configured to be considered for. It is not trade authorization; score, setup state, risk, liquidity, and execution gates still have to pass.</p>
       {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
       {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
     </PortfolioPanel> : null}
