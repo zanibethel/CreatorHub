@@ -750,7 +750,7 @@ export default function PaperBotLab() {
 
     {ledgerError || accountError || swingReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError
       ? <div className={styles.portfolioWarnings}>
-          {[ledgerError, accountError, swingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)
+          {[ledgerError, accountError, swingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
         </div>
       : null}
 
