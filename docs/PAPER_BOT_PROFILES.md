@@ -174,3 +174,34 @@ Default Diverse also completed a controlled weekend SOL/USD paper smoke test thr
 ## Execution-readiness source of truth
 
 See `docs/PAPER_LIVE_READINESS_PLAN.md` for the ordered paper-to-live readiness sequence. Current priority is crypto Exit Manager v1, followed by Monday swing revalidation and broker-hosted stock bracket/OCO protection. No current bot has real-money execution permission.
+
+
+## Standard trade-plan contract
+
+Every bot that becomes active must now expose its watch candidates through the shared trade-plan contract in `src/lib/paper-bot-trade-plan.ts`. The contract version is persisted on each profile in `src/lib/paper-bot-profiles.ts`.
+
+The dashboard no longer owns strategy-specific lifecycle rules. Strategy adapters normalize their output into the same fields:
+
+- bot and strategy identity/version
+- symbol, asset class, current price, score, state and explanation
+- supported strategy horizons
+- execution eligibility and selection state
+- blockers and warnings
+- plan phase: awaiting data, reference, prepared or ready
+- target entry
+- planned purchase amount
+- protective stop and maximum planned loss
+- projected exit
+- projected profit in dollars and percent
+
+After normalization, the shared lifecycle engine derives `WATCHING → PREPARED → READY → ORDERED → HOLDING → EXITED` from the plan plus attributed broker orders, positions and closed trades. A future bot therefore does not implement its own portfolio-card lifecycle.
+
+Current adapters:
+- `decision-engine` — Default Diverse.
+- `swing-readiness` — Three-Trade Weekly Swing.
+- `crypto-readiness` — Daily Crypto Day.
+- `not-configured` — allowed for planned/disabled profiles only while their strategy is still being designed.
+
+When a new strategy family is introduced, add its source identifier and adapter to the normalized source map. TypeScript intentionally requires every configured source to have an adapter, so a newly activated bot cannot silently fall through to an unrelated dashboard behavior. Planned profiles may remain `not-configured` until their strategy contract is implemented.
+
+Reference plans are informational and may exist before qualification. They must never be treated as order authorization. Only the strategy's own readiness/execution gates can advance a candidate to a ready or ordered state.
