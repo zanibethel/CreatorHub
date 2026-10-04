@@ -92,6 +92,10 @@ export const DAILY_CRYPTO_DAY_STRATEGY_V5 = {
   ...DAILY_CRYPTO_DAY_STRATEGY_V4,
   id: "daily-crypto-day-v5",
   version: 5,
+  risk: {
+    ...DAILY_CRYPTO_DAY_STRATEGY_V4.risk,
+    firstTakeProfitFraction: 0.25,
+  },
   opportunity: {
     minimumGoalProfitPct: 5.00,
     maximumGoalProfitPct: 20.00,
