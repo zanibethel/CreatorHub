@@ -215,6 +215,22 @@ export async function POST(request:Request){
     return response.ok;
   };
 
+  if(action==="goal_exit"){
+    const token=request.headers.get("x-paper-weekend-execution-token")??"";
+    const response=await fetch(new URL("/api/paper-trading/bots/weekend-crypto-flatten",request.url),{
+      method:"POST",
+      headers:{
+        "x-paper-weekend-execution-token":token,
+        "x-paper-flatten-reason":"goal-exit",
+      },
+      cache:"no-store",
+      signal:AbortSignal.timeout(30_000),
+    });
+    const body=await response.json().catch(()=>({error:"Goal exit returned an invalid response."}));
+    if(!response.ok)return reply({error:"Goal exit could not be submitted.",result:body,critical:true},502);
+    return reply({ok:true,paperOnly:true,action:"goal_exit",symbol:position.symbol,result:body});
+  }
+
   if(action==="repair_stop"||action==="tighten_stop_breakeven"||action==="tighten_stop_trail"){
     const desired=action==="repair_stop"
       ? position.protective_stop
