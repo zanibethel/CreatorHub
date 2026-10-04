@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
+import { evaluatePaperCandidate } from "@/lib/paper-decision-engine";
 import useAccountReport from "./useAccountReport";
 import useMarketMonitor from "./useMarketMonitor";
 import usePaperBotLedgers, {
@@ -111,7 +112,8 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
         <small>{row.label}</small>
       </div>
       <strong>{money(row.currentPrice)}</strong>
-      <span className={styles.portfolioBadge}>{row.state}{row.score !== null ? ` · ${row.score}/100` : ""}</span>
+      <span className={styles.portfolioBadge}>{row.state}</span>
+      <span className={styles.portfolioScore}>Score <strong>{row.score !== null ? `${row.score.toFixed(1)}/100` : "N/A"}</strong></span>
       <small>{row.detail}</small>
     </div>)}
   </div>;
@@ -225,12 +227,44 @@ export default function PaperBotLab() {
       : cryptoQuote
         ? midPrice(cryptoQuote.bestBid?.price, cryptoQuote.bestAsk?.price)
         : null;
+    const assetClass = watchlist.stocks.some(stock => stock.symbol === item.symbol) ? "stock" as const : "crypto" as const;
+    const score = marketSnapshot ? (() => {
+      const now = Date.parse(marketSnapshot.collectedAt);
+      if (assetClass === "stock") {
+        return evaluatePaperCandidate({
+          candidate: item,
+          assetClass,
+          quote: {
+            bid: stockQuote?.bid ?? null,
+            ask: stockQuote?.ask ?? null,
+            timestamp: stockQuote?.timestamp ?? null,
+          },
+          candles: marketSnapshot.stockBars[item.symbol] ?? [],
+          benchmarkCandles: marketSnapshot.stockBars.SPY ?? [],
+          now,
+          risk: { accountEquity: ledger?.equity ?? profile.challengeStartingCash },
+        }).score;
+      }
+      return evaluatePaperCandidate({
+        candidate: item,
+        assetClass,
+        quote: {
+          bid: cryptoQuote?.bestBid?.price ?? null,
+          ask: cryptoQuote?.bestAsk?.price ?? null,
+          timestamp: cryptoQuote?.timestamp ?? null,
+        },
+        candles: cryptoQuote?.candles ?? [],
+        benchmarkCandles: marketSnapshot.crypto.find(entry => normalizedSymbol(entry.product) === "BTC-USD")?.candles ?? [],
+        now,
+        risk: { accountEquity: ledger?.equity ?? profile.challengeStartingCash },
+      }).score;
+    })() : null;
     return {
       symbol: item.symbol.replace("-", "/"),
       label: item.label,
       currentPrice,
       state: item.tier === "reserve" ? "RESERVE" : "WATCHING",
-      score: null,
+      score,
       detail: item.role,
     };
   });
@@ -373,7 +407,7 @@ export default function PaperBotLab() {
     {view === "watchlist" ? <PortfolioPanel title={`${botShortName(profile)} watchlist`} action={<Link href="/paper-trading/research">Research →</Link>}>
       <WatchRows rows={watchRows} />
       {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
-      {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected.</p> : null}
+      {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
     </PortfolioPanel> : null}
 
     {view === "orders" ? <div className={styles.portfolioSingleColumn}>
