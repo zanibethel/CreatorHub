@@ -92,6 +92,7 @@ The score never overrides a mandatory risk/session/liquidity blocker.
 
 - Risk budget per trade: 0.50% of current virtual equity.
 - Maximum initial allocation: 30% of current virtual equity.
+- Minimum executable notional: $12, providing a buffer above Alpaca's observed $10 crypto minimum.
 - Maximum open planned risk: 0.75%.
 - Daily realized-loss kill switch: 1.50%.
 - Minimum stop distance: 0.80%.
@@ -137,6 +138,8 @@ Implemented:
 - Deterministic fee-aware readiness engine.
 - Cross-bot same-symbol occupancy block.
 - Live Bot Lab readiness panel.
+- Live trade telemetry for open-position R, MFE, MAE, peak/trough marks, mark count, and durable closed-trade outcome records.
+- Closed-trade journal records include realized P/L, R multiple, MFE/MAE, estimated fees, and exit reason.
 - Service-only atomic entry claim with duplicate/risk guards.
 - Guarded PAPER crypto entry route using a max-chase limit price.
 - Immediate broker protective stop-limit after a confirmed fill.
@@ -150,7 +153,7 @@ Implemented:
 ## Next implementation sequence
 
 1. Let the armed scanner wait for a genuine BTC/ETH/SOL setup instead of forcing a trade.
-2. Validate the first complete tagged `wkd` PAPER round trip through entry, protection, mark-to-market, exit management, and ledger reconciliation.
+2. Validate the first complete tagged `wkd` PAPER round trip through entry, protection, mark-to-market, exit management, ledger reconciliation, and the new MFE/MAE/R outcome telemetry.
 3. Verify +1R protection, +2R 50% partial, trailing remainder, and 23:45 flatten under actual broker state.
 4. Reconcile official Alpaca CFEE activity against the immediate fee estimate.
 5. Tune only from documented evidence; do not loosen thresholds merely to create activity.
