@@ -38,6 +38,10 @@ export type SwingReadinessReport = {
   collectedAt: string;
   nextMarketOpen: string | null;
   nextMarketClose: string | null;
+  entryWindowStart: string | null;
+  entryWindowEnd: string | null;
+  minimumMinutesAfterOpen: number;
+  maximumMinutesAfterOpen: number;
   broadMarketSupportive: boolean;
   marketClockAvailable: boolean;
   strategyId: string;
