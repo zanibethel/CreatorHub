@@ -1,415 +1,430 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import useAccountReport from "./useAccountReport";
-import usePaperBotLedgers, { type PaperCounterfactual, type PaperPositionPlan, type PaperTradeMetric, type StagedPaperOrder } from "./usePaperBotLedgers";
-import usePaperStrategyReview, { type PaperStrategyReviewBot } from "./usePaperStrategyReview";
+import useMarketMonitor from "./useMarketMonitor";
+import usePaperBotLedgers, {
+  type PaperBrokerFill,
+  type PaperBrokerOrder,
+  type PaperPositionPlan,
+  type PaperTradeMetric,
+  type StagedPaperOrder,
+} from "./usePaperBotLedgers";
+import usePaperStrategyReview from "./usePaperStrategyReview";
+import useSharedWatchlist from "./useSharedWatchlist";
 import useSwingReadiness from "./useSwingReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
+type PortfolioView = "portfolio" | "holdings" | "watchlist" | "orders" | "trades" | "strategy";
+
+type WatchRow = {
+  symbol: string;
+  label: string;
+  currentPrice: number | null;
+  state: string;
+  score: number | null;
+  detail: string;
+  executionEligible?: boolean;
+};
+
+const ACTIVE_PROFILES = PAPER_BOT_PROFILES.filter(profile => profile.status === "active");
 const money = (value: number | null | undefined) => value == null ? "—" : new Intl.NumberFormat("en-US", { style: "currency", currency: "USD" }).format(value);
-const percent = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
 const signedMoney = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${money(value)}`;
-const midPrice = (bid: number | null | undefined, ask: number | null | undefined) => bid != null && ask != null && bid > 0 && ask > 0 ? (bid + ask) / 2 : bid ?? ask ?? null;
+const percent = (value: number | null | undefined) => value == null ? "—" : `${value >= 0 ? "+" : ""}${value.toFixed(2)}%`;
+const stamp = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : "—";
+const midPrice = (bid: number | null | undefined, ask: number | null | undefined) =>
+  bid != null && ask != null && bid > 0 && ask > 0 ? (bid + ask) / 2 : bid ?? ask ?? null;
+const normalizedSymbol = (value: string) => value.replace("/", "-").toUpperCase();
 const projectedProfit = (entry: number | null | undefined, target: number | null | undefined, quantity: number | null | undefined, fraction = 1) =>
   entry != null && target != null && quantity != null && entry > 0 && quantity > 0 ? (target - entry) * quantity * fraction : null;
 
-function maxDrawdown(history: Array<{ time: string; equity: number }>) {
-  if (history.length < 2) return 0;
-  let peak = history[0].equity;
-  let worst = 0;
-  for (const point of history) {
-    peak = Math.max(peak, point.equity);
-    if (peak > 0) worst = Math.min(worst, (point.equity / peak - 1) * 100);
-  }
-  return worst;
+function botShortName(profile: PaperBotProfile) {
+  if (profile.id === "weekend-crypto-day-100") return "Daily Crypto";
+  if (profile.id === "three-trade-weekly-swing-100") return "Weekly Swing";
+  return "Default Diverse";
 }
 
-function OrderPlan({ order }: { order: StagedPaperOrder }) {
-  const quantity = order.requested_quantity ?? (order.requested_notional !== null && order.entry_trigger !== null && order.entry_trigger > 0 ? order.requested_notional / order.entry_trigger : null);
-  const fraction = order.take_profit_fraction ?? 1;
-  const targetProfit = projectedProfit(order.entry_trigger, order.take_profit_price, quantity, fraction);
-  return <div className={styles.botRuleGrid}>
-    <div><span>Staged {order.symbol}</span><strong>{money(order.requested_notional)} · {order.pool_id ?? "unassigned"}</strong>
-      <small>Trigger {money(order.entry_trigger)} · max chase {money(order.max_entry_price)} · stop {money(order.protective_stop)}</small>
-      <small>Take profit {money(order.take_profit_price)} · sell {order.take_profit_fraction !== null ? `${(order.take_profit_fraction * 100).toFixed(0)}%` : "—"}{order.trail_remainder && order.take_profit_fraction !== null ? ` · trail remaining ${((1 - order.take_profit_fraction) * 100).toFixed(0)}%` : ""}</small>
-      <small>{fraction < 1 ? "Projected first-target P/L" : "Projected target P/L"} {signedMoney(targetProfit)}</small>
-      <small>Planned loss ≤ {money(order.planned_risk_dollars)} · expires {order.expires_at ? new Date(order.expires_at).toLocaleString() : "—"}</small>
-      {order.stage_reason ? <small>{order.stage_reason}</small> : null}
-    </div>
+function EmptyState({ children }: { children: React.ReactNode }) {
+  return <div className={styles.portfolioEmpty}>{children}</div>;
+}
+
+function SummaryCard({ label, value, detail }: { label: string; value: string; detail?: string }) {
+  return <div className={styles.portfolioStat}>
+    <span>{label}</span>
+    <strong>{value}</strong>
+    {detail ? <small>{detail}</small> : null}
   </div>;
 }
 
-function ExitManagerRow({ position, metric }: { position: PaperPositionPlan; metric?: PaperTradeMetric }) {
-  const manager = position.exit_manager_state;
-  const rMultiple = manager.rMultiple;
-  const currentPrice = manager.markPrice ?? metric?.last_mark_price ?? null;
-  const fraction = position.take_profit_fraction ?? 1;
-  const targetProfit = projectedProfit(position.average_entry, position.take_profit_price, position.quantity, fraction);
-  return <div>
-    <span>{position.symbol}</span>
-    <strong>{(manager.plannedAction ?? "hold").replaceAll("_", " ")}{rMultiple !== undefined ? ` · ${rMultiple >= 0 ? "+" : ""}${rMultiple.toFixed(2)}R` : ""}</strong>
-    <small>Current price {money(currentPrice)} · average fill {money(position.average_entry)} · stop {money(position.protective_stop)}{manager.desiredStop ? ` · planned stop ${money(manager.desiredStop)}` : ""}</small>
-    <small>Target {money(position.take_profit_price)} · {fraction < 1 ? "projected first-target P/L" : "projected target P/L"} {signedMoney(targetProfit)}</small>
-    <small>{manager.reason ?? "Waiting for evaluation."}</small>
-    {metric ? <small>MFE {metric.mfe_r >= 0 ? "+" : ""}{metric.mfe_r.toFixed(2)}R · MAE {metric.mae_r >= 0 ? "+" : ""}{metric.mae_r.toFixed(2)}R · {metric.mark_count} marks</small> : null}
-  </div>;
-}
-
-function StrategyReviewCard({ review }: { review: PaperStrategyReviewBot }) {
-  const maturityLabel = review.evidenceMaturity.level.toUpperCase();
-  const sampleTarget = review.evidenceMaturity.minimumForRecommendations;
-  const topSymbols = review.symbols.filter(item => item.observations || item.closedTrades || item.resolvedCounterfactuals).slice(0, 5);
-  const usefulBands = review.scoreBands.filter(item => item.observations || item.resolvedStudies);
-
-  return <article className={styles.botCard}>
-    <div className={styles.botCardHeader}>
-      <div>
-        <span className={review.evidenceMaturity.level === "collecting" ? styles.botStatusPlanned : styles.botStatusActive}>{maturityLabel}</span>
-        <h2>{review.displayName}</h2>
-      </div>
-      <strong className={styles.botCapital}>{review.evidenceMaturity.resolvedOutcomeSamples} outcomes</strong>
-    </div>
-    <p>{review.strategyId ?? "Strategy pending"}{review.strategyVersion ? ` · v${review.strategyVersion}` : ""}</p>
-    <p className={styles.meta}>Current-version evidence only · prior versions preserved separately: {review.evidenceScope.priorVersionEvidence.journal} decisions · {review.evidenceScope.priorVersionEvidence.trades} trades · {review.evidenceScope.priorVersionEvidence.counterfactuals} counterfactuals</p>
-
-    <div className={styles.botMetrics}>
-      <div><span>Decision observations</span><strong>{review.decisions.executionRelevantObservations} execute · {review.decisions.monitorOnlyObservations} monitor</strong></div>
-      <div><span>Closed trades</span><strong>{review.executed.closedTrades}</strong></div>
-      <div><span>Average realized R</span><strong>{review.executed.averageR === null ? "—" : `${review.executed.averageR >= 0 ? "+" : ""}${review.executed.averageR.toFixed(2)}R`}</strong></div>
-      <div><span>Win rate</span><strong>{review.executed.winRatePct === null ? "—" : `${review.executed.winRatePct.toFixed(0)}%`}</strong></div>
-      <div><span>Counterfactual studies</span><strong>{review.counterfactual.total}</strong></div>
-      <div><span>Resolved studies</span><strong>{review.counterfactual.analyzable}</strong></div>
-    </div>
-
-    <div className={styles.botRuleGrid}>
-      <div>
-        <span>Counterfactual threshold paths</span>
-        <strong>{review.counterfactual.missedOpportunities} reached +2R first · {review.counterfactual.protectiveRejections} hit stop before +1R</strong>
-        <small>{review.counterfactual.mixed} mixed · {review.counterfactual.neverTriggered} never triggered · {review.counterfactual.ambiguous} ambiguous</small>
-        <small>Counterfactual threshold paths are evidence, not virtual or realized P/L.</small>
-      </div>
-      <div>
-        <span>Execution evidence</span>
-        <strong>{money(review.executed.totalRealizedPl)} realized · {money(review.executed.totalEstimatedFees)} estimated fees</strong>
-        <small>MFE {review.executed.averageMfeR === null ? "—" : `${review.executed.averageMfeR >= 0 ? "+" : ""}${review.executed.averageMfeR.toFixed(2)}R`} · MAE {review.executed.averageMaeR === null ? "—" : `${review.executed.averageMaeR >= 0 ? "+" : ""}${review.executed.averageMaeR.toFixed(2)}R`}</small>
-      </div>
-      <div>
-        <span>Decision lifecycle</span>
-        <strong>{review.decisions.strategyRejectedEvents} strategy rejects · {review.decisions.brokerRejectedEvents} broker rejects</strong>
-        <small>{review.decisions.canceledEvents} canceled · {review.decisions.expiredEvents} expired · {review.decisions.replacedEvents} replaced · {review.decisions.executionErrors} execution errors</small>
-      </div>
-      <div>
-        <span>Evidence maturity</span>
-        <strong>{maturityLabel}</strong>
-        <small>{review.evidenceMaturity.resolvedOutcomeSamples < sampleTarget ? `${sampleTarget - review.evidenceMaturity.resolvedOutcomeSamples} more resolved outcomes before parameter recommendations unlock.` : "Minimum evidence threshold reached; recommendations remain advisory and version-gated."}</small>
-      </div>
-    </div>
-
-    {review.decisions.topReasons.length ? <div>
-      <h3>Most common gates / waiting reasons</h3>
-      <div className={styles.botRuleGrid}>{review.decisions.topReasons.map(item => <div key={item.reason}><span>{item.reason}</span><strong>{item.count} observations</strong></div>)}</div>
-    </div> : null}
-
-    {usefulBands.length ? <div>
-      <h3>Score-band evidence</h3>
-      <div className={styles.botRuleGrid}>{usefulBands.map(item => <div key={item.band}>
-        <span>Score {item.band}</span>
-        <strong>{item.observations} scans · {item.resolvedStudies} resolved studies</strong>
-        <small>Missed +2R rate {item.missedOpportunityRatePct === null ? "—" : `${item.missedOpportunityRatePct.toFixed(0)}%`} · protective rejection rate {item.protectiveRejectionRatePct === null ? "—" : `${item.protectiveRejectionRatePct.toFixed(0)}%`}</small>
-      </div>)}</div>
-    </div> : null}
-
-    {topSymbols.length ? <div>
-      <h3>Symbol evidence</h3>
-      <div className={styles.botRuleGrid}>{topSymbols.map(item => <div key={item.symbol}>
-        <span>{item.symbol}</span>
-        <strong>{item.observations} observations · max score {item.maxScore === null ? "—" : item.maxScore.toFixed(0)}</strong>
-        <small>{item.closedTrades} closed trades · avg executed R {item.averageExecutedR === null ? "—" : `${item.averageExecutedR >= 0 ? "+" : ""}${item.averageExecutedR.toFixed(2)}R`} · {item.resolvedCounterfactuals} resolved counterfactuals</small>
-      </div>)}</div>
-    </div> : null}
-
-    <div>
-      <h3>Strategy recommendations</h3>
-      <div className={styles.botRuleGrid}>{review.recommendations.map(item => <div key={item.id}>
-        <span>{item.severity === "review" ? "REVIEW" : "ADVISORY"}</span>
-        <strong>{item.title}</strong>
-        <small>{item.rationale}</small>
-        <small>{item.evidenceCount} outcome samples · requires new version + PAPER validation</small>
-      </div>)}</div>
-    </div>
-  </article>;
-}
-
-function BotCard({ profile, ledger, history, staged, positions, trades, counterfactuals }: {
-  profile: PaperBotProfile;
-  ledger: PaperBotSummary | null;
-  history: Array<{ time: string; equity: number }>;
-  staged: StagedPaperOrder[];
+function HoldingRows({ positions, trades, accountPositions, compact = false }: {
   positions: PaperPositionPlan[];
   trades: PaperTradeMetric[];
-  counterfactuals: PaperCounterfactual[];
+  accountPositions: Array<{ symbol: string; quantity: number | null; marketValue: number | null }> | null | undefined;
+  compact?: boolean;
 }) {
-  const active = (ledger?.status ?? profile.status) === "active";
-  const equity = ledger?.equity ?? profile.challengeStartingCash;
-  const returnPct = (equity / profile.challengeStartingCash - 1) * 100;
-  const drawdown = ledger?.currentDrawdownPct ?? maxDrawdown(history);
+  const visible = compact ? positions.slice(0, 3) : positions;
+  if (!visible.length) return <EmptyState>No open holdings for this bot.</EmptyState>;
 
-  return <article className={styles.botCard}>
-    <div className={styles.botCardHeader}>
+  return <div className={styles.portfolioRows}>
+    {visible.map(position => {
+      const metric = trades.find(item => item.symbol === position.symbol && item.status !== "closed");
+      const accountPosition = accountPositions?.find(item => normalizedSymbol(item.symbol) === normalizedSymbol(position.symbol));
+      const accountMark = accountPosition?.quantity && accountPosition.marketValue != null
+        ? Math.abs(accountPosition.marketValue / accountPosition.quantity)
+        : null;
+      const currentPrice = position.exit_manager_state.markPrice ?? metric?.last_mark_price ?? accountMark;
+      const markPl = position.average_entry != null && currentPrice != null
+        ? (currentPrice - position.average_entry) * position.quantity
+        : null;
+      const targetFraction = position.take_profit_fraction ?? 1;
+      const targetPl = projectedProfit(position.average_entry, position.take_profit_price, position.quantity, targetFraction);
+      const marketValue = currentPrice != null ? currentPrice * position.quantity : null;
+
+      return <div className={styles.portfolioRow} key={position.symbol}>
+        <div className={styles.portfolioRowMain}>
+          <strong>{position.symbol}</strong>
+          <span>{position.quantity.toFixed(position.quantity < 1 ? 8 : 4)} units</span>
+        </div>
+        <div><span>Current</span><strong>{money(currentPrice)}</strong></div>
+        <div><span>Avg fill</span><strong>{money(position.average_entry)}</strong></div>
+        <div><span>Value</span><strong>{money(marketValue)}</strong></div>
+        <div><span>Mark P/L</span><strong>{signedMoney(markPl)}</strong></div>
+        <div><span>Stop</span><strong>{money(position.protective_stop)}</strong></div>
+        <div><span>Target</span><strong>{money(position.take_profit_price)}</strong></div>
+        <div><span>{targetFraction < 1 ? "1st-target P/L" : "Target P/L"}</span><strong>{signedMoney(targetPl)}</strong></div>
+      </div>;
+    })}
+  </div>;
+}
+
+function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: boolean }) {
+  const visible = compact ? rows.slice(0, 8) : rows;
+  if (!visible.length) return <EmptyState>Watchlist data is loading.</EmptyState>;
+  return <div className={styles.watchPortfolioGrid}>
+    {visible.map(row => <div className={styles.watchPortfolioItem} key={row.symbol}>
       <div>
-        <span className={active ? styles.botStatusActive : styles.botStatusPlanned}>{active ? "ACTIVE" : "PLANNED"}</span>
-        <h2>{profile.name}</h2>
+        <strong>{row.symbol}</strong>
+        <small>{row.label}</small>
       </div>
-      <strong className={styles.botCapital}>{money(equity)}</strong>
-    </div>
+      <strong>{money(row.currentPrice)}</strong>
+      <span className={styles.portfolioBadge}>{row.state}{row.score !== null ? ` · ${row.score}/100` : ""}</span>
+      <small>{row.detail}</small>
+    </div>)}
+  </div>;
+}
 
-    <p>{profile.style}</p>
-    <div className={styles.botMetrics}>
-      <div><span>Virtual equity</span><strong>{money(equity)}</strong></div>
-      <div><span>Total return</span><strong>{percent(returnPct)}</strong></div>
-      <div><span>Max drawdown</span><strong>{percent(drawdown)}</strong></div>
-      <div><span>Open positions</span><strong>{ledger?.positionCount ?? 0}</strong></div>
-      <div><span>Open planned risk</span><strong>{percent(ledger?.openPlannedRiskPct ?? 0)}</strong></div>
-      <div><span>Ledger-applied fills</span><strong>{ledger?.brokerFillCount ?? 0}</strong></div>
-      <div><span>Realized P/L</span><strong>{signedMoney(ledger?.realizedPl ?? 0)}</strong></div>
-      <div><span>Unrealized P/L</span><strong>{signedMoney(ledger?.unrealizedPl ?? 0)}</strong></div>
-    </div>
+function BrokerOrderRows({ orders, compact = false }: { orders: PaperBrokerOrder[]; compact?: boolean }) {
+  const visible = compact ? orders.slice(0, 4) : orders;
+  if (!visible.length) return <EmptyState>No live tagged PAPER broker orders for this bot.</EmptyState>;
+  return <div className={styles.portfolioRows}>
+    {visible.map((order, index) => <div className={styles.portfolioRow} key={`${order.symbol}-${order.submitted_at ?? order.last_seen_at}-${index}`}>
+      <div className={styles.portfolioRowMain}><strong>{order.symbol}</strong><span>{order.side.toUpperCase()} · {order.order_type ?? "order"}</span></div>
+      <div><span>Status</span><strong>{order.status.replaceAll("_", " ")}</strong></div>
+      <div><span>Quantity</span><strong>{order.quantity ?? "—"}</strong></div>
+      <div><span>Filled</span><strong>{order.filled_quantity ?? "—"}</strong></div>
+      <div><span>Avg fill</span><strong>{money(order.average_fill_price)}</strong></div>
+      <div><span>Submitted</span><strong>{stamp(order.submitted_at)}</strong></div>
+    </div>)}
+  </div>;
+}
 
-    <div className={styles.botRuleGrid}>
-      <div><span>Strategy</span><strong>{ledger?.strategyId ?? profile.strategyId ?? "Pending"}</strong><small>{profile.cadence.description}</small></div>
-      <div><span>Pool usage</span><strong>Day {percent(ledger?.poolUsage.day ?? 0)} · Multi-day {percent(ledger?.poolUsage["multi-day"] ?? 0)} · Multi-week {percent(ledger?.poolUsage["multi-week"] ?? 0)}</strong><small>Virtual equity allocation, not broker-account allocation.</small></div>
-      <div><span>Risk state</span><strong>Daily loss {percent(ledger?.dailyRealizedLossPct ?? 0)} · Weekly drawdown {percent(ledger?.weeklyDrawdownPct ?? 0)}</strong><small>Alpaca paper activity only changes this challenge when it matches a prepared bot order.</small></div>
-    </div>
+function StagedOrderRows({ orders, watchRows, compact = false }: { orders: StagedPaperOrder[]; watchRows: WatchRow[]; compact?: boolean }) {
+  const visible = compact ? orders.slice(0, 4) : orders;
+  if (!visible.length) return <EmptyState>No prepared entry plans for this bot.</EmptyState>;
+  return <div className={styles.portfolioRows}>
+    {visible.map(order => {
+      const currentPrice = watchRows.find(row => normalizedSymbol(row.symbol) === normalizedSymbol(order.symbol))?.currentPrice ?? null;
+      const quantity = order.requested_quantity ?? (
+        order.requested_notional != null && order.entry_trigger != null && order.entry_trigger > 0
+          ? order.requested_notional / order.entry_trigger
+          : null
+      );
+      const targetFraction = order.take_profit_fraction ?? 1;
+      const targetPl = projectedProfit(order.entry_trigger, order.take_profit_price, quantity, targetFraction);
+      return <div className={styles.portfolioRow} key={`${order.symbol}-${order.entry_trigger}`}>
+        <div className={styles.portfolioRowMain}><strong>{order.symbol}</strong><span>PREPARED · {order.pool_id ?? "unassigned"}</span></div>
+        <div><span>Current</span><strong>{money(currentPrice)}</strong></div>
+        <div><span>Entry / max</span><strong>{money(order.entry_trigger)} / {money(order.max_entry_price)}</strong></div>
+        <div><span>Stop</span><strong>{money(order.protective_stop)}</strong></div>
+        <div><span>Target</span><strong>{money(order.take_profit_price)}</strong></div>
+        <div><span>{targetFraction < 1 ? "1st-target P/L" : "Target P/L"}</span><strong>{signedMoney(targetPl)}</strong></div>
+        <div><span>Expires</span><strong>{stamp(order.expires_at)}</strong></div>
+      </div>;
+    })}
+  </div>;
+}
 
-    {positions.length ? <div>
-      <h3>Exit manager</h3>
-      <div className={styles.botRuleGrid}>{positions.map(position => <ExitManagerRow key={position.symbol} position={position} metric={trades.find(trade => trade.symbol === position.symbol && trade.status !== "closed")} />)}</div>
-    </div> : null}
+function TradeRows({ closedTrades, fills, compact = false }: { closedTrades: PaperTradeMetric[]; fills: PaperBrokerFill[]; compact?: boolean }) {
+  const closed = compact ? closedTrades.slice(0, 2) : closedTrades.slice(0, 10);
+  const executions = compact ? fills.slice(0, Math.max(0, 5 - closed.length)) : fills.slice(0, 15);
+  if (!closed.length && !executions.length) return <EmptyState>No tagged trade activity yet for this bot.</EmptyState>;
 
-    {staged.length ? <div>
-      <h3>Staged plans</h3>
-      {staged.map(order => <OrderPlan key={`${order.symbol}-${order.entry_trigger}`} order={order} />)}
-      <p className={styles.meta}>Staged means prepared only. These plans require fresh quote/spread/risk revalidation before paper submission.</p>
-    </div> : null}
+  return <div className={styles.portfolioRows}>
+    {closed.map(trade => <div className={styles.portfolioRow} key={`closed-${trade.symbol}-${trade.opened_at}`}>
+      <div className={styles.portfolioRowMain}><strong>{trade.symbol}</strong><span>CLOSED TRADE</span></div>
+      <div><span>Entry</span><strong>{money(trade.entry_price)}</strong></div>
+      <div><span>Exit</span><strong>{money(trade.exit_price)}</strong></div>
+      <div><span>Realized P/L</span><strong>{signedMoney(trade.realized_pl)}</strong></div>
+      <div><span>R multiple</span><strong>{trade.r_multiple == null ? "—" : `${trade.r_multiple >= 0 ? "+" : ""}${trade.r_multiple.toFixed(2)}R`}</strong></div>
+      <div><span>Closed</span><strong>{stamp(trade.closed_at)}</strong></div>
+    </div>)}
+    {executions.map((fill, index) => <div className={styles.portfolioRow} key={`fill-${fill.symbol}-${fill.transaction_time}-${index}`}>
+      <div className={styles.portfolioRowMain}><strong>{fill.symbol}</strong><span>{fill.side.toUpperCase()} FILL</span></div>
+      <div><span>Quantity</span><strong>{fill.quantity}</strong></div>
+      <div><span>Fill price</span><strong>{money(fill.price)}</strong></div>
+      <div><span>Time</span><strong>{stamp(fill.transaction_time)}</strong></div>
+      <div><span>Ledger</span><strong>{fill.ledger_applied_at ? "Applied" : "Pending"}</strong></div>
+    </div>)}
+  </div>;
+}
 
-    {counterfactuals.length ? <div>
-      <h3>Counterfactual studies</h3>
-      <div className={styles.botRuleGrid}>
-        {counterfactuals.slice(0, 3).map(item => <div key={`${item.symbol}-${item.decision_at}`}>
-          <span>{item.symbol} · {item.source_event_type.replaceAll("_"," ")}</span>
-          <strong>{item.status.toUpperCase()}{item.first_outcome ? ` · ${item.first_outcome.replaceAll("-"," ")}` : ""}</strong>
-          <small>Decision {new Date(item.decision_at).toLocaleString()} · score {item.score === null ? "—" : item.score.toFixed(0)}</small>
-          <small>Trigger {money(item.trigger_price)} · max entry {money(item.max_entry_price)} · stop {money(item.protective_stop)}</small>
-          <small>Assumed entry {money(item.assumed_entry_price)} · +1R {money(item.one_r_price)} · +2R {money(item.two_r_price)}</small>
-          <small>MFE {item.mfe_r >= 0 ? "+" : ""}{item.mfe_r.toFixed(2)}R · MAE {item.mae_r >= 0 ? "+" : ""}{item.mae_r.toFixed(2)}R · {item.mark_count} completed bars</small>
-          {item.triggered_at ? <small>Triggered {new Date(item.triggered_at).toLocaleString()}{item.one_r_hit_at ? ` · +1R ${new Date(item.one_r_hit_at).toLocaleTimeString()}` : ""}{item.two_r_hit_at ? ` · +2R ${new Date(item.two_r_hit_at).toLocaleTimeString()}` : ""}{item.stop_hit_at ? ` · stop ${new Date(item.stop_hit_at).toLocaleTimeString()}` : ""}</small> : null}
-        </div>)}
-      </div>
-      <p className={styles.meta}>Counterfactuals are observation-only. They never submit broker orders; same-candle stop/target sequencing is labeled ambiguous instead of guessed.</p>
-    </div> : null}
-
-
-    {trades.some(trade => trade.status === "closed") ? <div>
-      <h3>Recent trade outcomes</h3>
-      <div className={styles.botRuleGrid}>
-        {trades.filter(trade => trade.status === "closed").slice(0, 3).map(trade => <div key={`${trade.symbol}-${trade.opened_at}`}>
-          <span>{trade.symbol}</span>
-          <strong>{trade.r_multiple === null ? "R pending" : `${trade.r_multiple >= 0 ? "+" : ""}${trade.r_multiple.toFixed(2)}R`} · {money(trade.realized_pl)}</strong>
-          <small>Entry {money(trade.entry_price)} · exit {money(trade.exit_price)} · fees {money(trade.estimated_fees)}</small>
-          <small>MFE {trade.mfe_r >= 0 ? "+" : ""}{trade.mfe_r.toFixed(2)}R · MAE {trade.mae_r >= 0 ? "+" : ""}{trade.mae_r.toFixed(2)}R · {trade.mark_count} marks</small>
-          <small>{trade.exit_reason ?? "Broker exit"}{trade.closed_at ? ` · closed ${new Date(trade.closed_at).toLocaleString()}` : ""}</small>
-        </div>)}
-      </div>
-    </div> : null}
-
-
-    <ul className={styles.botNotes}>{profile.notes.map(note => <li key={note}>{note}</li>)}</ul>
-    {active ? <Link className={styles.botLink} href="/paper-trading">Open live report →</Link> : <span className={styles.botDisabled}>Execution disabled</span>}
-  </article>;
+function PortfolioPanel({ title, action, children }: { title: string; action?: React.ReactNode; children: React.ReactNode }) {
+  return <section className={styles.portfolioPanel}>
+    <div className={styles.portfolioPanelHeader}><h2>{title}</h2>{action}</div>
+    {children}
+  </section>;
 }
 
 export default function PaperBotLab() {
+  const [selectedBotId, setSelectedBotId] = useState(ACTIVE_PROFILES[0]?.id ?? "default-diverse");
+  const [view, setView] = useState<PortfolioView>("portfolio");
   const { report: accountReport, error: accountError, refresh: refreshAccount } = useAccountReport();
   const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
-  const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
   const { report: swingReadiness, error: swingReadinessError } = useSwingReadiness();
-  const { report: weekendCrypto, error: weekendCryptoError } = useWeekendCryptoReadiness();
-  const ledgerFor = (botId: string) => ledgerReport?.bots.find(bot => bot.botId === botId) ?? null;
-  const stagedFor = (botId: string) => ledgerReport?.stagedOrders?.[botId] ?? [];
-  const positionsFor = (botId: string) => ledgerReport?.positionPlans?.[botId] ?? [];
-  const tradesFor = (botId: string) => ledgerReport?.tradeMetrics?.[botId] ?? [];
-  const counterfactualsFor = (botId: string) => ledgerReport?.counterfactuals?.[botId] ?? [];
-  const historyFor = (botId: string) => ledgerReport?.history?.[botId] ?? [];
-  const brokerEquity = accountReport?.snapshot?.account.equity ?? null;
+  const { report: cryptoReadiness, error: cryptoReadinessError } = useWeekendCryptoReadiness();
+  const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
+  const { watchlist, error: watchlistError } = useSharedWatchlist();
+
+  const stockSymbols = watchlist.stocks.map(item => item.symbol).join(",");
+  const cryptoSymbols = watchlist.crypto.map(item => item.symbol).join(",");
+  const { snapshot: marketSnapshot, error: marketError, refresh: refreshMarket } = useMarketMonitor(stockSymbols, cryptoSymbols, true);
+
+  const profile = ACTIVE_PROFILES.find(item => item.id === selectedBotId) ?? ACTIVE_PROFILES[0];
+  const ledger = ledgerReport?.bots.find(bot => bot.botId === profile.id) ?? null;
+  const positions = ledgerReport?.positionPlans?.[profile.id] ?? [];
+  const trades = ledgerReport?.tradeMetrics?.[profile.id] ?? [];
+  const closedTrades = trades.filter(trade => trade.status === "closed");
+  const stagedOrders = ledgerReport?.stagedOrders?.[profile.id] ?? [];
+  const brokerOrders = ledgerReport?.brokerOrders?.[profile.id] ?? [];
+  const fills = ledgerReport?.brokerFills?.[profile.id] ?? [];
+  const terminalStatuses = new Set(["filled", "canceled", "cancelled", "rejected", "expired", "replaced", "closed", "done_for_day"]);
+  const liveBrokerOrders = brokerOrders.filter(order => !terminalStatuses.has(order.status.toLowerCase()));
+  const history = ledgerReport?.history?.[profile.id] ?? [];
+  const review = strategyReview?.bots.find(item => item.botId === profile.id) ?? null;
+  const counterfactuals = ledgerReport?.counterfactuals?.[profile.id] ?? [];
+
+  const defaultWatchRows: WatchRow[] = [...watchlist.stocks, ...watchlist.crypto].map(item => {
+    const stockQuote = marketSnapshot?.stocks[item.symbol];
+    const cryptoQuote = marketSnapshot?.crypto.find(entry => normalizedSymbol(entry.product) === normalizedSymbol(item.symbol));
+    const currentPrice = stockQuote
+      ? midPrice(stockQuote.bid, stockQuote.ask)
+      : cryptoQuote
+        ? midPrice(cryptoQuote.bestBid?.price, cryptoQuote.bestAsk?.price)
+        : null;
+    return {
+      symbol: item.symbol.replace("-", "/"),
+      label: item.label,
+      currentPrice,
+      state: item.tier === "reserve" ? "RESERVE" : "WATCHING",
+      score: null,
+      detail: item.role,
+    };
+  });
+
+  const swingWatchRows: WatchRow[] = (swingReadiness?.plans ?? []).map(plan => ({
+    symbol: plan.symbol,
+    label: "Weekly swing candidate",
+    currentPrice: midPrice(plan.bid, plan.ask),
+    state: plan.selectedForSubmission ? "SELECTED" : plan.state.toUpperCase(),
+    score: null,
+    detail: plan.waitingOn[0] ?? plan.blockers[0] ?? "All currently evaluated gates pass.",
+    executionEligible: true,
+  }));
+
+  const cryptoWatchRows: WatchRow[] = (cryptoReadiness?.candidates ?? []).map(candidate => ({
+    symbol: candidate.symbol,
+    label: candidate.executionEligible ? "Execution eligible" : "Monitor only",
+    currentPrice: midPrice(candidate.bid, candidate.ask),
+    state: candidate.selectedForSubmission ? "SELECTED" : candidate.state.toUpperCase(),
+    score: candidate.score,
+    detail: candidate.waitingOn[0] ?? candidate.blockers[0] ?? "All currently evaluated gates pass.",
+    executionEligible: candidate.executionEligible,
+  }));
+
+  const watchRows = profile.id === "weekend-crypto-day-100"
+    ? cryptoWatchRows
+    : profile.id === "three-trade-weekly-swing-100"
+      ? swingWatchRows
+      : defaultWatchRows;
+
+  const equity = ledger?.equity ?? profile.challengeStartingCash;
+  const realized = ledger?.realizedPl ?? 0;
+  const unrealized = ledger?.unrealizedPl ?? 0;
+  const totalPl = equity - profile.challengeStartingCash;
+  const totalReturn = (equity / profile.challengeStartingCash - 1) * 100;
+  const openOrderCount = liveBrokerOrders.length + stagedOrders.length;
+
+  const views: Array<{ id: PortfolioView; label: string }> = [
+    { id: "portfolio", label: "Portfolio" },
+    { id: "holdings", label: `Holdings ${positions.length}` },
+    { id: "watchlist", label: `Watchlist ${watchRows.length}` },
+    { id: "orders", label: `Orders ${openOrderCount}` },
+    { id: "trades", label: "Recent trades" },
+    { id: "strategy", label: "Strategy" },
+  ];
+
+  const refreshAll = () => {
+    refreshLedgers();
+    refreshAccount();
+    refreshStrategyReview();
+    refreshMarket();
+  };
+
+  const auditEquity = accountReport?.snapshot?.account.equity ?? null;
 
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
       <div>
-        <Link href="/paper-trading">← Paper Trading Lab</Link>
-        <h1>Bot Lab</h1>
-        <p>Every challenge starts with $100 virtual capital. The larger Alpaca paper account is the execution sandbox and audit trail, never the bot bankroll.</p>
+        <Link href="/paper-trading">← Paper Trading</Link>
+        <h1>PAPER Bot Portfolios</h1>
+        <p>Each bot has its own $100 virtual portfolio. Holdings, P/L, orders, fills, and trade history stay attributed to that bot.</p>
       </div>
-      <div className={styles.botLabActions}><button onClick={() => { refreshLedgers(); refreshAccount(); refreshStrategyReview(); }}>Refresh</button></div>
+      <div className={styles.botLabActions}><button onClick={refreshAll}>Refresh</button></div>
     </header>
 
-    <section className={styles.botOverview}>
-      <div><span>Challenge baseline</span><strong>$100 each</strong></div>
-      <div><span>Active bots</span><strong>{PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length}</strong></div>
-      <div><span>Prepared plans</span><strong>{Object.values(ledgerReport?.stagedOrders ?? {}).reduce((sum, orders) => sum + orders.length, 0)}</strong></div>
-      <div><span>Counterfactual studies</span><strong>{Object.values(ledgerReport?.counterfactuals ?? {}).reduce((sum, items) => sum + items.length, 0)}</strong></div>
-      <div><span>Alpaca paper balance</span><strong>{money(brokerEquity)}</strong></div>
-    </section>
+    <nav className={styles.botSwitcher} aria-label="Paper bot portfolios">
+      {ACTIVE_PROFILES.map(item => {
+        const itemLedger = ledgerReport?.bots.find(bot => bot.botId === item.id);
+        return <button
+          key={item.id}
+          aria-pressed={item.id === profile.id}
+          onClick={() => { setSelectedBotId(item.id); setView("portfolio"); }}
+        >
+          <span>{botShortName(item)}</span>
+          <strong>{money(itemLedger?.equity ?? item.challengeStartingCash)}</strong>
+          <small>{signedMoney((itemLedger?.equity ?? item.challengeStartingCash) - item.challengeStartingCash)}</small>
+        </button>;
+      })}
+    </nav>
 
-    {ledgerError ? <p role="status" className={styles.error}>Bot ledger: {ledgerError}</p> : null}
-    {accountError ? <p role="status" className={styles.error}>Alpaca audit feed: {accountError}</p> : null}
-    {swingReadinessError ? <p role="status" className={styles.error}>Swing readiness: {swingReadinessError}</p> : null}
-    {weekendCryptoError ? <p role="status" className={styles.error}>Daily crypto readiness: {weekendCryptoError}</p> : null}
-    {strategyReviewError ? <p role="status" className={styles.error}>Strategy review: {strategyReviewError}</p> : null}
-
-    <section className={styles.botCompare}>
-      <div className={styles.cardHeader}>
+    <section className={styles.portfolioHero}>
+      <div className={styles.portfolioHeroTitle}>
         <div>
-          <h2>Monday swing readiness</h2>
-          <p>Read-only revalidation. A READY result is permission for the future PAPER executor to consider a plan; it does not submit an order.</p>
+          <span className={styles.botStatusActive}>ACTIVE · PAPER</span>
+          <h2>{profile.name}</h2>
+          <p>{profile.style}</p>
         </div>
-        <span className={styles.meta}>{swingReadiness?.paperOnly === false ? "BLOCKED" : `PAPER ONLY · EXECUTOR ${swingReadiness?.executionEnabled ? "ARMED" : "DISABLED"}`}</span>
-      </div>
-      <div className={styles.botOverview}>
-        <div><span>Selected now</span><strong>{swingReadiness?.readyCount ?? 0}</strong></div>
-        <div><span>Weekly slots</span><strong>{swingReadiness?.weeklySlotsRemaining ?? "—"}</strong></div>
-        <div><span>Position slots</span><strong>{swingReadiness?.openPositionSlotsRemaining ?? "—"}</strong></div>
-        <div><span>Broad market</span><strong>{swingReadiness ? (swingReadiness.broadMarketSupportive ? "Supportive" : "Blocked") : "—"}</strong></div>
-      </div>
-      {swingReadiness?.nextMarketOpen ? <p className={styles.meta}>Next market open: {new Date(swingReadiness.nextMarketOpen).toLocaleString()}</p> : null}
-      <p className={styles.meta}>Broker protection: {swingReadiness?.brokerProtection ?? "—"} · submission gate: {swingReadiness?.submissionReady ? "ready" : "closed"} · an execution preview is only generated after same-session selection.</p>
-      <div className={styles.botRuleGrid}>
-        {(swingReadiness?.plans ?? []).map(plan => {
-          const order = stagedFor("three-trade-weekly-swing-100").find(item => item.symbol === plan.symbol) ?? null;
-          const currentPrice = midPrice(plan.bid, plan.ask);
-          const entry = plan.executionPreview?.entryReference ?? order?.entry_trigger ?? null;
-          const target = plan.executionPreview?.takeProfit ?? order?.take_profit_price ?? null;
-          const stop = plan.executionPreview?.stopLoss ?? order?.protective_stop ?? null;
-          const quantity = plan.executionPreview?.quantity
-            ?? order?.requested_quantity
-            ?? (order?.requested_notional !== null && order?.requested_notional !== undefined && entry !== null && entry > 0 ? order.requested_notional / entry : null);
-          const fraction = order?.take_profit_fraction ?? 1;
-          const targetProfit = projectedProfit(entry, target, quantity, fraction);
-          return <div key={plan.symbol}>
-            <span>{plan.symbol}</span>
-            <strong className={plan.state === "ready" ? styles.fresh : plan.state === "blocked" ? styles.stale : styles.meta}>
-              {plan.state.toUpperCase()}{plan.selectedForSubmission ? " · SELECTED" : ""}
-            </strong>
-            <small>Current price {money(currentPrice)} · bid {money(plan.bid)} · ask {money(plan.ask)} · spread {plan.spreadPct === null ? "—" : `${plan.spreadPct.toFixed(3)}%`}</small>
-            <small>Planned entry {money(entry)} · max entry {money(order?.max_entry_price ?? null)} · stop {money(stop)} · target {money(target)}</small>
-            <small>{fraction < 1 ? "Projected first-target P/L" : "Projected target P/L"} {signedMoney(targetProfit)} · allocation {percent(plan.allocationPct)} · planned risk {percent(plan.plannedRiskPct)}{plan.correlationGroup ? ` · ${plan.correlationGroup}` : ""}</small>
-            {plan.executionPreview ? <small>Bracket preview: {plan.executionPreview.quantity.toFixed(9)} shares · {money(plan.executionPreview.estimatedNotional)}</small> : null}
-            {plan.waitingOn.length ? <small>Waiting: {plan.waitingOn.join(" · ")}</small> : null}
-            {plan.blockers.length ? <small>Blocked: {plan.blockers.join(" · ")}</small> : null}
-          </div>;
-        })}
-      </div>
-    </section>
-
-    <section className={styles.botCompare}>
-      <div className={styles.cardHeader}>
-        <div>
-          <h2>Daily crypto day readiness</h2>
-          <p>Continuous 24/7 crypto scanner. BTC / ETH / SOL / LINK / DOT are execution-eligible; XRP / LTC / AVAX / DOGE / ADA / BCH / AAVE / HYPE / RENDER are monitor-only.</p>
+        <div className={styles.portfolioHeroValue}>
+          <span>Portfolio value</span>
+          <strong>{money(equity)}</strong>
+          <small>{signedMoney(totalPl)} · {percent(totalReturn)}</small>
         </div>
-        <span className={styles.meta}>{weekendCrypto ? `PAPER ONLY · EXECUTOR ${weekendCrypto.executionEnabled ? "ARMED" : "DISABLED"}` : "PAPER ONLY"}</span>
       </div>
-      <div className={styles.botOverview}>
-        <div><span>Session</span><strong>{weekendCrypto ? `${weekendCrypto.session.localWeekday} ${weekendCrypto.session.localTime}` : "—"}</strong></div>
-        <div><span>BTC regime</span><strong>{weekendCrypto ? (weekendCrypto.broadCryptoSupportive ? "Supportive" : "Waiting") : "—"}</strong></div>
-        <div><span>Entries left today</span><strong>{weekendCrypto?.dailyEntriesRemaining ?? "—"}</strong></div>
-        <div><span>Selected</span><strong>{weekendCrypto?.selectedSymbol ?? "None"}</strong></div>
+      <div className={styles.portfolioStats}>
+        <SummaryCard label="Total P/L" value={signedMoney(totalPl)} detail="vs. $100 start" />
+        <SummaryCard label="Realized P/L" value={signedMoney(realized)} />
+        <SummaryCard label="Unrealized P/L" value={signedMoney(unrealized)} />
+        <SummaryCard label="Cash" value={money(ledger?.cash ?? profile.challengeStartingCash)} />
+        <SummaryCard label="Holdings" value={String(positions.length)} />
+        <SummaryCard label="Open / planned orders" value={String(openOrderCount)} />
       </div>
-      <p className={styles.meta}>
-        24/7 entries {weekendCrypto?.session.entriesOpen ? "enabled" : "disabled"} · one-position slots {weekendCrypto?.openPositionSlotsRemaining ?? "—"} · submission gate {weekendCrypto?.submissionReady ? "ready" : "closed"} · execute pool {weekendCrypto?.executionUniverse.length ?? "—"} · monitor pool {weekendCrypto?.monitorOnlyUniverse.length ?? "—"}
-        {weekendCrypto?.occupiedByOtherBots.length ? ` · held by other bots: ${weekendCrypto.occupiedByOtherBots.join(", ")}` : ""}
-      </p>
-      <div className={styles.botRuleGrid}>
-        {(weekendCrypto?.candidates ?? []).map(candidate => {
-          const currentPrice = midPrice(candidate.bid, candidate.ask);
-          const projectedNetTarget = candidate.estimatedGrossTargetDollars === null
-            ? projectedProfit(candidate.trigger, candidate.takeProfit, candidate.plannedQuantity)
-            : candidate.estimatedGrossTargetDollars - (candidate.estimatedRoundTripFees ?? 0);
-          return <div key={candidate.symbol}>
-            <span>{candidate.symbol} · {candidate.executionEligible ? "EXECUTE" : "MONITOR ONLY"}</span>
-            <strong className={candidate.state === "ready" ? styles.fresh : candidate.state === "blocked" ? styles.stale : styles.meta}>
-              {candidate.state.toUpperCase()}{candidate.selectedForSubmission ? " · SELECTED" : ""} · {candidate.score}/100
-            </strong>
-            <small>
-              Current price {money(currentPrice)} · bid {money(candidate.bid)} · ask {money(candidate.ask)} · spread {candidate.spreadPct === null ? "—" : `${candidate.spreadPct.toFixed(3)}%`}
-            </small>
-            <small>
-              5m momentum {percent(candidate.fastMomentumPct)} · 15m momentum {percent(candidate.slowMomentumPct)} · 5m ATR {percent(candidate.atrPct)}
-            </small>
-            <small>
-              Trigger {money(candidate.trigger)} · max chase {money(candidate.maxEntry)} · stop {money(candidate.protectiveStop)} · target {money(candidate.takeProfit)}
-            </small>
-            <small>
-              Projected target P/L {signedMoney(projectedNetTarget)} net est. · planned {money(candidate.plannedNotional)} · risk {money(candidate.plannedRiskDollars)} ({percent(candidate.plannedRiskPct)})
-            </small>
-            <small>Est. round-trip fees {money(candidate.estimatedRoundTripFees)} · target/fees {candidate.feeCoverageMultiple === null ? "—" : `${candidate.feeCoverageMultiple.toFixed(2)}×`} · quote age {candidate.quoteAgeSeconds === null ? "—" : `${Math.round(candidate.quoteAgeSeconds)}s`}</small>
-            {candidate.waitingOn.length ? <small>Waiting: {candidate.waitingOn.join(" · ")}</small> : null}
-            {candidate.blockers.length ? <small>Blocked: {candidate.blockers.join(" · ")}</small> : null}
-          </div>;
-        })}
+      <div className={styles.portfolioMeta}>
+        <span>Strategy {ledger?.strategyId ?? profile.strategyId ?? "pending"}{ledger?.strategyVersion ? ` · v${ledger.strategyVersion}` : ""}</span>
+        <span>Alpaca PAPER audit balance {money(auditEquity)}</span>
+        <span>Last ledger sync {stamp(ledger?.lastSyncedAt)}</span>
       </div>
     </section>
 
-    <section className={styles.botCompare}>
-      <div className={styles.cardHeader}>
-        <div>
-          <h2>Strategy review</h2>
-          <p>Executed trades, counterfactual paths, rejected/staged lifecycle evidence, score bands, and recurring blockers are reviewed together. Recommendations cannot modify a strategy.</p>
+    <nav className={styles.portfolioNav} aria-label="Portfolio sections">
+      {views.map(item => <button key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
+    </nav>
+
+    {ledgerError || accountError || swingReadinessError || cryptoReadinessError || strategyReviewError || watchlistError || marketError
+      ? <div className={styles.portfolioWarnings}>
+          {[ledgerError, accountError, swingReadinessError, cryptoReadinessError, strategyReviewError, watchlistError, marketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
         </div>
-        <span className={styles.meta}>ADVISORY ONLY · NEW VERSION + PAPER VALIDATION REQUIRED</span>
-      </div>
-      <div className={styles.botOverview}>
-        <div><span>Auto strategy mutation</span><strong>{strategyReview?.policy.automaticStrategyMutation ? "ON" : "OFF"}</strong></div>
-        <div><span>Auto risk increases</span><strong>{strategyReview?.policy.automaticRiskIncrease ? "ON" : "OFF"}</strong></div>
-        <div><span>Live-money changes</span><strong>{strategyReview?.policy.liveMoneyChangesAllowed ? "ON" : "OFF"}</strong></div>
-        <div><span>Recommendation threshold</span><strong>{strategyReview?.policy.minimumResolvedOutcomesForRecommendations ?? 20} outcomes</strong></div>
-      </div>
-      <div className={styles.botGrid}>
-        {(strategyReview?.bots ?? []).filter(bot => bot.status === "active").map(review => <StrategyReviewCard key={review.botId} review={review} />)}
-      </div>
-      <p className={styles.meta}>A counterfactual reaching +2R before the original stop is labeled a missed-opportunity path, not hypothetical profit. Same-bar ambiguity remains excluded from directional conclusions.</p>
-    </section>
+      : null}
 
-    <section className={styles.botGrid}>
-      {PAPER_BOT_PROFILES.map(profile => <BotCard
-        key={profile.id}
-        profile={profile}
-        ledger={ledgerFor(profile.id)}
-        history={historyFor(profile.id)}
-        staged={stagedFor(profile.id)}
-        positions={positionsFor(profile.id)}
-        trades={tradesFor(profile.id)}
-        counterfactuals={counterfactualsFor(profile.id)}
-      />)}
-    </section>
+    {view === "portfolio" ? <div className={styles.portfolioDashboard}>
+      <PortfolioPanel title="Holdings" action={<button onClick={() => setView("holdings")}>View all</button>}>
+        <HoldingRows positions={positions} trades={trades} accountPositions={accountReport?.snapshot?.positions} compact />
+      </PortfolioPanel>
+      <PortfolioPanel title="Orders" action={<button onClick={() => setView("orders")}>View all</button>}>
+        {liveBrokerOrders.length
+          ? <BrokerOrderRows orders={liveBrokerOrders} compact />
+          : <StagedOrderRows orders={stagedOrders} watchRows={watchRows} compact />}
+      </PortfolioPanel>
+      <PortfolioPanel title="Watchlist" action={<button onClick={() => setView("watchlist")}>View all</button>}>
+        <WatchRows rows={watchRows} compact />
+      </PortfolioPanel>
+      <PortfolioPanel title="Recent trades" action={<button onClick={() => setView("trades")}>View all</button>}>
+        <TradeRows closedTrades={closedTrades} fills={fills} compact />
+      </PortfolioPanel>
+    </div> : null}
 
-    <section className={styles.botCompare}>
-      <div className={styles.cardHeader}><div><h2>Common comparison board</h2><p>Same $100 baseline, separate ledgers, comparable risk metrics.</p></div></div>
-      <div className={styles.botTableWrap}><table>
-        <thead><tr><th>Metric</th>{PAPER_BOT_PROFILES.map(profile => <th key={profile.id}>{profile.name}</th>)}</tr></thead>
-        <tbody>
-          <tr><td>Status</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{ledgerFor(profile.id)?.status ?? profile.status}</td>)}</tr>
-          <tr><td>Equity</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{money(ledgerFor(profile.id)?.equity ?? profile.challengeStartingCash)}</td>)}</tr>
-          <tr><td>Prepared plans</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{stagedFor(profile.id).length}</td>)}</tr>
-          <tr><td>Open risk</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{percent(ledgerFor(profile.id)?.openPlannedRiskPct ?? 0)}</td>)}</tr>
-          <tr><td>Ledger-applied fills</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{ledgerFor(profile.id)?.brokerFillCount ?? 0}</td>)}</tr>
-          <tr><td>Counterfactual studies</td>{PAPER_BOT_PROFILES.map(profile => <td key={profile.id}>{counterfactualsFor(profile.id).length}</td>)}</tr>
-        </tbody>
-      </table></div>
-      <p className={styles.meta}>No performance winner is declared from an empty or tiny sample. Prepared plans are not broker orders.</p>
-    </section>
+    {view === "holdings" ? <PortfolioPanel title={`${botShortName(profile)} holdings`}>
+      <HoldingRows positions={positions} trades={trades} accountPositions={accountReport?.snapshot?.positions} />
+    </PortfolioPanel> : null}
+
+    {view === "watchlist" ? <PortfolioPanel title={`${botShortName(profile)} watchlist`} action={<Link href="/paper-trading/research">Research →</Link>}>
+      <WatchRows rows={watchRows} />
+      {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
+      {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected.</p> : null}
+    </PortfolioPanel> : null}
+
+    {view === "orders" ? <div className={styles.portfolioSingleColumn}>
+      <PortfolioPanel title="Live tagged PAPER orders">
+        <BrokerOrderRows orders={liveBrokerOrders} />
+      </PortfolioPanel>
+      <PortfolioPanel title="Prepared plans">
+        <StagedOrderRows orders={stagedOrders} watchRows={watchRows} />
+      </PortfolioPanel>
+    </div> : null}
+
+    {view === "trades" ? <div className={styles.portfolioSingleColumn}>
+      <PortfolioPanel title="Completed trades">
+        {closedTrades.length ? <TradeRows closedTrades={closedTrades} fills={[]} /> : <EmptyState>No completed round-trip trades recorded for this bot yet.</EmptyState>}
+      </PortfolioPanel>
+      <PortfolioPanel title="Recent executions">
+        {fills.length ? <TradeRows closedTrades={[]} fills={fills} /> : <EmptyState>No tagged fills recorded for this bot yet.</EmptyState>}
+      </PortfolioPanel>
+    </div> : null}
+
+    {view === "strategy" ? <div className={styles.portfolioSingleColumn}>
+      <PortfolioPanel title="Strategy evidence">
+        {review ? <>
+          <div className={styles.portfolioStats}>
+            <SummaryCard label="Decision observations" value={String(review.decisions.executionRelevantObservations)} />
+            <SummaryCard label="Closed trades" value={String(review.executed.closedTrades)} />
+            <SummaryCard label="Average realized R" value={review.executed.averageR == null ? "—" : `${review.executed.averageR >= 0 ? "+" : ""}${review.executed.averageR.toFixed(2)}R`} />
+            <SummaryCard label="Win rate" value={review.executed.winRatePct == null ? "—" : `${review.executed.winRatePct.toFixed(0)}%`} />
+            <SummaryCard label="Counterfactuals" value={String(review.counterfactual.total)} />
+            <SummaryCard label="Resolved evidence" value={String(review.evidenceMaturity.resolvedOutcomeSamples)} />
+          </div>
+          <div className={styles.strategyRecommendations}>
+            {review.recommendations.map(item => <div key={item.id}><strong>{item.title}</strong><span>{item.rationale}</span><small>{item.evidenceCount} outcome samples · advisory only</small></div>)}
+          </div>
+        </> : <EmptyState>Strategy-review evidence is loading.</EmptyState>}
+      </PortfolioPanel>
+      <PortfolioPanel title="Recent counterfactual studies">
+        {counterfactuals.length ? <div className={styles.portfolioRows}>{counterfactuals.slice(0, 8).map(item => <div className={styles.portfolioRow} key={`${item.symbol}-${item.decision_at}`}>
+          <div className={styles.portfolioRowMain}><strong>{item.symbol}</strong><span>{item.source_event_type.replaceAll("_", " ")}</span></div>
+          <div><span>Status</span><strong>{item.status}</strong></div>
+          <div><span>Score</span><strong>{item.score ?? "—"}</strong></div>
+          <div><span>Trigger</span><strong>{money(item.trigger_price)}</strong></div>
+          <div><span>MFE / MAE</span><strong>{item.mfe_r >= 0 ? "+" : ""}{item.mfe_r.toFixed(2)}R / {item.mae_r >= 0 ? "+" : ""}{item.mae_r.toFixed(2)}R</strong></div>
+          <div><span>Decision</span><strong>{stamp(item.decision_at)}</strong></div>
+        </div>)}</div> : <EmptyState>No counterfactual studies recorded for this bot yet.</EmptyState>}
+      </PortfolioPanel>
+    </div> : null}
+
+    <footer className={styles.portfolioFooter}>
+      <span>Virtual bot ledger is authoritative for challenge performance. Alpaca PAPER remains the execution sandbox and audit trail.</span>
+      <span>{history.length} equity checkpoints recorded.</span>
+    </footer>
   </main>;
 }
