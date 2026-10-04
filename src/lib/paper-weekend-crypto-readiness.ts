@@ -53,6 +53,7 @@ export type WeekendCryptoCandidate = {
   feeCoverageMultiple: number | null;
   waitingOn: string[];
   blockers: string[];
+  trackingBars: CryptoBar[];
 };
 
 export type DailyCryptoSessionInfo = {
@@ -339,6 +340,7 @@ export function evaluateWeekendCryptoReadiness(input: {
       feeCoverageMultiple,
       waitingOn,
       blockers,
+      trackingBars: fastBars.slice(-12),
     } satisfies WeekendCryptoCandidate;
   });
 
