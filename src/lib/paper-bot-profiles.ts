@@ -1,10 +1,11 @@
 import { PAPER_STRATEGY_V1 } from "./paper-strategy-config";
 import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
 import { ACTIVE_DAILY_CRYPTO_DAY_STRATEGY } from "./paper-weekend-crypto-strategy-config";
+import { CRYPTO_SWING_STRATEGY_V1 } from "./paper-crypto-swing-strategy-config";
 import { PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION } from "./paper-bot-trade-plan";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
-export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "not-configured";
+export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "crypto-swing-readiness" | "not-configured";
 
 export type PaperBotProfile = {
   id: string;
@@ -126,6 +127,36 @@ export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
 };
 
 
+export const CRYPTO_SWING_BOT: PaperBotProfile = {
+  id: "crypto-swing-100",
+  name: "$100 Crypto Swing Bot",
+  status: "active",
+  challengeStartingCash: 100,
+  brokerTag: "csw",
+  strategyId: CRYPTO_SWING_STRATEGY_V1.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "crypto-swing-readiness" },
+  style: "Selective 1-7 day crypto swing strategy fed by the separate Prospect Scanner",
+  universe: {
+    assetClasses: ["crypto"],
+    description: "Dynamic crypto prospects promoted by the market Prospect Scanner rather than a fixed execution list.",
+  },
+  cadence: {
+    description: "Multi-day crypto swings; up to three new entries per week and at most two open positions once PAPER execution is armed.",
+    maximumNewTradesPerWeek: 3,
+    swingOnly: true,
+  },
+  isolation: {
+    separateVirtualLedger: true,
+    sharePositionsWithOtherBots: false,
+    shareRiskBudgetWithOtherBots: false,
+  },
+  notes: [
+    "The bot receives review-ready crypto prospects from the separate scanner and applies its own multi-hour trend, momentum, volume, structure, spread and risk gates.",
+    "Crypto Swing v1 is active for PAPER research and reference-plan tracking, while broker execution remains intentionally disabled until enough evidence is collected.",
+    "A scanner assignment is not trade authorization; the swing strategy has its own 70 watch / 80 qualified / 85 ready scoring ladder.",
+  ],
+};
+
 export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   id: "weekend-crypto-day-100",
   name: "$100 Daily Crypto Day Bot",
@@ -160,6 +191,7 @@ export const PAPER_BOT_PROFILES = [
   DEFAULT_DIVERSE_BOT,
   PENNY_VOLATILITY_DAY_BOT,
   THREE_TRADE_SWING_BOT,
+  CRYPTO_SWING_BOT,
   DAILY_CRYPTO_DAY_BOT,
 ] as const;
 
