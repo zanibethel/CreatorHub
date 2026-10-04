@@ -73,7 +73,7 @@ export default function QualificationCard({ item, quote, timestamp, candles, ben
           <dt>Recent chart close change</dt><dd>{percent(evidence.change)} · {evidence.historyCount} observations{evidence.historyFrom && evidence.historyThrough ? ` · ${new Date(evidence.historyFrom).toISOString().slice(0,10)}–${new Date(evidence.historyThrough).toISOString().slice(0,10)}` : ""}</dd>
           <dt>Historical review through {dataThrough}</dt><dd>1-year volatility {item.volatility.toFixed(1)}% · max close drawdown {item.maxDrawdown.toFixed(1)}%</dd>
         </dl>
-        <p>{item.rationale}</p><p>{source}. Crypto execution prices still require Alpaca verification before a future paper order.</p>
+        <p>{item.rationale}</p><p>{source}. Crypto execution prices still require fresh market-data verification before a future PAPER order.</p>
 
         <h3>Execution vetoes</h3>
         {decision.blockers.length ? <ul>{decision.blockers.map(reason => <li key={reason}>{reason}</li>)}</ul> : <p>No deterministic veto is active for the supplied dry-run context.</p>}
