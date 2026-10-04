@@ -29,7 +29,7 @@ export type StagedPaperOrder = {
 export type ExitManagerState = {
   version?: string;
   mode?: string;
-  plannedAction?: "hold" | "repair_stop" | "partial_profit" | "tighten_stop_trail" | "tighten_stop_breakeven";
+  plannedAction?: "hold" | "repair_stop" | "partial_profit" | "goal_exit" | "tighten_stop_trail" | "tighten_stop_breakeven";
   rMultiple?: number;
   markPrice?: number;
   evaluatedAt?: string;
