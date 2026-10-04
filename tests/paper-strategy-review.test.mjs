@@ -18,8 +18,8 @@ const review = module("../src/lib/paper-strategy-review.ts");
 const ledger = {
   bot_id:"weekend-crypto-day-100",
   display_name:"$100 Daily Crypto Day Bot",
-  strategy_id:"daily-crypto-day-v3",
-  strategy_version:3,
+  strategy_id:"daily-crypto-day-v4",
+  strategy_version:4,
   status:"active",
 };
 
@@ -28,7 +28,7 @@ test("tiny samples remain advisory and do not recommend parameter changes",()=>{
     collectedAt:"2026-10-04T05:00:00Z",
     ledgers:[ledger],
     journal:[
-      {bot_id:ledger.bot_id,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:00:00Z",score:65,qualification:"watch",regime:"bullish",blockers:[],warnings:["Spread is wider than the entry limit."],metadata:{}},
+      {bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:00:00Z",score:65,qualification:"watch",regime:"bullish",blockers:[],warnings:["Spread is wider than the entry limit."],metadata:{}},
     ],
     trades:[],
     counterfactuals:[],
@@ -46,8 +46,8 @@ test("broker rejection is separated from strategy rejection",()=>{
     collectedAt:"2026-10-04T05:00:00Z",
     ledgers:[ledger],
     journal:[
-      {bot_id:ledger.bot_id,event_type:"rejected",symbol:"BTC/USD",occurred_at:"2026-10-04T01:00:00Z",score:70,qualification:"watch",regime:"bullish",blockers:["Score below threshold"],warnings:[],metadata:{}},
-      {bot_id:ledger.bot_id,event_type:"rejected",symbol:"ETH/USD",occurred_at:"2026-10-04T01:05:00Z",score:null,qualification:null,regime:null,blockers:[],warnings:[],metadata:{lifecycleSource:"broker-reconciliation"}},
+      {bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"rejected",symbol:"BTC/USD",occurred_at:"2026-10-04T01:00:00Z",score:70,qualification:"watch",regime:"bullish",blockers:["Score below threshold"],warnings:[],metadata:{}},
+      {bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"rejected",symbol:"ETH/USD",occurred_at:"2026-10-04T01:05:00Z",score:null,qualification:null,regime:null,blockers:[],warnings:[],metadata:{lifecycleSource:"broker-reconciliation"}},
     ],
     trades:[],
     counterfactuals:[],
@@ -60,7 +60,7 @@ test("resolved counterfactuals can support a gate-review recommendation after ma
   const counterfactuals=Array.from({length:20},(_,i)=>({
     bot_id:ledger.bot_id,
     strategy_id:ledger.strategy_id,
-    strategy_version:3,
+    strategy_version:ledger.strategy_version,
     symbol:i%2?"DOT/USD":"LINK/USD",
     status:"completed",
     source_event_type:"rejected",
@@ -71,7 +71,7 @@ test("resolved counterfactuals can support a gate-review recommendation after ma
     mae_r:i<15?-0.4:-1,
   }));
   const journal=Array.from({length:40},(_,i)=>({
-    bot_id:ledger.bot_id,event_type:"rejected",symbol:"DOT/USD",occurred_at:"2026-10-03T01:00:00Z",
+    bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"rejected",symbol:"DOT/USD",occurred_at:"2026-10-03T01:00:00Z",
     score:75,qualification:"watch",regime:"bullish",blockers:["Spread is wider than the entry limit."],warnings:[],metadata:{},
   }));
   const report=review.buildPaperStrategyReview({
@@ -91,15 +91,15 @@ test("score bands and symbol summaries combine observations without treating cou
     collectedAt:"2026-10-04T05:00:00Z",
     ledgers:[ledger],
     journal:[
-      {bot_id:ledger.bot_id,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:00:00Z",score:65,qualification:"watch",regime:"bullish",blockers:[],warnings:[],metadata:{}},
-      {bot_id:ledger.bot_id,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:05:00Z",score:75,qualification:"watch",regime:"bullish",blockers:[],warnings:[],metadata:{}},
+      {bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:00:00Z",score:65,qualification:"watch",regime:"bullish",blockers:[],warnings:[],metadata:{}},
+      {bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:05:00Z",score:75,qualification:"watch",regime:"bullish",blockers:[],warnings:[],metadata:{}},
     ],
     trades:[{
-      bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:3,symbol:"BTC/USD",status:"closed",
+      bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,symbol:"BTC/USD",status:"closed",
       opened_at:"2026-10-03T01:00:00Z",closed_at:"2026-10-03T02:00:00Z",realized_pl:1.2,r_multiple:1.5,mfe_r:2,mae_r:-0.3,estimated_fees:0.1,exit_reason:"target",
     }],
     counterfactuals:[{
-      bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:3,symbol:"DOT/USD",status:"completed",
+      bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,symbol:"DOT/USD",status:"completed",
       source_event_type:"rejected",decision_at:"2026-10-03T01:00:00Z",score:75,first_outcome:"two-r-before-stop",mfe_r:2.1,mae_r:-0.2,
     }],
   });
@@ -117,8 +117,8 @@ test("monitor-only observations are visible but excluded from recommendation sco
     collectedAt:"2026-10-04T05:00:00Z",
     ledgers:[ledger],
     journal:[
-      {bot_id:ledger.bot_id,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:00:00Z",score:65,qualification:"watch",regime:"bullish",blockers:[],warnings:["Execution reason"],metadata:{executionEligible:true}},
-      {bot_id:ledger.bot_id,event_type:"candidate",symbol:"BCH/USD",occurred_at:"2026-10-04T01:00:00Z",score:85,qualification:"qualified",regime:"bullish",blockers:[],warnings:["Monitor-only reason"],metadata:{executionEligible:false}},
+      {bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T01:00:00Z",score:65,qualification:"watch",regime:"bullish",blockers:[],warnings:["Execution reason"],metadata:{executionEligible:true}},
+      {bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,event_type:"candidate",symbol:"BCH/USD",occurred_at:"2026-10-04T01:00:00Z",score:85,qualification:"qualified",regime:"bullish",blockers:[],warnings:["Monitor-only reason"],metadata:{executionEligible:false}},
     ],
     trades:[],
     counterfactuals:[],
@@ -129,4 +129,50 @@ test("monitor-only observations are visible but excluded from recommendation sco
   assert.equal(bot.decisions.monitorOnlyObservations,1);
   assert.equal(bot.scoreBands.find(item=>item.band==="80-100").observations,0);
   assert.equal(bot.decisions.topReasons[0].reason,"Execution reason");
+});
+
+
+test("current Strategy Review excludes prior strategy-version evidence",()=>{
+  const priorStrategyId="daily-crypto-day-v3";
+  const report=review.buildPaperStrategyReview({
+    collectedAt:"2026-10-04T05:30:00Z",
+    ledgers:[ledger],
+    journal:[
+      {
+        bot_id:ledger.bot_id,strategy_id:ledger.strategy_id,strategy_version:ledger.strategy_version,
+        event_type:"candidate",symbol:"DOT/USD",occurred_at:"2026-10-04T05:25:00Z",
+        score:65,qualification:"watch",regime:"neutral",blockers:[],warnings:["Current v4 evidence"],metadata:{executionEligible:true},
+      },
+      {
+        bot_id:ledger.bot_id,strategy_id:priorStrategyId,strategy_version:3,
+        event_type:"candidate",symbol:"LINK/USD",occurred_at:"2026-10-04T05:05:00Z",
+        score:85,qualification:"qualified",regime:"bullish",blockers:[],warnings:["Prior v3 evidence"],metadata:{executionEligible:true},
+      },
+    ],
+    trades:[
+      {
+        bot_id:ledger.bot_id,strategy_id:priorStrategyId,strategy_version:3,symbol:"BTC/USD",status:"closed",
+        opened_at:"2026-10-04T04:00:00Z",closed_at:"2026-10-04T04:30:00Z",realized_pl:2,r_multiple:2,
+        mfe_r:2.2,mae_r:-0.2,estimated_fees:0.1,exit_reason:"historical",
+      },
+    ],
+    counterfactuals:[
+      {
+        bot_id:ledger.bot_id,strategy_id:priorStrategyId,strategy_version:3,symbol:"LINK/USD",status:"superseded",
+        source_event_type:"candidate",decision_at:"2026-10-04T05:05:00Z",score:60,
+        first_outcome:"strategy-version-superseded",mfe_r:0.2,mae_r:0,
+      },
+    ],
+  });
+
+  const bot=report.bots[0];
+  assert.equal(bot.strategyId,"daily-crypto-day-v4");
+  assert.equal(bot.strategyVersion,4);
+  assert.equal(bot.decisions.observations,1);
+  assert.equal(bot.executed.closedTrades,0);
+  assert.equal(bot.counterfactual.total,0);
+  assert.equal(bot.evidenceScope.currentStrategyOnly,true);
+  assert.equal(bot.evidenceScope.priorVersionEvidence.journal,1);
+  assert.equal(bot.evidenceScope.priorVersionEvidence.trades,1);
+  assert.equal(bot.evidenceScope.priorVersionEvidence.counterfactuals,1);
 });
