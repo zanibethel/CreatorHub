@@ -261,7 +261,7 @@ The storage table is `paper_bot_counterfactuals`. It is private service-role PAP
 
 Swing counterfactual rules:
 - A prepared QQQ/NVDA/MSFT plan is itself a serious setup; no synthetic score is invented.
-- Seeding only occurs while Alpaca reports the market open and the strategy's 5-to-120-minute entry window is active.
+- Seeding only occurs while the configured market clock reports the market open and the strategy's 5-to-120-minute entry window is active.
 - If an enabled PAPER executor is actually going to submit the selected plan, that plan is not duplicated as a missed trade.
 - Future completed 5-minute IEX bars drive the hypothetical trigger/stop/+1R/+2R/MFE/MAE record.
 - A watching plan that never triggers expires when the 120-minute entry window closes.
