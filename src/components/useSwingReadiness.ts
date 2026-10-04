@@ -18,6 +18,17 @@ export type SwingExecutionPreview = {
   paperOnly: true;
 };
 
+export type SwingReferencePlan = {
+  entryReference: number;
+  estimatedNotional: number;
+  quantity: number | null;
+  stopLoss: number;
+  takeProfit: number | null;
+  plannedRiskDollars: number;
+  projectedProfitDollars: number | null;
+  projectedProfitPct: number | null;
+};
+
 export type SwingReadinessPlan = {
   symbol: string;
   state: "ready" | "waiting" | "blocked";
@@ -31,6 +42,7 @@ export type SwingReadinessPlan = {
   correlationGroup: string | null;
   blockers: string[];
   waitingOn: string[];
+  referencePlan: SwingReferencePlan | null;
   executionPreview: SwingExecutionPreview | null;
 };
 
