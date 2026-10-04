@@ -79,8 +79,9 @@ function input(overrides = {}) {
   };
 }
 
-test("Saturday scanner can select one qualified PAPER candidate while execution is disabled", () => {
+test("daily crypto scanner can select one qualified PAPER candidate while execution is disabled", () => {
   const result = readiness.evaluateWeekendCryptoReadiness(input());
+  assert.equal(result.session.isTradingDay, true);
   assert.equal(result.session.isWeekend, true);
   assert.equal(result.session.entriesOpen, true);
   assert.equal(result.paperOnly, true);
@@ -95,7 +96,7 @@ test("Saturday scanner can select one qualified PAPER candidate while execution 
   assert.ok(selected.feeCoverageMultiple >= 2.5);
 });
 
-test("another bot holding the same symbol blocks that weekend candidate", () => {
+test("another bot holding the same symbol blocks that daily crypto candidate", () => {
   const result = readiness.evaluateWeekendCryptoReadiness(input({
     occupiedByOtherBots: ["SOL/USD"],
   }));
@@ -104,14 +105,21 @@ test("another bot holding the same symbol blocks that weekend candidate", () => 
   assert.match(sol.blockers.join(" "), /already holds this symbol/i);
 });
 
-test("weekday session blocks every candidate", () => {
+test("weekday session remains an eligible trading day", () => {
   const monday = Date.parse("2026-10-05T18:00:00Z");
-  const result = readiness.evaluateWeekendCryptoReadiness(input({ now: monday }));
+  const base = input();
+  const quotes = Object.fromEntries(Object.entries(base.quotes).map(([symbol, quote]) => [
+    symbol,
+    { ...quote, timestamp: new Date(monday - 2_000).toISOString() },
+  ]));
+  const result = readiness.evaluateWeekendCryptoReadiness({ ...base, now: monday, quotes });
   assert.equal(result.session.isWeekend, false);
-  assert.equal(result.candidates.every(candidate => candidate.state === "blocked"), true);
+  assert.equal(result.session.isTradingDay, true);
+  assert.equal(result.session.entriesOpen, true);
+  assert.equal(result.candidates.some(candidate => !candidate.blockers.some(blocker => /session is closed/i.test(blocker))), true);
 });
 
-test("daily loss kill switch blocks new weekend risk", () => {
+test("daily loss kill switch blocks new daily crypto risk", () => {
   const base = input();
   const result = readiness.evaluateWeekendCryptoReadiness({
     ...base,
