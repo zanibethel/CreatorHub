@@ -2,7 +2,7 @@ export type PaperReport = {
   collectedAt: string;
   account: { equity: number; cash: number | null; previousCloseEquity: number | null; currency: string };
   positions: Array<{ symbol: string; side: string; quantity: number | null; entry: number | null; marketValue: number | null; unrealizedPl: number | null }> | null;
-  orders: Array<{ symbol: string; side: string; type: string; status: string; quantity: number | null; filled: number | null; limit: number | null; stop: number | null; submittedAt: string | null }> | null;
+  orders: Array<{ symbol: string; side: string; type: string; status: string; quantity: number | null; filled: number | null; averageFillPrice: number | null; limit: number | null; stop: number | null; submittedAt: string | null }> | null;
   fills: Array<{ symbol: string; side: string; quantity: number | null; price: number | null; time: string | null }> | null;
   errors: Record<string, string>;
   ordersMayBeTruncated: boolean;
@@ -93,7 +93,7 @@ export async function collectPaperReport(key: string, secret: string, fetcher: t
     collectedAt: new Date().toISOString(),
     account: { equity, cash: number(account.cash), previousCloseEquity: number(account.last_equity), currency: text(account.currency, "USD") },
     positions: list("positions", positionsResult, p => ({ symbol: text(p.symbol), side: text(p.side), quantity: number(p.qty), entry: number(p.avg_entry_price), marketValue: number(p.market_value), unrealizedPl: number(p.unrealized_pl) })),
-    orders: list("orders", ordersResult, o => ({ symbol: text(o.symbol), side: text(o.side), type: text(o.type), status: text(o.status), quantity: number(o.qty), filled: number(o.filled_qty), limit: number(o.limit_price), stop: number(o.stop_price), submittedAt: time(o.submitted_at) })),
+    orders: list("orders", ordersResult, o => ({ symbol: text(o.symbol), side: text(o.side), type: text(o.type), status: text(o.status), quantity: number(o.qty), filled: number(o.filled_qty), averageFillPrice: number(o.filled_avg_price), limit: number(o.limit_price), stop: number(o.stop_price), submittedAt: time(o.submitted_at) })),
     fills: publicFills?.slice(0, 10) ?? null,
     errors,
     ordersMayBeTruncated: false,
