@@ -270,6 +270,9 @@ Failure of any mandatory check means no new order.
 
 ## Trade journal
 
+The cross-bot evidence retention and strategy-review source of truth is `docs/PAPER_EVIDENCE_AND_STRATEGY_REVIEW.md`. Its lifecycle requirements apply to considered, staged, rejected, canceled, expired, replaced, executed, and counterfactual trade evidence.
+
+
 Persist enough evidence for every proposed and executed paper trade to reproduce why the engine acted.
 
 Record at minimum:
@@ -361,7 +364,7 @@ Before promoting a material strategy change:
 4. ◐ Add risk/portfolio governor and correlation checks — live pool usage and open planned risk are wired; correlated-exposure calculation still needs deeper asset/sector linkage.
 5. ✅ Add stop/target calculation for analysis.
 6. ✅ Add risk-based position sizing from virtual challenge equity.
-7. ◐ Add decision journal/rejection logging — schema/RPC exist; evaluator writes are not wired yet.
+7. ◐ Complete evidence journaling across every evaluator — Daily Crypto scan evidence is live; remaining bots still need uniform considered/rejected/staged/revalidation/cancel/expire/replace coverage per `docs/PAPER_EVIDENCE_AND_STRATEGY_REVIEW.md`.
 8. ✅ Add dry-run decision endpoint that cannot place orders.
 9. ◐ Validate dry-run outputs against live market snapshots — live scoring UI exists; replay/outcome validation remains.
 10. ◐ Add bot-tagged Alpaca paper-only order adapter — bot attribution, controlled crypto paper execution, privileged swing submission, duplicate-claim protection, and PAPER-only bracket construction are implemented; market-hours fill/exit validation remains.
@@ -369,7 +372,7 @@ Before promoting a material strategy change:
 12. ◐ Reconcile bot-tagged fills into virtual ledgers and add active position/exit management — reconciliation and live marking are implemented; crypto exit-manager v1 is being paper-validated.
 13. ◐ Add daily/weekly kill switches — persisted fields and veto thresholds exist; automated state updates remain.
 14. ☐ Add outcome/R/MFE/MAE analytics.
-15. ☐ Add adaptive recommendation layer.
+15. ☐ Add counterfactual tracking for serious non-executed proposals and build the adaptive strategy-review/recommendation layer.
 16. ☐ Tune only from documented paper evidence.
 
 Each bot ledger starts at $100 and is authoritative for strategy buying power and risk calculations. The larger Alpaca paper-account balance is only an execution sandbox and audit trail. Bot-attributed orders/fills must be reconciled to the matching virtual ledger; untagged broker activity must never silently change a bot's performance. The read-only public report remains separate from privileged order execution. Public endpoints must never expose broker credentials, private order identifiers, or internal authorization state.
