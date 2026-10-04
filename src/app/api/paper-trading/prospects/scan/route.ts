@@ -342,6 +342,7 @@ export async function GET(request: Request) {
       watchlist_eligible: qualified.watchlistEligible,
       bot_review_eligible: qualified.botReviewEligible,
       suggested_bot_ids: qualified.suggestedBotIds,
+      assigned_bot_ids: qualified.botReviewEligible ? qualified.suggestedBotIds : [],
       score_components: qualified.components,
       reasons: qualified.reasons,
       source_flags: input.sourceFlags,
