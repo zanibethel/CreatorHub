@@ -1,6 +1,6 @@
 # Paper bot profiles and challenge comparisons
 
-The paper-trading project supports multiple isolated strategy bots so different trading styles can be measured without mixing their capital, positions, or risk budgets.
+The PAPER program uses a persisted $1,000 virtual fund. Five $100 bot pools are reserved now so different trading styles can be measured without mixing their capital, positions, or risk budgets. The remaining $500 stays unallocated for future bots.
 
 ## Default profile
 
@@ -45,10 +45,10 @@ Persisted challenge intent:
 - Continuous 24/7 crypto entry eligibility; America/Chicago is retained only as the daily accounting boundary.
 - Maximum three new entries per America/Chicago accounting day.
 - Maximum one open position at a time.
-- Alpaca execution-venue quotes plus completed 5-minute / 15-minute bars.
+- configured market-data quotes plus completed 5-minute / 15-minute bars.
 - 0.50% risk budget per trade, 30% maximum initial allocation, and 1.50% daily realized-loss kill switch.
 - Gross target must cover estimated round-trip taker fees by at least 2.50x.
-- Same-symbol entries are blocked when another bot already holds that crypto in the shared Alpaca PAPER account.
+- Same-symbol entries are blocked when another bot already holds that crypto in the shared PAPER execution account.
 - Status: active scanner + automated PAPER execution armed; live money disabled.
 
 The source-of-truth strategy and rollout plan is `PAPER_DAILY_CRYPTO_DAY.md`.
@@ -68,9 +68,18 @@ Persisted challenge intent:
 
 Exact holding-period, score, sizing, and exit parameters remain to be designed and versioned separately.
 
+## Capital plan
+
+- Persisted PAPER program starting capital: **$1,000**.
+- Reserved bot pools: **5 × $100 = $500**.
+- Current reserved pools: Default Diverse, Penny Volatility, Weekly Swing, Crypto Swing, and Daily Crypto.
+- Unallocated reserve: **$500** for future bots.
+- A planned bot may keep its $100 pool reserved without being allowed to submit orders.
+- The external PAPER execution account is infrastructure only and never defines program buying power.
+
 ## Isolation rules
 
-Every bot must have its own $100 virtual ledger. The Alpaca paper account is a shared execution venue and independent audit source, not a shared strategy bankroll.
+Every reserved bot must have its own $100 virtual ledger. The PAPER execution venue is shared infrastructure and an independent audit source, not a shared strategy bankroll.
 
 Bots do not:
 - Share positions.
@@ -80,9 +89,9 @@ Bots do not:
 - Transfer virtual capital to rescue another strategy.
 - Count another bot's activity toward their trade-frequency limits.
 
-Market data, the Alpaca paper venue, and common analytical infrastructure may be shared, but every decision/order must retain the bot/profile ID and strategy version that produced it. Only bot-attributed fills may change that bot's virtual ledger.
+Market data, the PAPER execution venue, and common analytical infrastructure may be shared, but every decision/order must retain the bot/profile ID and strategy version that produced it. Only bot-attributed fills may change that bot's virtual ledger.
 
-Broker attribution uses stable short profile tags in Alpaca `client_order_id` values: `div` for Default Diverse, `pny` for the Penny Volatility challenge, `sw3` for the Three-Trade Weekly Swing challenge, and `wkd` for the Daily Crypto Day challenge. The formatter/parser lives in `src/lib/paper-order-attribution.ts`. A private service-role-only `paper_bot_orders` table maps those client order IDs to the bot, strategy version, broker order ID, symbol, requested size, and reconciliation status. Raw order identifiers remain private.
+Execution attribution uses stable short profile tags in execution-venue `client_order_id` values: `div` for Default Diverse, `pny` for the Penny Volatility challenge, `sw3` for the Three-Trade Weekly Swing challenge, and `wkd` for the Daily Crypto Day challenge. The formatter/parser lives in `src/lib/paper-order-attribution.ts`. A private service-role-only `paper_bot_orders` table maps those client order IDs to the bot, strategy version, broker order ID, symbol, requested size, and reconciliation status. Raw order identifiers remain private.
 
 This avoids contaminating the experiment. A strong result from one bot must not hide losses from another.
 
@@ -144,7 +153,7 @@ Current behavior:
 - Displays Active vs Planned status and each challenge's isolated starting capital.
 - Reads each bot's equity, cash, risk state, position count, and history from its isolated virtual ledger.
 - Every challenge starts at the same $100 baseline.
-- Displays the Alpaca paper-account balance separately as the execution sandbox/audit trail; broker equity is never substituted for bot equity.
+- Displays the persisted $1,000 PAPER fund and per-bot virtual ledgers; external execution-account equity is intentionally excluded from strategy capital.
 - Includes a common comparison board for return, drawdown, expectancy/average R, profit factor, MFE/MAE, and kill-switch events.
 - Metrics that do not yet have authoritative persisted data are explicitly shown as awaiting journal/risk data.
 - Planned bots remain disabled and cannot submit orders.
@@ -155,12 +164,14 @@ The main Paper Trading Lab and CreatorHub dashboard both link to Bot Lab.
 
 The code registry lives in `src/lib/paper-bot-profiles.ts`.
 
-Current registry:
+Current five reserved $100 pools:
 1. `default-diverse` — active.
-2. `penny-volatility-day-100` — planned.
+2. `penny-volatility-day-100` — planned/disabled, but its $100 pool is reserved.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
 4. `crypto-swing-100` — active research-only under `crypto-swing-v1`; dynamic scanner-fed 1–7 day crypto swing plans with execution disabled.
 5. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
+
+No additional bot receives capital automatically. Future bots must be explicitly assigned from the remaining $500 reserve.
 
 New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
 
