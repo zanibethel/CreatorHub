@@ -256,4 +256,13 @@ Daily Crypto v3 is the first live counterfactual source:
 - If a stop and a newly reached +1R/+2R threshold occur inside the same completed candle and sequence cannot be proven, the result is `ambiguous`, not guessed.
 - Remaining watching/triggered studies expire at the deterministic session flatten boundary.
 
-The storage table is `paper_bot_counterfactuals`. It is private service-role PAPER evidence with RLS enabled and no public/client access. The schema is strategy-agnostic so swing and later bots can use the same outcome model; Daily Crypto is currently the first producer.
+The storage table is `paper_bot_counterfactuals`. It is private service-role PAPER evidence with RLS enabled and no public/client access. Daily Crypto and the Three-Trade Weekly Swing Bot now both produce records through the same strategy-agnostic outcome model.
+
+
+Swing counterfactual rules:
+- A prepared QQQ/NVDA/MSFT plan is itself a serious setup; no synthetic score is invented.
+- Seeding only occurs while Alpaca reports the market open and the strategy's 5-to-120-minute entry window is active.
+- If an enabled PAPER executor is actually going to submit the selected plan, that plan is not duplicated as a missed trade.
+- Future completed 5-minute IEX bars drive the hypothetical trigger/stop/+1R/+2R/MFE/MAE record.
+- A watching plan that never triggers expires when the 120-minute entry window closes.
+- A hypothetical trade that triggered inside the entry window remains active after that window and can continue across later market sessions until stop or +2R resolves it.
