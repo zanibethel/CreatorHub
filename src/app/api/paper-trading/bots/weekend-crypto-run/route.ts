@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildDailyCryptoScanJournalRows } from "@/lib/paper-daily-crypto-scan-journal";
 import { advancePaperCounterfactual, buildDailyCryptoCounterfactualSeeds, counterfactualPatch } from "@/lib/paper-counterfactual";
-import { DAILY_CRYPTO_DAY_STRATEGY_V3 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V4 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
