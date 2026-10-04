@@ -66,6 +66,31 @@ const tradeMetricRow = z.object({
   estimated_fees: z.coerce.number().finite().nonnegative().nullable(),
   exit_reason: z.string().nullable(),
 });
+const counterfactualRow = z.object({
+  bot_id: z.string().min(1).max(64),
+  symbol: z.string().min(1).max(32),
+  status: z.enum(["watching","triggered","completed","expired","ambiguous","superseded"]),
+  source_event_type: z.string(),
+  decision_state: z.string().nullable(),
+  decision_at: timestamp,
+  session_key: z.string().nullable(),
+  score: z.coerce.number().finite().nullable(),
+  trigger_price: z.coerce.number().finite().positive(),
+  max_entry_price: z.coerce.number().finite().positive(),
+  protective_stop: z.coerce.number().finite().positive(),
+  assumed_entry_price: z.coerce.number().finite().positive().nullable(),
+  one_r_price: z.coerce.number().finite().positive().nullable(),
+  two_r_price: z.coerce.number().finite().positive().nullable(),
+  triggered_at: timestamp.nullable(),
+  stop_hit_at: timestamp.nullable(),
+  one_r_hit_at: timestamp.nullable(),
+  two_r_hit_at: timestamp.nullable(),
+  first_outcome: z.string().nullable(),
+  mark_count: z.coerce.number().int().nonnegative(),
+  mfe_r: z.coerce.number().finite(),
+  mae_r: z.coerce.number().finite(),
+});
+
 const stagedOrderRow = z.object({
   bot_id: z.string().min(1).max(64),
   symbol: z.string().min(1).max(32),
@@ -105,7 +130,7 @@ export async function GET() {
   };
 
   try {
-    const [ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw, tradeMetricRaw] = await Promise.all([
+    const [ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw, tradeMetricRaw, counterfactualRaw] = await Promise.all([
       read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source,pool_usage&order=bot_id.asc"),
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
       read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,initial_protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,last_exit_manager_at,exit_manager_state&limit=5000"),
@@ -114,6 +139,7 @@ export async function GET() {
       read("paper_bot_broker_fills?select=bot_id,fill_activity_id,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
       read("paper_bot_orders?select=bot_id,symbol,asset_class,status,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&status=eq.prepared&order=created_at.asc&limit=100"),
       read("paper_bot_trade_metrics?select=bot_id,symbol,status,opened_at,closed_at,entry_price,initial_protective_stop,initial_risk_dollars,peak_mark_price,trough_mark_price,last_mark_price,last_mark_at,mark_count,mfe_r,mae_r,exit_price,realized_pl,r_multiple,estimated_fees,exit_reason&order=opened_at.desc&limit=500"),
+      read("paper_bot_counterfactuals?select=bot_id,symbol,status,source_event_type,decision_state,decision_at,session_key,score,trigger_price,max_entry_price,protective_stop,assumed_entry_price,one_r_price,two_r_price,triggered_at,stop_hit_at,one_r_hit_at,two_r_hit_at,first_outcome,mark_count,mfe_r,mae_r&order=decision_at.desc&limit=500"),
     ]);
 
     const ledgers = z.array(paperBotLedgerRowSchema).parse(ledgerRaw);
@@ -124,6 +150,7 @@ export async function GET() {
     const brokerFills = z.array(brokerFillRow).parse(brokerFillRaw);
     const stagedOrders = z.array(stagedOrderRow).parse(stagedRaw);
     const tradeMetrics = z.array(tradeMetricRow).parse(tradeMetricRaw);
+    const counterfactuals = z.array(counterfactualRow).parse(counterfactualRaw);
 
     const body = {
       collectedAt: new Date().toISOString(),
@@ -138,6 +165,7 @@ export async function GET() {
       stagedOrders: Object.fromEntries(ledgers.map(row => [row.bot_id, stagedOrders.filter(order => order.bot_id === row.bot_id)])),
       positionPlans: Object.fromEntries(ledgers.map(row => [row.bot_id, positions.filter(position => position.bot_id === row.bot_id)])),
       tradeMetrics: Object.fromEntries(ledgers.map(row => [row.bot_id, tradeMetrics.filter(trade => trade.bot_id === row.bot_id)])),
+      counterfactuals: Object.fromEntries(ledgers.map(row => [row.bot_id, counterfactuals.filter(item => item.bot_id === row.bot_id)])),
       history: Object.fromEntries(ledgers.map(row => [
         row.bot_id,
         history.filter(point => point.bot_id === row.bot_id).map(point => ({ time: point.collected_at, equity: point.equity })),
