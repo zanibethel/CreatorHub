@@ -8,6 +8,10 @@
     {
       "path": "/api/paper-trading/bots/swing-readiness",
       "schedule": "*/5 * * * 1-5"
+    },
+    {
+      "path": "/api/paper-trading/prospects/scan",
+      "schedule": "*/10 * * * *"
     }
   ]
 }
