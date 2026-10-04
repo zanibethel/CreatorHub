@@ -434,12 +434,34 @@ export async function GET(request: Request) {
 
     const plansWithExecution = result.plans.map(readiness => {
       const sourcePlan = plans.find(plan => plan.symbol === readiness.symbol);
+      const storedPlan = planRows.find(plan => plan.symbol === readiness.symbol);
+      const referenceQuantity = sourcePlan?.entryTrigger
+        ? sourcePlan.requestedNotional / sourcePlan.entryTrigger
+        : null;
+      const referenceTarget = storedPlan?.take_profit_price ?? null;
+      const referenceProfit = referenceQuantity !== null && referenceTarget !== null && sourcePlan
+        ? (referenceTarget - sourcePlan.entryTrigger) * referenceQuantity * (storedPlan?.take_profit_fraction ?? 1)
+        : null;
+      const referencePlan = sourcePlan ? {
+        entryReference: sourcePlan.entryTrigger,
+        estimatedNotional: sourcePlan.requestedNotional,
+        quantity: referenceQuantity,
+        stopLoss: sourcePlan.protectiveStop,
+        takeProfit: referenceTarget,
+        plannedRiskDollars: sourcePlan.plannedRiskDollars,
+        projectedProfitDollars: referenceProfit,
+        projectedProfitPct: referenceProfit !== null && sourcePlan.requestedNotional > 0
+          ? referenceProfit / sourcePlan.requestedNotional * 100
+          : null,
+      } : null;
+
       if (!readiness.selectedForSubmission || !sourcePlan || readiness.ask === null) {
-        return { ...readiness, executionPreview: null };
+        return { ...readiness, referencePlan, executionPreview: null };
       }
       try {
         return {
           ...readiness,
+          referencePlan,
           executionPreview: buildSwingExecutionPreview({
             symbol: readiness.symbol,
             ask: readiness.ask,
@@ -449,7 +471,7 @@ export async function GET(request: Request) {
           }),
         };
       } catch {
-        return { ...readiness, executionPreview: null };
+        return { ...readiness, referencePlan, executionPreview: null };
       }
     });
 
