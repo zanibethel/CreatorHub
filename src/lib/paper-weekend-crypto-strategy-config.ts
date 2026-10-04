@@ -1,8 +1,8 @@
-export const DAILY_CRYPTO_DAY_STRATEGY_V3 = {
-  id: "daily-crypto-day-v3",
+export const DAILY_CRYPTO_DAY_STRATEGY_V4 = {
+  id: "daily-crypto-day-v4",
   botProfileId: "weekend-crypto-day-100",
   displayName: "$100 Daily Crypto Day Bot",
-  version: 3,
+  version: 4,
   mode: "paper-only",
   timezone: "America/Chicago",
   executionUniverse: ["BTC/USD", "ETH/USD", "SOL/USD", "LINK/USD", "DOT/USD"],
@@ -35,8 +35,9 @@ export const DAILY_CRYPTO_DAY_STRATEGY_V3 = {
   ],
   session: {
     tradingDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
-    stopNewEntriesLocal: "22:30",
-    flatByLocal: "23:45",
+    continuousEntries: true,
+    routineSessionFlatten: false,
+    dailyAccountingTimezone: "America/Chicago",
   },
   cadence: {
     maximumNewEntriesPerDay: 3,
@@ -88,6 +89,7 @@ export const DAILY_CRYPTO_DAY_STRATEGY_V3 = {
 } as const;
 
 // Compatibility aliases retained while the stable bot ID / broker tag continue
-// across strategy revisions. Runtime routes should import V3 explicitly.
-export const DAILY_CRYPTO_DAY_STRATEGY_V2 = DAILY_CRYPTO_DAY_STRATEGY_V3;
-export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = DAILY_CRYPTO_DAY_STRATEGY_V3;
+// across strategy revisions. Runtime routes should import V4 explicitly.
+export const DAILY_CRYPTO_DAY_STRATEGY_V3 = DAILY_CRYPTO_DAY_STRATEGY_V4;
+export const DAILY_CRYPTO_DAY_STRATEGY_V2 = DAILY_CRYPTO_DAY_STRATEGY_V4;
+export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = DAILY_CRYPTO_DAY_STRATEGY_V4;
