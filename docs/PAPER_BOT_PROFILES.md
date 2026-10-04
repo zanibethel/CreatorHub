@@ -159,7 +159,8 @@ Current registry:
 1. `default-diverse` — active.
 2. `penny-volatility-day-100` — planned.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
-4. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
+4. `crypto-swing-100` — active research-only under `crypto-swing-v1`; dynamic scanner-fed 1–7 day crypto swing plans with execution disabled.
+5. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
 
 New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
 
@@ -222,8 +223,27 @@ Promotion rules:
 An 80-point assignment means "review this next," not "trade this." Each receiving bot must still apply its own strategy and execution gates. The scanner cannot silently expand an execution whitelist, mark an order READY, or activate a planned bot.
 
 Current review routing:
-- Crypto → Daily Crypto + Default Diverse.
+- Crypto → Daily Crypto + Crypto Swing + Default Diverse.
 - Stocks above $5 → Default Diverse + Weekly Swing.
 - Stocks at or below $5 → Penny Volatility + Default Diverse.
 
 See `docs/PAPER_PROSPECT_SCANNER.md` for the source-of-truth discovery design and persistence rules.
+
+
+## $100 Crypto Swing Bot
+
+The Crypto Swing bot is a separate strategy from Daily Crypto so short-horizon and multi-day evidence do not get mixed.
+
+Current v1 behavior:
+- Bot ID: `crypto-swing-100`.
+- Strategy: `crypto-swing-v1`.
+- Starting challenge capital: $100 isolated virtual ledger.
+- Intended hold: roughly 1–7 days.
+- Candidate source: only review-ready crypto promoted by the Prospect Scanner.
+- Market model: completed 1-hour bars with 12/48-hour trend alignment, 12-hour momentum, 72-hour breakout structure, recent volume expansion, spread checks and fresh quotes.
+- Scoring ladder: 70 watch, 80 qualified, 85 ready-quality.
+- Risk reference: 1% planned loss per trade, 30% maximum initial allocation, 2% total open-risk ceiling, ATR/structure stop with 2–8% stop-distance bounds.
+- Goal exit: adaptive opportunity target derived from swing range, ATR and momentum, capped at 20%.
+- PAPER execution is intentionally disabled in v1 while scanner-to-swing evidence accumulates.
+
+The scanner score only decides whether a symbol deserves review. The Crypto Swing score remains an independent decision layer.
