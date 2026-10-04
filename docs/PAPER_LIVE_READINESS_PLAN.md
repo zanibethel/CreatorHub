@@ -35,7 +35,7 @@ The goal is not merely to place successful orders. The system must demonstrate t
 - Three-Trade Weekly Swing Bot v1 active for staging.
 - QQQ, NVDA, and MSFT Monday plans persisted with trigger, max-chase, stop, risk, take-profit, and expiration values.
 - Bot Lab and Paper Trading Orders views expose safe monitoring information without public broker identifiers.
-- Daily Crypto Day v3 has its own isolated $100 ledger, stable `wkd` attribution tag, five-symbol execution pool (BTC/ETH/SOL/LINK/DOT), nine-symbol monitor-only pool, seven-day session logic, and live Bot Lab readiness panel.
+- Daily Crypto Day v4 has its own isolated $100 ledger, stable `wkd` attribution tag, five-symbol execution pool (BTC/ETH/SOL/LINK/DOT), nine-symbol monitor-only pool, continuous 24/7 entry logic, and live Bot Lab readiness panel.
 - Paper trade telemetry now captures live MFE/MAE and persistent closed-trade R/P&L/fee/exit-reason outcomes without exposing broker identifiers.
 - Crypto entry fees now prefer broker-observed post-fee quantity over the 25-bps estimate; ledger application waits briefly for that observation, then safely falls back to the estimate.
 - Daily crypto execution enforces a $12 notional floor, buffered above the broker's observed $10 crypto minimum.
@@ -58,7 +58,7 @@ Before treating strategy review as complete, wire a uniform evidence trail acros
 
 Swing revalidation evidence is now live on an authenticated weekday five-minute Vercel cron. It records each prepared QQQ/NVDA/MSFT plan's current market/readiness/risk evidence and converts a plan to an explicit `expired` terminal state after journaling its final expired revalidation.
 
-Tagged broker lifecycle reconciliation now records broker-confirmed `canceled`, `rejected`, `expired`, and `replaced` states for every attributable PAPER bot order. Broker-unconfirmed execution failures are separately journaled as `execution_error` by the swing and Daily Crypto execution paths. Daily Crypto protection replacement and session flatten are fail-closed when an existing broker order cannot be confirmed canceled. Serious non-executed proposals must receive a separately labeled counterfactual follow-up window so missed-opportunity and protective-gate behavior can be reviewed without contaminating real P/L.
+Tagged broker lifecycle reconciliation now records broker-confirmed `canceled`, `rejected`, `expired`, and `replaced` states for every attributable PAPER bot order. Broker-unconfirmed execution failures are separately journaled as `execution_error` by the swing and Daily Crypto execution paths. Daily Crypto protection replacement and forced risk flatten are fail-closed when an existing broker order cannot be confirmed canceled. Serious non-executed proposals must receive a separately labeled counterfactual follow-up window so missed-opportunity and protective-gate behavior can be reviewed without contaminating real P/L.
 
 Evidence must feed a repeatable strategy-review dataset. Recommendations may propose a new version, but production risk/execution rules must never silently self-modify.
 
@@ -122,18 +122,18 @@ Current state:
 - Separate active $100 virtual ledger.
 - Execution-eligible: BTC/USD, ETH/USD, SOL/USD, LINK/USD, DOT/USD.
 - Monitor-only: XRP/USD, LTC/USD, AVAX/USD, DOGE/USD, ADA/USD, BCH/USD, AAVE/USD, HYPE/USD, RENDER/USD.
-- Seven-day intraday session controls in America/Chicago.
+- Continuous 24/7 entry controls; America/Chicago is used only for daily entry/loss accounting.
 - Alpaca execution-venue latest quotes and completed 5-minute / 15-minute bars.
 - Fee-aware deterministic readiness scanner.
 - One-position / three-entry-per-day / 1.50% daily-loss controls.
 - Same-symbol cross-bot occupancy block.
 - Live Bot Lab monitoring.
 - PAPER execution is armed after a controlled broker smoke verified limit-entry, fee-adjusted quantity, protective stop-limit, cancellation, and flatten behavior; live-money execution remains disabled.
-- The v3 `executionUniverse` is the single source of truth for entry, manager, and flatten symbol validation, preventing LINK/DOT or future execution-pool additions from being accepted for entry but rejected by exit management.
+- The v4 `executionUniverse` is the single source of truth for entry, manager, and forced-flatten symbol validation, preventing LINK/DOT or future execution-pool additions from being accepted for entry but rejected by exit management.
 
-The authenticated five-minute runner now persists the full 14-symbol v3 scan into the private paper journal on each scheduled decision cycle. This provides durable execution-vs-monitor evidence while the strategy waits for a genuine setup and does not loosen any trading threshold.
+The authenticated five-minute runner now persists the full 14-symbol v4 scan into the private paper journal on each scheduled decision cycle. This provides durable execution-vs-monitor evidence while the strategy waits for a genuine setup and does not loosen any trading threshold.
 
-Next: observe the first genuine tagged `wkd` v3 execution-pool setup/round trip on any day and verify +1R/+2R/trailing/23:45 behavior, telemetry, and fee reconciliation.
+Next: observe the first genuine tagged `wkd` v4 execution-pool setup/round trip at any hour and verify +1R/+2R/trailing, cross-midnight continuity, telemetry, and fee reconciliation.
 
 ### 5. Exact Fee Reconciliation
 
