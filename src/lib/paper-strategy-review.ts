@@ -115,6 +115,8 @@ export function buildPaperStrategyReview(input: {
 }) {
   const bots = input.ledgers.map(ledger => {
     const journal = input.journal.filter(row => row.bot_id === ledger.bot_id);
+    const executionJournal = journal.filter(row => row.metadata.executionEligible !== false);
+    const monitorOnlyJournal = journal.filter(row => row.metadata.executionEligible === false);
     const trades = input.trades.filter(row => row.bot_id === ledger.bot_id);
     const counterfactuals = input.counterfactuals.filter(row => row.bot_id === ledger.bot_id);
     const closedTrades = trades.filter(row => row.status === "closed");
@@ -143,7 +145,7 @@ export function buildPaperStrategyReview(input: {
     const evidenceMaturity = maturity(outcomeEvidenceCount);
 
     const scoreBands = ["0-59","60-69","70-79","80-100"].map(band => {
-      const observations = journal.filter(row => finite(row.score) && scoreBand(row.score) === band);
+      const observations = executionJournal.filter(row => finite(row.score) && scoreBand(row.score) === band);
       const studies = analyzableCounterfactuals.filter(row => finite(row.score) && scoreBand(row.score) === band);
       const favorable = studies.filter(row => classifyCounterfactual(row.first_outcome) === "missed-opportunity").length;
       const protective = studies.filter(row => classifyCounterfactual(row.first_outcome) === "protective-rejection").length;
@@ -196,7 +198,7 @@ export function buildPaperStrategyReview(input: {
       const protectRate = pct(protectiveRejections,cfResolved);
 
       if (cfResolved >= 10 && missRate !== null && missRate >= 60 && (protectRate ?? 0) < 30) {
-        const dominant = topReasons(journal,1)[0]?.reason ?? "current entry gates";
+        const dominant = topReasons(executionJournal,1)[0]?.reason ?? "current entry gates";
         recommendations.push({
           id:"review-rejection-gates",
           severity:"review",
@@ -296,6 +298,8 @@ export function buildPaperStrategyReview(input: {
       },
       decisions:{
         observations:journal.length,
+        executionRelevantObservations:executionJournal.length,
+        monitorOnlyObservations:monitorOnlyJournal.length,
         candidateEvents:journal.filter(row=>row.event_type==="candidate").length,
         authorizedEvents:journal.filter(row=>row.event_type==="authorized").length,
         strategyRejectedEvents:strategyRejected,
@@ -304,7 +308,7 @@ export function buildPaperStrategyReview(input: {
         expiredEvents:journal.filter(row=>row.event_type==="expired").length,
         replacedEvents:journal.filter(row=>row.event_type==="replaced").length,
         executionErrors:journal.filter(row=>row.event_type==="execution_error").length,
-        topReasons:topReasons(journal),
+        topReasons:topReasons(executionJournal),
       },
       scoreBands,
       symbols,
