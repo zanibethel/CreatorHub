@@ -354,8 +354,11 @@ function ProspectRows({ rows, compact = false }: { rows: PaperProspect[]; compac
           <span><small>Activity rank</small><strong>{row.activity_rank == null ? "—" : `#${row.activity_rank}`}</strong></span>
           <span><small>First seen</small><strong>{stamp(row.first_seen_at)}</strong></span>
         </div>
-        {row.suggested_bot_ids.length
-          ? <div className={styles.prospectBots}><small>Suggested next review</small><strong>{row.suggested_bot_ids.map(prospectBotLabel).join(" · ")}</strong></div>
+        {(row.assigned_bot_ids.length || row.suggested_bot_ids.length)
+          ? <div className={styles.prospectBots}>
+              <small>{row.assigned_bot_ids.length ? "Assigned for bot review" : "Suggested next review"}</small>
+              <strong>{(row.assigned_bot_ids.length ? row.assigned_bot_ids : row.suggested_bot_ids).map(prospectBotLabel).join(" · ")}</strong>
+            </div>
           : null}
         <small className={styles.prospectReason}>{row.reasons.slice(0, 4).join(" · ")}</small>
       </article>;
@@ -795,7 +798,7 @@ export default function PaperBotLab() {
           <SummaryCard label="Last scan" value={stamp(prospectReport?.lastSeenAt)} />
         </div>
         <ProspectRows rows={prospectReport?.prospects ?? []} />
-        <p className={styles.portfolioNote}>The scanner is discovery-only. A score of 65 adds a symbol to the prospect watchlist; 80 makes it eligible for the suggested bot review queue. Neither threshold authorizes an order or silently expands a bot&apos;s execution universe.</p>
+        <p className={styles.portfolioNote}>The scanner is discovery-only. A score of 65 adds a symbol to the prospect watchlist; 80 automatically assigns it to the appropriate bot review queue. That assignment is review-only: it cannot authorize an order or silently expand a bot&apos;s execution universe.</p>
       </PortfolioPanel>
       <PortfolioPanel title="Near the watchlist threshold">
         <ProspectRows rows={prospectReport?.nearMisses ?? []} />
