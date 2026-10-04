@@ -12,6 +12,10 @@
     {
       "path": "/api/paper-trading/prospects/scan",
       "schedule": "*/10 * * * *"
+    },
+    {
+      "path": "/api/paper-trading/bots/crypto-swing-readiness",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
