@@ -192,11 +192,11 @@
 
 /* Switchable PAPER bot portfolio dashboard */
 .botSwitcher { display:flex; gap:10px; overflow-x:auto; padding:2px 2px 6px; scrollbar-width:thin; }
-.botSwitcher button { min-width:190px; display:grid; grid-template-columns:1fr auto; gap:4px 12px; text-align:left; align-items:center; padding:14px 16px; background:linear-gradient(160deg,#1c1429,#151020); }
+.botSwitcher button { min-width:184px; display:grid; grid-template-columns:1fr; gap:3px; text-align:left; align-items:start; padding:13px 15px; background:linear-gradient(160deg,#1c1429,#151020); }
 .botSwitcher button[aria-pressed=true] { border-color:#a78bfa; background:linear-gradient(160deg,#35204f,#1d1530); box-shadow:0 0 0 1px rgba(167,139,250,.18) inset; }
-.botSwitcher button span { grid-column:1; font-weight:700; }
-.botSwitcher button strong { grid-column:2; grid-row:1 / span 2; font-size:20px; font-variant-numeric:tabular-nums; }
-.botSwitcher button small { grid-column:1; color:var(--muted); font-variant-numeric:tabular-nums; }
+.botSwitcher button span { font-size:12px; font-weight:750; color:var(--muted); line-height:1.25; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.botSwitcher button strong { font-size:23px; line-height:1.1; font-variant-numeric:tabular-nums; white-space:nowrap; }
+.botSwitcher button small { color:var(--muted); font-size:11px; line-height:1.2; font-variant-numeric:tabular-nums; }
 
 .portfolioHero { border:1px solid var(--border); border-radius:20px; background:linear-gradient(160deg,#1d142b,#120e1a); padding:22px; display:grid; gap:18px; }
 .portfolioHeroTitle { display:flex; align-items:flex-start; justify-content:space-between; gap:24px; }
@@ -234,17 +234,22 @@
 .portfolioRow > div:not(.portfolioRowMain) strong { font-size:12px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; text-transform:none; }
 
 .watchPortfolioGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
-.watchPortfolioItem { border:1px solid var(--border); border-radius:12px; padding:12px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:5px 10px; align-items:center; }
-.watchPortfolioItem > div { min-width:0; display:grid; gap:2px; }
-.watchPortfolioItem > div small,.watchPortfolioItem > small { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.watchPortfolioItem > strong { font-variant-numeric:tabular-nums; }
+.watchPortfolioItem { border:1px solid var(--border); border-radius:12px; padding:12px; display:grid; grid-template-columns:minmax(0,1fr) auto; gap:7px 10px; align-items:center; }
+.watchIdentity { min-width:0; display:grid; gap:2px; }
+.watchIdentity small,.watchDetail { color:var(--muted); font-size:10px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.watchPrice { font-variant-numeric:tabular-nums; white-space:nowrap; }
 .portfolioBadge { justify-self:start; color:#c4b5fd; font-size:10px; font-weight:700; letter-spacing:.04em; }
 .portfolioScore { justify-self:end; color:var(--muted); font-size:10px; white-space:nowrap; }
+.watchPlan { grid-column:1 / -1; display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; padding:9px 10px; border:1px solid rgba(167,139,250,.14); border-radius:9px; background:rgba(167,139,250,.045); }
+.watchPlan > span { min-width:0; display:grid; gap:2px; }
+.watchPlan small { color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:.045em; }
+.watchPlan strong { font-size:12px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.watchDetail { min-width:0; }
 .portfolioScore strong { color:#f7f2ff; font-size:12px; font-variant-numeric:tabular-nums; }
 .strategyLegend { display:flex; flex-wrap:wrap; gap:8px 14px; color:var(--muted); font-size:10px; align-items:center; }
 .strategyLegend span { display:inline-flex; align-items:center; gap:5px; }
 .strategyLegend strong,.strategyMarkers span { display:inline-grid; place-items:center; min-width:22px; height:22px; padding:0 6px; border-radius:999px; border:1px solid #5b467c; background:#2b1d40; color:#f7f2ff; font-size:10px; font-weight:800; letter-spacing:.04em; }
-.strategyMarkers { display:flex; gap:4px; justify-self:end; align-items:center; }
+.watchPortfolioItem > .strategyMarkers { display:flex; gap:4px; justify-self:end; align-items:center; }
 .strategyMarkers .strategyMarkerNone { color:var(--muted); border-style:dashed; background:transparent; }
 .portfolioEmpty { border:1px dashed var(--border); border-radius:12px; min-height:92px; display:grid; place-items:center; padding:18px; color:var(--muted); text-align:center; }
 .portfolioNote { margin:0; color:var(--muted); font-size:12px; line-height:1.5; }
@@ -266,7 +271,8 @@
   .watchPortfolioGrid { grid-template-columns:1fr; }
 }
 @media(max-width:650px) {
-  .botSwitcher button { min-width:164px; padding:12px; }
+  .botSwitcher button { min-width:158px; padding:11px 12px; }
+  .botSwitcher button strong { font-size:21px; }
   .portfolioHero { padding:16px; border-radius:16px; }
   .portfolioStats { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .portfolioPanel { padding:14px 12px; }
