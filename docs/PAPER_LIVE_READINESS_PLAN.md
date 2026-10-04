@@ -193,3 +193,7 @@ A future live mode must be separate from paper mode and require, at minimum:
 - and successful paper validation of the exact strategy/execution version being promoted.
 
 Changes to these requirements must be versioned and documented.
+
+
+### Counterfactual readiness evidence
+Daily Crypto now has durable counterfactual tracking for Watch-or-better execution-tier setups that are not actually submitted. The tracker uses only future completed 5-minute bars, respects the original max-entry and stop plan, records +1R/+2R/MFE/MAE, and marks unknowable same-candle sequencing as ambiguous. Records are visible in Bot Lab and cannot place orders. The table/schema is reusable for swing plans, but swing counterfactual seeding remains a separate follow-up rather than being inferred from Daily Crypto rules.
