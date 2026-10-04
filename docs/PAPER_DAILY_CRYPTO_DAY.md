@@ -12,7 +12,7 @@ This is a separate $100 challenge. It does not share capital, positions, P/L, or
 
 - Stable bot ID: `weekend-crypto-day-100`
 - Stable broker tag: `wkd`
-- Current strategy: `daily-crypto-day-v2`
+- Current strategy: `daily-crypto-day-v3`
 - Starting virtual equity: $100
 - Execution venue: Alpaca Paper
 - Live-money execution: disabled
@@ -22,15 +22,29 @@ The legacy bot ID and `wkd` tag are intentionally retained so v1 and v2 history 
 
 ## Universe
 
-Initial universe only:
+v3 uses two explicit tiers.
 
+Execution-eligible:
 - BTC/USD
 - ETH/USD
 - SOL/USD
+- LINK/USD
+- DOT/USD
 
-No other crypto pair is eligible in v2.
+Monitor-only:
+- XRP/USD
+- LTC/USD
+- AVAX/USD
+- DOGE/USD
+- ADA/USD
+- BCH/USD
+- AAVE/USD
+- HYPE/USD
+- RENDER/USD
 
-Because all bots share the same Alpaca PAPER account, v2 blocks a new Daily Crypto Day entry in a symbol already held by another bot. This prevents broker-level net-position and reserved-quantity behavior from confusing isolated bot accounting.
+Monitor-only symbols run through the same quote freshness, spread, trend, momentum, breakout, ATR, fee-coverage, and score logic so we can collect comparable evidence. They may display READY, but they are never eligible for selection or broker submission in v3.
+
+Promoting a monitor-only symbol into execution requires a new versioned strategy revision. Because all bots share the same Alpaca PAPER account, v3 also blocks a new Daily Crypto Day entry in a symbol already held by another bot.
 
 ## Session
 
@@ -60,7 +74,7 @@ The public Kraken monitor may still be useful for research/display, but it is no
 
 A candidate remains Waiting or Blocked unless all mandatory checks pass.
 
-Core v2 setup:
+Core v3 setup:
 
 - Quote age <= 60 seconds.
 - Midpoint spread <= 0.15%.
@@ -75,7 +89,7 @@ Core v2 setup:
 - 5-minute ATR must remain within 0.08% to 1.50%.
 - Minimum deterministic setup score: 80/100.
 
-If more than one candidate is Ready, v2 selects only one, prioritizing highest score and then tighter spread.
+If more than one execution-eligible candidate is Ready, v3 selects only one, prioritizing highest score and then tighter spread.
 
 ## Scoring
 
@@ -107,7 +121,7 @@ Position size is the smaller of the risk-based size, 30% allocation cap, and ava
 
 ## Profit / exit plan
 
-Daily v2 profit framework:
+Daily v3 profit framework:
 
 - Protective stop defined before entry.
 - Winner protection around +1R.
@@ -135,8 +149,9 @@ Implemented:
 
 - Separate active $100 virtual ledger.
 - Stable `wkd` broker attribution tag.
-- Strategy promoted from weekend-only v1 to seven-day `daily-crypto-day-v2`.
-- BTC/ETH/SOL-only universe.
+- Strategy promoted through seven-day v2 to expanded-universe `daily-crypto-day-v3`.
+- Execution pool: BTC/ETH/SOL/LINK/DOT.
+- Monitor-only pool: XRP/LTC/AVAX/DOGE/ADA/BCH/AAVE/HYPE/RENDER.
 - Seven-day session controls.
 - Alpaca quote + completed 5m/15m execution-data path.
 - Deterministic fee-aware readiness engine.
@@ -157,12 +172,13 @@ Implemented:
 
 ## Next implementation sequence
 
-1. Let the armed scanner wait for a genuine BTC/ETH/SOL setup instead of forcing a trade.
-2. Validate the first complete tagged `wkd` v2 PAPER round trip through entry, protection, mark-to-market, exit management, ledger reconciliation, and MFE/MAE/R telemetry.
+1. Let the armed scanner wait for a genuine execution-pool setup instead of forcing a trade.
+2. Validate the first complete tagged `wkd` v3 PAPER round trip through entry, protection, mark-to-market, exit management, ledger reconciliation, and MFE/MAE/R telemetry.
 3. Verify +1R protection, +2R 50% partial, trailing remainder, and 23:45 flatten under actual broker state.
 4. Continue reconciling broker-observed fees and monitor whether sell-side CFEE activity becomes available.
-5. Compare weekday versus weekend outcomes before considering any separate session-specific tuning.
-6. Tune only from documented evidence; do not loosen thresholds merely to create activity.
+5. Compare execution-pool and monitor-only score/liquidity behavior before promoting any additional symbol.
+6. Compare weekday versus weekend outcomes before considering any separate session-specific tuning.
+7. Tune only from documented evidence; do not loosen thresholds merely to create activity.
 
 ## Promotion rule
 
@@ -186,7 +202,7 @@ Observed broker behavior:
 - The BTC position was confirmed gone afterward; only the pre-existing Default Diverse SOL position remained.
 - All smoke client-order IDs were intentionally untagged, so none of this test activity changed the Daily Crypto Day virtual ledger.
 
-Implications retained in v2:
+Implications retained in v3:
 
 - Planned trades must remain above Alpaca's observed $10 crypto minimum; the strategy enforces a $12 floor.
 - Protective orders use Alpaca's actual post-fee `qty_available`, not gross fill quantity.
