@@ -16,7 +16,7 @@ const ledgerSchema=z.object({
   metadata:z.object({executionEnabled:z.boolean().optional(),liveMoneyEnabled:z.boolean().optional()}).passthrough(),
 });
 const positionSchema=z.object({
-  symbol:z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]),
+  symbol:z.enum(strategy.executionUniverse),
   quantity:z.coerce.number().finite().positive(),
   average_entry:z.coerce.number().finite().positive(),
   protective_stop:z.coerce.number().finite().positive().nullable(),
