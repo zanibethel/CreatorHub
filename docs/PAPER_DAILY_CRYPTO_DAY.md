@@ -167,6 +167,8 @@ Implemented:
 - Fail-closed emergency flatten if protection cannot be attached.
 - Broker-action exit manager for repair/tighten/+2R partial/trailing protection.
 - Deterministic 23:45 America/Chicago session flatten.
+- Entry, active management, and flatten routes all derive executable symbols from the v3 `executionUniverse`, so LINK/DOT and future versioned pool additions share one validation source.
+- Broker-confirmed cancel/reject/expire/replace states are captured centrally; broker-unconfirmed entry/protection/partial/flatten failures are saved as explicit `execution_error` evidence.
 - Vercel runner scheduled every five minutes every day.
 - Server-only Cron and crypto-execution secrets configured in Vercel Production.
 - PAPER execution armed; live money remains disabled.
