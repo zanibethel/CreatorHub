@@ -284,6 +284,7 @@ The review layer is deliberately advisory-only:
 - automatic risk increases are disabled,
 - live-money changes are disabled,
 - counterfactual paths are never counted as P/L,
+- the active Strategy Review panel aggregates only evidence matching the bot's current strategy ID/version; prior-version evidence remains stored and visible as a historical count but cannot drive current-version recommendations,
 - monitor-only observations remain visible for research but are excluded from execution-gate score bands and recommendation-driving blocker counts,
 - same-bar ambiguous counterfactuals are excluded from directional conclusions,
 - and material recommendations require a new strategy version plus PAPER validation.
@@ -303,3 +304,10 @@ Current deterministic recommendations can:
 - and flag weak realized-R capture versus MFE after enough completed trades.
 
 Any such recommendation is a hypothesis for a new version. It cannot edit the running strategy.
+
+
+### v4 evidence boundary
+
+When Daily Crypto was promoted from v3 to v4, the two still-active v3 counterfactual studies were retained but terminalized as `superseded` with `strategy-version-superseded`. They remain historical evidence and are not reinterpreted under v4's continuous-session rules.
+
+Strategy Review now filters journal, executed-trade, and counterfactual evidence by the active bot strategy ID and version before calculating maturity, score bands, outcomes, blockers, or recommendations.
