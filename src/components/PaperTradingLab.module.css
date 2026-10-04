@@ -240,6 +240,14 @@
 .watchPrice { font-variant-numeric:tabular-nums; white-space:nowrap; }
 .portfolioBadge { justify-self:start; color:#c4b5fd; font-size:10px; font-weight:700; letter-spacing:.04em; }
 .portfolioScore { justify-self:end; color:var(--muted); font-size:10px; white-space:nowrap; }
+.watchLifecycle { grid-column:1 / -1; display:grid; gap:7px; padding:8px 10px; border:1px solid rgba(98,217,170,.14); border-radius:9px; background:rgba(98,217,170,.035); }
+.watchLifecycleHeader { display:flex; align-items:center; justify-content:space-between; gap:10px; min-width:0; }
+.watchLifecycleHeader strong { font-size:10px; letter-spacing:.055em; text-transform:uppercase; }
+.watchLifecycleHeader small { color:var(--muted); font-size:9px; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; text-align:right; }
+.watchLifecycleSteps { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:4px; }
+.watchLifecycleStep { min-width:0; height:21px; display:grid; place-items:center; border:1px solid var(--border); border-radius:999px; color:#7f738e; font-size:8px; font-weight:800; letter-spacing:.02em; background:rgba(255,255,255,.015); }
+.watchLifecycleComplete { color:#8eddbd; border-color:#2f6f5d; background:#18392f; }
+.watchLifecycleActive { color:#f7f2ff; border-color:#a78bfa; background:#3a2358; box-shadow:0 0 0 1px rgba(167,139,250,.16) inset; }
 .watchPlan { grid-column:1 / -1; display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:8px; padding:9px 10px; border:1px solid rgba(167,139,250,.14); border-radius:9px; background:rgba(167,139,250,.045); }
 .watchPlanMode { grid-column:1 / -1; color:#c4b5fd; font-size:9px; font-weight:800; letter-spacing:.08em; text-transform:uppercase; }
 .watchPlan > span { min-width:0; display:grid; gap:2px; }
@@ -275,6 +283,10 @@
   .botSwitcher button { min-width:158px; padding:11px 12px; }
   .botSwitcher button strong { font-size:21px; }
   .watchPlan { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .watchLifecycleHeader { align-items:flex-start; flex-direction:column; gap:3px; }
+  .watchLifecycleHeader small { text-align:left; white-space:normal; }
+  .watchLifecycleSteps { gap:3px; }
+  .watchLifecycleStep { font-size:7px; padding:0 2px; }
   .portfolioHero { padding:16px; border-radius:16px; }
   .portfolioStats { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .portfolioPanel { padding:14px 12px; }
