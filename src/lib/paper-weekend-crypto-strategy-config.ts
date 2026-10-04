@@ -1,13 +1,13 @@
-export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = {
-  id: "weekend-crypto-day-v1",
+export const DAILY_CRYPTO_DAY_STRATEGY_V2 = {
+  id: "daily-crypto-day-v2",
   botProfileId: "weekend-crypto-day-100",
-  displayName: "$100 Weekend Crypto Day Bot",
-  version: 1,
+  displayName: "$100 Daily Crypto Day Bot",
+  version: 2,
   mode: "paper-only",
   timezone: "America/Chicago",
   universe: ["BTC/USD", "ETH/USD", "SOL/USD"],
   session: {
-    weekendDays: ["Sat", "Sun"],
+    tradingDays: ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
     stopNewEntriesLocal: "22:30",
     flatByLocal: "23:45",
   },
@@ -59,3 +59,7 @@ export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = {
     minimumOrderNotionalUsd: 12,
   },
 } as const;
+
+// Legacy export name retained temporarily so older imports do not break while
+// the stable bot ID / broker tag continue across the v1 -> v2 strategy revision.
+export const WEEKEND_CRYPTO_DAY_STRATEGY_V1 = DAILY_CRYPTO_DAY_STRATEGY_V2;
