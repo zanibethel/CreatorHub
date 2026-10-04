@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
-import { WEEKEND_CRYPTO_DAY_STRATEGY_V1 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
@@ -73,7 +73,7 @@ export async function POST(request:Request){
   const supabaseSecret=process.env.SUPABASE_SECRET_KEY?.trim()??"";
   const alpacaKey=process.env.ALPACA_API_KEY_ID?.trim()??"";
   const alpacaSecret=process.env.ALPACA_API_SECRET_KEY?.trim()??"";
-  if(!supabaseSecret||!alpacaKey||!alpacaSecret)return reply({error:"Weekend manager dependencies are not configured."},503);
+  if(!supabaseSecret||!alpacaKey||!alpacaSecret)return reply({error:"Daily crypto manager dependencies are not configured."},503);
 
   const dbHeaders:Record<string,string>={apikey:supabaseSecret,"Content-Type":"application/json"};
   if(supabaseSecret.startsWith("eyJ"))dbHeaders.Authorization=`Bearer ${supabaseSecret}`;
@@ -84,7 +84,7 @@ export async function POST(request:Request){
       cache:"no-store",signal:AbortSignal.timeout(10_000),
     });
     const text=await response.text();
-    if(!response.ok)throw new Error(`Weekend manager storage returned HTTP ${response.status}.`);
+    if(!response.ok)throw new Error(`Daily crypto manager storage returned HTTP ${response.status}.`);
     return text?JSON.parse(text):null;
   };
 
@@ -199,7 +199,7 @@ export async function POST(request:Request){
     if(!(available>0))return reply({error:"No sellable broker quantity is available for protection.",critical:true},502);
 
     const tightened=position.protective_stop?Math.max(position.protective_stop,desired):desired;
-    const protectedOkay=await createProtection(tightened,available,`Weekend exit manager: ${action}.`);
+    const protectedOkay=await createProtection(tightened,available,`Daily crypto exit manager: ${action}.`);
     if(!protectedOkay){
       const flattened=await emergencyFlatten();
       return reply({error:"Protective stop update failed; emergency PAPER flatten attempted.",critical:true,emergencyFlattenSubmitted:flattened},502);
@@ -227,7 +227,7 @@ export async function POST(request:Request){
       client_order_id:clientId,bot_id:BOT_ID,strategy_id:strategy.id,strategy_version:strategy.version,
       symbol:position.symbol,asset_class:"crypto",side:"sell",status:"prepared",
       requested_quantity:partialQty,pool_id:"day",planned_risk_dollars:0,
-      stage_reason:"Weekend crypto first +2R partial profit.",
+      stage_reason:"Daily crypto crypto first +2R partial profit.",
       metadata:{purpose:"take-profit-partial",paperOnly:true,estimatedFeeBps:strategy.fees.estimatedTakerFeeBpsPerSide},
     },"POST","return=minimal");
 
