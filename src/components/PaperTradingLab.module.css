@@ -225,6 +225,23 @@
 .portfolioPanelHeader a { font-size:12px; white-space:nowrap; }
 
 .portfolioRows { display:grid; gap:8px; }
+
+.holdingGrid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.holdingCard { border:1px solid var(--border); border-radius:14px; padding:13px; display:grid; gap:10px; min-width:0; background:rgba(255,255,255,.012); }
+.holdingHeader { display:flex; justify-content:space-between; gap:14px; align-items:flex-start; }
+.holdingHeader > div { display:grid; gap:3px; min-width:0; }
+.holdingHeader > div:last-child { text-align:right; }
+.holdingHeader strong { font-size:16px; font-variant-numeric:tabular-nums; }
+.holdingHeader small { color:var(--muted); font-size:10px; }
+.holdingStatus { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:8px 10px; border:1px solid rgba(98,217,170,.16); border-radius:9px; background:rgba(98,217,170,.035); }
+.holdingStatus span { color:#8eddbd; font-size:9px; font-weight:800; letter-spacing:.07em; }
+.holdingStatus small { color:var(--muted); font-size:9px; text-transform:capitalize; text-align:right; }
+.holdingMetrics { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px 12px; padding:10px; border:1px solid rgba(167,139,250,.14); border-radius:10px; background:rgba(167,139,250,.045); }
+.holdingMetrics > span { min-width:0; display:grid; gap:3px; }
+.holdingMetrics small { color:var(--muted); font-size:9px; text-transform:uppercase; letter-spacing:.045em; }
+.holdingMetrics strong { font-size:12px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; }
+.holdingReason { color:var(--muted); font-size:10px; line-height:1.4; }
+
 .portfolioRow { border:1px solid var(--border); border-radius:12px; padding:11px 12px; display:grid; grid-template-columns:minmax(120px,1.25fr) repeat(7,minmax(80px,1fr)); gap:10px; align-items:center; min-width:0; }
 .portfolioRowMain { display:grid; gap:3px; min-width:0; }
 .portfolioRowMain strong { font-size:14px; }
@@ -275,6 +292,7 @@
 }
 @media(max-width:850px) {
   .portfolioDashboard { grid-template-columns:1fr; }
+  .holdingGrid { grid-template-columns:1fr; }
   .portfolioHeroTitle { flex-direction:column; }
   .portfolioHeroValue { text-align:left; }
   .watchPortfolioGrid { grid-template-columns:1fr; }
@@ -283,6 +301,10 @@
   .botSwitcher button { min-width:158px; padding:11px 12px; }
   .botSwitcher button strong { font-size:21px; }
   .watchPlan { grid-template-columns:repeat(2,minmax(0,1fr)); }
+  .holdingCard { padding:12px; }
+  .holdingStatus { align-items:flex-start; flex-direction:column; gap:3px; }
+  .holdingStatus small { text-align:left; }
+  .holdingMetrics { grid-template-columns:repeat(2,minmax(0,1fr)); }
   .watchLifecycleHeader { align-items:flex-start; flex-direction:column; gap:3px; }
   .watchLifecycleHeader small { text-align:left; white-space:normal; }
   .watchLifecycleSteps { gap:3px; }
