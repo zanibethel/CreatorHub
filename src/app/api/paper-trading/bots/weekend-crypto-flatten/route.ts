@@ -11,7 +11,7 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwd
 const ALPACA_PAPER = "https://paper-api.alpaca.markets/v2";
 
 const positionSchema = z.object({
-  symbol: z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]),
+  symbol: z.enum(strategy.executionUniverse),
   quantity: z.coerce.number().finite().positive(),
 });
 
