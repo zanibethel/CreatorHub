@@ -297,6 +297,9 @@ export function evaluateWeekendCryptoReadiness(input: {
         ) {
           waitingOn.push(`Gross target covers estimated round-trip fees only ${feeCoverageMultiple.toFixed(2)}×.`);
         }
+        if (plannedNotional < strategy.execution.minimumOrderNotionalUsd) {
+          blockers.push(`Planned notional is below the ${strategy.execution.minimumOrderNotionalUsd.toFixed(0)} broker-minimum buffer.`);
+        }
         if (input.ledger.openRiskPct + (plannedRiskPct ?? 0) > strategy.risk.maximumOpenRiskPct) {
           blockers.push("Planned trade would exceed the weekend bot open-risk ceiling.");
         }
