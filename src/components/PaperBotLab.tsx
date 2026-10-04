@@ -73,6 +73,7 @@ function botShortName(profile: PaperBotProfile) {
   if (profile.id === "weekend-crypto-day-100") return "Daily Crypto";
   if (profile.id === "three-trade-weekly-swing-100") return "Weekly Swing";
   if (profile.id === "crypto-swing-100") return "Crypto Swing";
+  if (profile.id === "penny-volatility-day-100") return "Penny Volatility";
   return "Default Diverse";
 }
 
