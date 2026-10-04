@@ -141,7 +141,7 @@ export function suggestedProspectBots(input: {
 }) {
   if (!input.botReviewEligible) return [];
   if (input.assetClass === "crypto") {
-    return ["weekend-crypto-day-100", "default-diverse"];
+    return ["weekend-crypto-day-100", "crypto-swing-100", "default-diverse"];
   }
   if (positive(input.price) && input.price <= config.assignment.pennyPriceCeilingUsd) {
     return ["penny-volatility-day-100", "default-diverse"];
