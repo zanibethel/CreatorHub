@@ -4,6 +4,9 @@ Status: active implementation plan. The automated trading path remains PAPER-onl
 
 ## Objective
 
+Evidence retention and future strategy review must follow `docs/PAPER_EVIDENCE_AND_STRATEGY_REVIEW.md`. A trade that is considered but rejected, staged but never submitted, canceled, expired, replaced, or otherwise not executed remains research evidence and must not be silently discarded.
+
+
 Use the $100 isolated bot challenges to prove the full trading lifecycle under realistic broker conditions before creating any live-money execution mode.
 
 The goal is not merely to place successful orders. The system must demonstrate that it can:
@@ -48,6 +51,13 @@ The goal is not merely to place successful orders. The system must demonstrate t
 - A separate live-money credential set, explicit live-mode approval, capital limits, and kill switch.
 
 ## Execution sequence
+
+### 0. Complete evidence lifecycle — current cross-cutting requirement
+
+Before treating strategy review as complete, wire a uniform evidence trail across all bots for considered candidates, proposed/staged plans, repeated revalidation, rejection/block reasons, cancellation/expiration/replacement, execution, position management, and closed outcomes. Serious non-executed proposals must receive a separately labeled counterfactual follow-up window so missed-opportunity and protective-gate behavior can be reviewed without contaminating real P/L.
+
+Evidence must feed a repeatable strategy-review dataset. Recommendations may propose a new version, but production risk/execution rules must never silently self-modify.
+
 
 ### 1. Exit Manager v1 — current work
 
