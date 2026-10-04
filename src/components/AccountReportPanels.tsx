@@ -5,6 +5,7 @@ import type { AccountReport, AccountHistoryPoint } from "@/lib/account-report";
 import { PAPER_STARTING_CASH, formatPaperMoney } from "@/lib/paper-trading-config";
 import usePaperBotLedgers, { type PaperCounterfactual, type PaperPositionPlan, type StagedPaperOrder } from "./usePaperBotLedgers";
 import useSwingReadiness from "./useSwingReadiness";
+import useWeekendCryptoReadiness, { type WeekendCryptoCandidate } from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
 const money = (value: number | null | undefined) => value == null ? "—" : formatPaperMoney(value);
@@ -43,6 +44,45 @@ function ProfitPlan({ plan, botName }: { plan: PaperPositionPlan; botName: strin
       <small>Planned level only unless a separate take-profit order is shown as live above.</small>
     </div>
   </div>;
+}
+
+function CryptoSetupPlan({ candidate, collectedAt, evidence }: { candidate: WeekendCryptoCandidate; collectedAt: string; evidence: PaperCounterfactual | null }) {
+  const validUntil = new Date(Date.parse(collectedAt) + 5 * 60_000).toISOString();
+  const observedEntry = evidence?.triggered_at && evidence.assumed_entry_price !== null
+    ? { price: evidence.assumed_entry_price, at: evidence.triggered_at }
+    : null;
+  const headline = candidate.trigger === null
+    ? "No executable trigger is available yet."
+    : `Enter near ${money(candidate.trigger)} if reached before ${stamp(validUntil)} and all gates still pass.`;
+  const status = candidate.selectedForSubmission
+    ? "selected for PAPER submission"
+    : observedEntry
+      ? "entry observed"
+      : candidate.state === "blocked"
+        ? "blocked"
+        : candidate.state === "ready"
+          ? "ready"
+          : "watching";
+  const reasons = candidate.blockers.length ? candidate.blockers : candidate.waitingOn;
+
+  return <article className={styles.record}>
+    <div className={styles.cardHeader}><h3>{candidate.symbol} · Daily Crypto</h3><span className={styles.meta}>{status}</span></div>
+    <p><strong>{headline}</strong></p>
+    <div className={styles.recordFields}>
+      <span>Score <strong>{candidate.score.toFixed(0)}/100</strong></span>
+      <span>Planned entry <strong>{money(candidate.trigger)}</strong></span>
+      <span>Maximum entry <strong>{money(candidate.maxEntry)}</strong></span>
+      <span>Current bid / ask <strong>{money(candidate.bid)} / {money(candidate.ask)}</strong></span>
+      <span>Observed entry <strong>{observedEntry ? money(observedEntry.price) : "—"}</strong></span>
+      <span>Setup valid through <strong>{stamp(validUntil)}</strong></span>
+      <span>Protective stop <strong>{money(candidate.protectiveStop)}</strong></span>
+      <span>Take profit <strong>{money(candidate.takeProfit)}</strong></span>
+      <span>Planned notional <strong>{money(candidate.plannedNotional)}</strong></span>
+      <span>Planned risk <strong>{money(candidate.plannedRiskDollars)}</strong></span>
+    </div>
+    <p className={styles.meta}>{reasons.length ? reasons.join(" · ") : "All currently evaluated gates pass."}</p>
+    <p className={styles.meta}>{observedEntry ? `Entry condition observed ${stamp(observedEntry.at)} · review evidence only, not an Alpaca fill.` : "Scanner setup only · actual broker fill appears separately above as Average entry fill."}</p>
+  </article>;
 }
 
 function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWindowEnd }: { order: StagedPaperOrder; botName: string; evidence: PaperCounterfactual | null; now: number; entryWindowStart?: string | null; entryWindowEnd?: string | null }) {
@@ -93,6 +133,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
   const [now, setNow] = useState(0);
   const { report: botReport } = usePaperBotLedgers();
   const { report: swingReadiness } = useSwingReadiness();
+  const { report: cryptoReadiness } = useWeekendCryptoReadiness();
 
   useEffect(() => {
     setNow(Date.now());
@@ -115,6 +156,17 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
       && item.strategy_id === order.strategy_id
       && item.strategy_version === order.strategy_version
     ) ?? null;
+  const cryptoEvidence = (symbol: string) =>
+    (botReport?.counterfactuals?.["weekend-crypto-day-100"] ?? []).find(item =>
+      item.symbol === symbol
+      && item.strategy_id === cryptoReadiness?.strategyId
+      && item.strategy_version === cryptoReadiness?.strategyVersion
+      && ["watching","triggered"].includes(item.status)
+    ) ?? null;
+  const cryptoPlans = (cryptoReadiness?.candidates ?? [])
+    .filter(candidate => candidate.executionEligible && candidate.score >= 60)
+    .sort((a,b) => b.score - a.score)
+    .slice(0,3);
 
   return <section className={styles.card}>
     <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{snapshot ? "Alpaca paper account" : "Account collection pending"}</span></div>
@@ -149,6 +201,17 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
       })}</div>}
       {snapshot.orders && snapshot.orders.length > 50 ? <p className={styles.meta}>Showing the latest 50 of {snapshot.orders.length} returned open orders.</p> : null}
       {snapshot.ordersMayBeTruncated ? <p className={styles.stale}>The provider’s 500-order limit was reached; additional orders may exist.</p> : null}
+
+      {cryptoPlans.length && cryptoReadiness ? <>
+        <div className={styles.cardHeader}><h3>Current crypto setup plans</h3><span className={styles.meta}>24/7 · 5-minute setup horizon</span></div>
+        <div className={styles.recordList}>{cryptoPlans.map(candidate => <CryptoSetupPlan
+          key={candidate.symbol}
+          candidate={candidate}
+          collectedAt={cryptoReadiness.collectedAt}
+          evidence={cryptoEvidence(candidate.symbol)}
+        />)}</div>
+        <p className={styles.meta}>Showing execution-tier Daily Crypto candidates scoring 60+ for review. The bot still requires 80+ plus all other gates before PAPER submission.</p>
+      </> : null}
 
       {staged.length ? <>
         <div className={styles.cardHeader}><h3>Prepared bot plans</h3><span className={styles.meta}>not submitted</span></div>
