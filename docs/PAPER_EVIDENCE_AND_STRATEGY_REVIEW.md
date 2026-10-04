@@ -284,6 +284,7 @@ The review layer is deliberately advisory-only:
 - automatic risk increases are disabled,
 - live-money changes are disabled,
 - counterfactual paths are never counted as P/L,
+- monitor-only observations remain visible for research but are excluded from execution-gate score bands and recommendation-driving blocker counts,
 - same-bar ambiguous counterfactuals are excluded from directional conclusions,
 - and material recommendations require a new strategy version plus PAPER validation.
 
