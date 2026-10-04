@@ -254,7 +254,7 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
 
 function BrokerOrderRows({ orders, compact = false }: { orders: PaperBrokerOrder[]; compact?: boolean }) {
   const visible = compact ? orders.slice(0, 4) : orders;
-  if (!visible.length) return <EmptyState>No live tagged PAPER broker orders for this bot.</EmptyState>;
+  if (!visible.length) return <EmptyState>No live PAPER execution orders for this bot.</EmptyState>;
   return <div className={styles.portfolioRows}>
     {visible.map((order, index) => <div className={styles.portfolioRow} key={`${order.symbol}-${order.submitted_at ?? order.last_seen_at}-${index}`}>
       <div className={styles.portfolioRowMain}><strong>{order.symbol}</strong><span>{order.side.toUpperCase()} · {order.order_type ?? "order"}</span></div>
@@ -697,14 +697,18 @@ export default function PaperBotLab() {
     refreshMarket();
   };
 
-  const auditEquity = accountReport?.snapshot?.account.equity ?? null;
+  const capitalModel = ledgerReport?.accountingModel;
+  const programCapital = capitalModel?.programStartingCapital ?? 1000;
+  const reservedBotPools = capitalModel?.reservedBotPools ?? 5;
+  const botPoolCapital = capitalModel?.challengeStartingCash ?? 100;
+  const unallocatedReserve = capitalModel?.unallocatedReserve ?? 500;
 
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
       <div>
         <Link href="/paper-trading">← Paper Trading</Link>
         <h1>PAPER Bot Portfolios</h1>
-        <p>Each bot has its own $100 virtual portfolio. Holdings, P/L, orders, fills, and trade history stay attributed to that bot.</p>
+        <p>A $1,000 virtual PAPER fund reserves five $100 bot pools now, with the remaining $500 held for future bots. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot.</p>
       </div>
       <div className={styles.botLabActions}><button onClick={refreshAll}>Refresh</button></div>
     </header>
@@ -747,7 +751,7 @@ export default function PaperBotLab() {
       </div>
       <div className={styles.portfolioMeta}>
         <span>Strategy {ledger?.strategyId ?? profile.strategyId ?? "pending"}{ledger?.strategyVersion ? ` · v${ledger.strategyVersion}` : ""}</span>
-        <span>Alpaca PAPER audit balance {money(auditEquity)}</span>
+        <span>PAPER fund {money(programCapital)} · {reservedBotPools} × {money(botPoolCapital)} pools · {money(unallocatedReserve)} reserve</span>
         <span>Last ledger sync {stamp(ledger?.lastSyncedAt)}</span>
       </div>
     </section>
@@ -863,7 +867,7 @@ export default function PaperBotLab() {
     </div> : null}
 
     <footer className={styles.portfolioFooter}>
-      <span>Virtual bot ledger is authoritative for challenge performance. Alpaca PAPER remains the execution sandbox and audit trail.</span>
+      <span>Virtual bot ledgers are authoritative for strategy performance. Market data and PAPER execution infrastructure are shared services, not strategy capital.</span>
       <span>{history.length} equity checkpoints recorded.</span>
     </footer>
   </main>;
