@@ -51,7 +51,7 @@ test("active $100 comparison bots stay isolated", () => {
   assert.equal(dailyCrypto.challengeStartingCash, 100);
   assert.deepEqual(dailyCrypto.universe.assetClasses, ["crypto"]);
   assert.equal(dailyCrypto.cadence.intradayOnly, true);
-  assert.equal(dailyCrypto.strategyId, weekendStrategy.DAILY_CRYPTO_DAY_STRATEGY_V2.id);
+  assert.equal(dailyCrypto.strategyId, weekendStrategy.DAILY_CRYPTO_DAY_STRATEGY_V3.id);
 
   for (const profile of [swing, dailyCrypto]) {
     assert.equal(profile.isolation.separateVirtualLedger, true);
