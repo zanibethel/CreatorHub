@@ -1,6 +1,6 @@
 import { PAPER_STRATEGY_V1 } from "./paper-strategy-config";
 import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
-import { DAILY_CRYPTO_DAY_STRATEGY_V4 } from "./paper-weekend-crypto-strategy-config";
+import { ACTIVE_DAILY_CRYPTO_DAY_STRATEGY } from "./paper-weekend-crypto-strategy-config";
 import { PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION } from "./paper-bot-trade-plan";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
@@ -132,7 +132,7 @@ export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "wkd",
-  strategyId: DAILY_CRYPTO_DAY_STRATEGY_V4.id,
+  strategyId: ACTIVE_DAILY_CRYPTO_DAY_STRATEGY.id,
   tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "crypto-readiness" },
   style: "Continuous 24/7 short-horizon crypto momentum proof of concept with fee-aware risk controls",
   universe: {
