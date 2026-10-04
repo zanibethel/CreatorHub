@@ -245,3 +245,19 @@ Live scanner snapshot around 21:56 America/Chicago:
 - The highest monitor-only scores were HYPE/USD at 45/100 and LTC/USD / AVAX/USD at 40/100; they remained research-only and unselectable.
 
 Conclusion: the expanded scanner is live and PAPER-only. It should continue waiting for a genuine qualifying execution-pool setup rather than relaxing the 80/100 score, 0.15% spread, BTC-regime, or risk gates.
+
+
+## Counterfactual near-miss tracking
+
+The five-minute runner now records observation-only counterfactual studies for execution-tier setups scoring 60 or higher that are considered during the entry window but are not the setup currently being sent to the PAPER executor.
+
+Each study:
+- freezes the decision-time trigger, max-entry, stop, target, score, blockers and warnings;
+- begins tracking only from future completed 5-minute bars;
+- records whether the trigger would have occurred without exceeding max entry;
+- calculates an assumed entry and +1R/+2R levels from the frozen protective stop;
+- records +1R, +2R, stop, MFE, MAE and completed-bar count;
+- expires at session flat if unresolved;
+- labels same-bar stop/target sequencing as ambiguous.
+
+Monitor-only symbols are excluded from missed-trade counts even if they score highly. The tracker is evidence-only and cannot submit an Alpaca order.
