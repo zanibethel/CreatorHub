@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
 import { observeCryptoEntryFee } from "@/lib/paper-crypto-fees";
-import { DAILY_CRYPTO_DAY_STRATEGY_V2 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
+import { DAILY_CRYPTO_DAY_STRATEGY_V3 as strategy } from "@/lib/paper-weekend-crypto-strategy-config";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +13,12 @@ const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwd
 const ALPACA_PAPER = "https://paper-api.alpaca.markets/v2";
 
 const requestSchema = z.object({
-  symbol: z.enum(["BTC/USD","ETH/USD","SOL/USD"]),
+  symbol: z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]),
 }).strict();
 
 const candidateSchema = z.object({
-  symbol: z.enum(["BTC/USD","ETH/USD","SOL/USD"]),
+  symbol: z.string(),
+  executionEligible: z.boolean(),
   state: z.enum(["ready","waiting","blocked"]),
   selectedForSubmission: z.boolean(),
   quoteAgeSeconds: z.number().finite().nonnegative().nullable(),
@@ -38,7 +39,7 @@ const readinessSchema = z.object({
   paperOnly: z.literal(true),
   executionEnabled: z.boolean(),
   submissionReady: z.boolean(),
-  selectedSymbol: z.enum(["BTC/USD","ETH/USD","SOL/USD"]).nullable(),
+  selectedSymbol: z.enum(["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"]).nullable(),
   session: z.object({
     localDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
     isTradingDay: z.boolean(),
@@ -213,6 +214,7 @@ export async function POST(request: Request) {
     || !readiness.session.entriesOpen
     || readiness.session.flattenDue
     || readiness.selectedSymbol !== requested.symbol
+    || candidate?.executionEligible !== true
     || candidate?.state !== "ready"
     || !candidate.selectedForSubmission
   ) {
@@ -349,7 +351,7 @@ export async function POST(request: Request) {
 
   if (!entryOrder?.id) {
     await patchOrder(clientOrderId, { status: "error" });
-    return reply({ error: "Alpaca did not return a broker order for the weekend entry." }, 502);
+    return reply({ error: "Alpaca did not return a broker order for the daily crypto entry." }, 502);
   }
 
   let finalEntry = entryOrder;
