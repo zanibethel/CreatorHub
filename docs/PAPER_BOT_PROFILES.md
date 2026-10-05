@@ -1,6 +1,6 @@
 # Paper bot profiles and challenge comparisons
 
-The PAPER program uses a persisted $1,000 virtual fund. Five $100 bot pools are reserved now so different trading styles can be measured without mixing their capital, positions, or risk budgets. The remaining $500 stays unallocated for future bots.
+The PAPER program uses a persisted $1,000 virtual fund. Six $100 bot pools are reserved now so different trading styles can be measured without mixing their capital, positions, or risk budgets. The remaining $400 stays unallocated for future bots.
 
 ## Default profile
 
@@ -71,9 +71,9 @@ Exact holding-period, score, sizing, and exit parameters remain to be designed a
 ## Capital plan
 
 - Persisted PAPER program starting capital: **$1,000**.
-- Reserved bot pools: **5 × $100 = $500**.
-- Current reserved pools: Default Diverse, Penny Volatility, Weekly Swing, Crypto Swing, and Daily Crypto.
-- Unallocated reserve: **$500** for future bots.
+- Reserved bot pools: **6 × $100 = $600**.
+- Current reserved pools: Default Diverse, Penny Volatility, Weekly Swing, Crypto Swing, Squeeze Breakout, and Daily Crypto.
+- Unallocated reserve: **$400** for future bots.
 - A planned bot may keep its $100 pool reserved without being allowed to submit orders.
 - The external PAPER execution account is infrastructure only and never defines program buying power.
 
@@ -91,7 +91,7 @@ Bots do not:
 
 Market data, the PAPER execution venue, and common analytical infrastructure may be shared, but every decision/order must retain the bot/profile ID and strategy version that produced it. Only bot-attributed fills may change that bot's virtual ledger.
 
-Execution attribution uses stable short profile tags in execution-venue `client_order_id` values: `div` for Default Diverse, `pny` for the Penny Volatility challenge, `sw3` for the Three-Trade Weekly Swing challenge, and `wkd` for the Daily Crypto Day challenge. The formatter/parser lives in `src/lib/paper-order-attribution.ts`. A private service-role-only `paper_bot_orders` table maps those client order IDs to the bot, strategy version, broker order ID, symbol, requested size, and reconciliation status. Raw order identifiers remain private.
+Execution attribution uses stable short profile tags in execution-venue `client_order_id` values: `div` for Default Diverse, `pny` for the Penny Volatility challenge, `sw3` for the Three-Trade Weekly Swing challenge, `csw` for Crypto Swing, `sqz` for Squeeze Breakout, and `wkd` for the Daily Crypto Day challenge. The formatter/parser lives in `src/lib/paper-order-attribution.ts`. A private service-role-only `paper_bot_orders` table maps those client order IDs to the bot, strategy version, broker order ID, symbol, requested size, and reconciliation status. Raw order identifiers remain private.
 
 This avoids contaminating the experiment. A strong result from one bot must not hide losses from another.
 
@@ -164,12 +164,13 @@ The main Paper Trading Lab and CreatorHub dashboard both link to Bot Lab.
 
 The code registry lives in `src/lib/paper-bot-profiles.ts`.
 
-Current five reserved $100 pools:
+Current six reserved $100 pools:
 1. `default-diverse` — active.
 2. `penny-volatility-day-100` — planned/disabled, but its $100 pool is reserved.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
 4. `crypto-swing-100` — active research-only under `crypto-swing-v1`; dynamic scanner-fed 1–7 day crypto swing plans with execution disabled.
-5. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
+5. `squeeze-breakout-100` — active research-only under `squeeze-breakout-v1`; dedicated compressed-base / volume-ignition stock scanner with PAPER execution disabled during initial validation.
+6. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
 
 No additional bot receives capital automatically. Future bots must be explicitly assigned from the remaining $500 reserve.
 
@@ -240,6 +241,28 @@ Current review routing:
 
 See `docs/PAPER_PROSPECT_SCANNER.md` for the source-of-truth discovery design and persistence rules.
 
+
+
+## $100 Squeeze Breakout Bot
+
+The Squeeze Breakout bot is a separate stock strategy designed to study asymmetric moves that begin after an extended quiet base.
+
+Current v1 behavior:
+- Bot ID: `squeeze-breakout-100`.
+- Strategy: `squeeze-breakout-v1`.
+- Broker attribution tag: `sqz`.
+- Starting challenge capital: $100 isolated virtual ledger.
+- Candidate source: dedicated `paper-squeeze-scanner-v1`, separate from the broad Prospect Scanner.
+- Scanner model: roughly 40 completed daily bars of base compression, prior volume contraction, current pace-adjusted relative-volume expansion, liquidity/spread quality, and proximity to or breakout through the base high.
+- Discovery ladder: 65 squeeze-watchlist / 80 bot-review-ready.
+- Bot ladder: 70 watch / 80 qualified / 85 ready-quality.
+- Intended holding period: intraday through roughly five sessions.
+- Risk reference: 1% planned loss per trade, 30% maximum initial allocation, 2% total open-risk ceiling, and a 4–8% stop band.
+- Opportunity management: 15% partial-profit reference on 50% of the position, 25% primary reference target, 20–30% opportunity zone, and trailing remainder.
+- PAPER execution is intentionally disabled in v1 while signal quality and counterfactual outcomes accumulate.
+- A compression/volume breakout is not labeled a verified short squeeze without actual short-interest or borrow evidence.
+
+The 20–30% zone is a scenario for evaluating asymmetric upside, not a forecast or guaranteed return. See `PAPER_SQUEEZE_BREAKOUT.md` for the full scanner and readiness rules.
 
 ## $100 Crypto Swing Bot
 
