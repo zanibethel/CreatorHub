@@ -817,7 +817,7 @@ export default function PaperBotLab() {
         <SummaryCard label="Open / planned orders" value={String(openOrderCount)} />
       </div>
       <div className={styles.portfolioMeta}>
-        <span>Strategy {ledger?.strategyId ?? profile.strategyId ?? "pending"}{ledger?.strategyVersion ? ` · v${ledger.strategyVersion}` : ""}</span>
+        <span>Strategy {(ledger?.strategyId ?? profile.strategyId ?? "pending").replace(/^paper-/, "").replaceAll("-", " ")}{ledger?.strategyVersion ? ` · v${ledger.strategyVersion}` : ""}</span>
         <span>Virtual fund {money(programCapital)} · {reservedBotPools} × {money(botPoolCapital)} pools · {money(unallocatedReserve)} reserve</span>
         <span>Last ledger sync {stamp(ledger?.lastSyncedAt)}</span>
       </div>
