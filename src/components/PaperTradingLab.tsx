@@ -105,7 +105,7 @@ export default function PaperTradingLab() {
 
   return <main className={styles.dashboard}>
     <header className={styles.header}>
-      <div className={styles.brand}><Link href="/">CreatorHub</Link><h1>Day {day ?? "—"} of $100 Default Diverse Bot</h1><span className={styles.pill}>INTERACTIVE REPORT</span></div>
+      <div className={styles.brand}><Link href="/">CreatorHub</Link><h1>Day {day ?? "—"} of $100 Default Diverse Bot</h1><span className={styles.pill}>LIVE DATA · SIMULATION</span></div>
       <div className={styles.metrics}>
         <div className={styles.metric}><span>Challenge virtual equity</span><strong>{formatPaperMoney(challengeEquity)}</strong><small className={styles.meta}>Isolated Default Diverse ledger</small></div>
         <div className={styles.metric}><span>Virtual trading fund</span><strong>{formatPaperMoney(botLedgerReport?.accountingModel.programStartingCapital ?? PAPER_PROGRAM_CAPITAL)}</strong><small className={styles.meta}>{botLedgerReport?.accountingModel.reservedBotPools ?? PAPER_RESERVED_BOT_POOLS} reserved bot pools × {formatPaperMoney(botLedgerReport?.accountingModel.challengeStartingCash ?? PAPER_BOT_POOL_CAPITAL)} · {formatPaperMoney(botLedgerReport?.accountingModel.unallocatedReserve ?? PAPER_UNALLOCATED_RESERVE)} unallocated reserve</small></div>
