@@ -170,7 +170,7 @@ export async function GET(request: Request) {
     await Promise.all(batch.map(async symbol=>{
       try{
         const asset=record(await fetchJson(`${TRADING_URL}/v2/assets/${encodeURIComponent(symbol)}`));
-        validation.set(symbol,{valid:asset.status==="active" && asset.tradable===true && asset.fractionable===true && asset.shortable!==false,name:str(asset.name)});
+        validation.set(symbol,{valid:asset.status==="active" && asset.tradable===true && asset.fractionable===true,name:str(asset.name)});
       }catch{validation.set(symbol,{valid:false,name:null});}
     }));
   }
