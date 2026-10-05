@@ -5,6 +5,7 @@ export type MarketSnapshot = {
   stockBars: Record<string, Candle[]>;
   crypto: Array<{ product: string; timestamp: string | null; bestBid: { price: number } | null; bestAsk: { price: number } | null; candles: Candle[]; historyError?: string }>;
   historyIncluded?: boolean;
+  sources?: { stocks?: string | null; crypto?: string | null };
   errors?: Record<string, string>;
 };
 
