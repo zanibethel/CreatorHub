@@ -1,7 +1,7 @@
 // Virtual PAPER capital model. External execution-venue balances are not strategy capital.
 export const PAPER_PROGRAM_CAPITAL = 1000;
 export const PAPER_BOT_POOL_CAPITAL = 100;
-export const PAPER_RESERVED_BOT_POOLS = 5;
+export const PAPER_RESERVED_BOT_POOLS = 6;
 export const PAPER_ALLOCATED_CAPITAL = PAPER_BOT_POOL_CAPITAL * PAPER_RESERVED_BOT_POOLS;
 export const PAPER_UNALLOCATED_RESERVE = PAPER_PROGRAM_CAPITAL - PAPER_ALLOCATED_CAPITAL;
 
