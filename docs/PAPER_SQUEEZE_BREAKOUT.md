@@ -38,7 +38,7 @@ Core evidence:
 - current session price change,
 - spread and average dollar-volume quality.
 
-The scanner initially considers stocks between **$0.50 and $50**, requires at least **$1 million average daily dollar volume**, and rejects spreads wider than **1.25%** for qualified discovery.
+The scanner considers stocks between **$0.08 and $50**. For this strategy, **penny stocks are explicitly defined as $0.08 through $5.00 inclusive**; stocks above $5.00 use the regular-stock band. The same market-catalog tradability checks still apply, and qualified discovery continues to require at least **$1 million average daily dollar volume** and spreads no wider than **1.25%**.
 
 ## Pace-adjusted relative volume
 
