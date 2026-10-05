@@ -175,8 +175,8 @@ export function scoreSqueezeProspect(input: SqueezeScannerInput): SqueezeScanner
     botReviewEligible,
     metrics: {
       baseDays: base.length,
-      baseHigh: round(baseHigh),
-      baseLow: round(baseLow),
+      baseHigh: round(baseHigh, 8),
+      baseLow: round(baseLow, 8),
       baseRangePct: round(baseRangePct),
       preIgnitionPositionPct: round(preIgnitionPositionPct),
       volumeDryRatio: round(volumeDryRatio),
