@@ -64,13 +64,13 @@ export default function PaperTradingChartsDashboard() {
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
       <div>
-        <Link href="/paper-trading/bots">← PAPER Bot Portfolios</Link>
-        <h1>PAPER Analytics Charts</h1>
+        <Link href="/paper-trading/bots">← Bot Portfolios</Link>
+        <h1>Trading Analytics Charts</h1>
         <p>Read-only visualizations for bot equity, open-position plans, prepared setups, prospect momentum, and completed trade outcomes.</p>
       </div>
     </header>
 
-    <nav className={styles.botSwitcher} aria-label="Paper bot chart selection">
+    <nav className={styles.botSwitcher} aria-label="Bot chart selection">
       {ACTIVE_PROFILES.map(item => {
         const itemLedger = ledgerReport?.bots.find(bot => bot.botId === item.id);
         return <button
