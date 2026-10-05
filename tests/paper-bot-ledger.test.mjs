@@ -59,8 +59,8 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   const route = api(url => {
     requested.push(url);
     if (url.includes("paper_capital_plan")) return Response.json([{
-      plan_id:"main", total_capital:"1000", bot_pool_capital:"100", reserved_bot_pools:"5",
-      allocated_capital:"500", unallocated_reserve:"500", currency:"USD"
+      plan_id:"main", total_capital:"1000", bot_pool_capital:"100", reserved_bot_pools:"6",
+      allocated_capital:"600", unallocated_reserve:"400", currency:"USD"
     }]);
     if (url.includes("paper_bot_ledgers")) return Response.json(ledgerRows);
     if (url.includes("paper_bot_equity_history")) return Response.json([
@@ -75,8 +75,8 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
       exit_manager_state:{version:"paper-exit-v1",mode:"staged-action",plannedAction:"hold",rMultiple:-0.1,markPrice:119.9,evaluatedAt:stamp,hasActiveStop:true,reason:"No exit-management threshold is active."}
     }]);
     if (url.includes("paper_bot_journal")) return Response.json([]);
-    if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id: "default-diverse", broker_order_id: "private-order" }]);
-    if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id: "default-diverse", fill_activity_id: "private-fill", transaction_time: stamp, ledger_applied_at: stamp }]);
+    if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id:"default-diverse", broker_order_id:"private-order", symbol:"SOL/USD", asset_class:"crypto", side:"buy", order_type:"market", order_class:"simple", status:"filled", quantity:"0.16", filled_quantity:"0.16", average_fill_price:"120", submitted_at:stamp, filled_at:stamp, last_seen_at:stamp }]);
+    if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id:"default-diverse", fill_activity_id:"private-fill", symbol:"SOL/USD", side:"buy", quantity:"0.16", price:"120", transaction_time:stamp, ledger_applied_at:stamp }]);
     if (url.includes("paper_bot_orders")) return Response.json([{ bot_id: "default-diverse", strategy_id:"paper-medium-high-v1", strategy_version:"1", symbol: "QQQ", asset_class: "etf", status: "prepared", requested_notional: "10", requested_quantity: null, pool_id: "multi-day", entry_trigger: "750", max_entry_price: "755", protective_stop: "730", planned_risk_dollars: "1", expires_at: stamp, stage_reason: "fixture", take_profit_price: "790", take_profit_fraction: "0.5", take_profit_r: "2", protect_winner_at_r: "1", trail_remainder: true }]);
     if (url.includes("paper_bot_trade_metrics")) return Response.json([{ bot_id:"default-diverse", symbol:"SOL/USD", status:"open", opened_at:stamp, closed_at:null, entry_price:"120", initial_protective_stop:"119", initial_risk_dollars:"0.2", peak_mark_price:"121", trough_mark_price:"119.5", last_mark_price:"119.9", last_mark_at:stamp, mark_count:"4", mfe_r:"1", mae_r:"-0.5", exit_price:null, realized_pl:null, r_multiple:null, estimated_fees:null, exit_reason:null }]);
     if (url.includes("paper_bot_counterfactuals")) return Response.json([{ bot_id:"default-diverse", strategy_id:"paper-medium-high-v1", strategy_version:"1", symbol:"QQQ", status:"completed", source_event_type:"rejected", decision_state:"blocked", decision_at:stamp, session_key:"2026-10-03", score:"75", trigger_price:"750", max_entry_price:"755", protective_stop:"730", assumed_entry_price:"750", one_r_price:"770", two_r_price:"790", triggered_at:stamp, stop_hit_at:null, one_r_hit_at:stamp, two_r_hit_at:stamp, first_outcome:"two-r-before-stop", mark_count:"3", mfe_r:"2.1", mae_r:"-0.2" }]);
@@ -87,9 +87,9 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   const body = await response.json();
   assert.equal(body.accountingModel.challengeStartingCash, 100);
   assert.equal(body.accountingModel.programStartingCapital, 1000);
-  assert.equal(body.accountingModel.reservedBotPools, 5);
-  assert.equal(body.accountingModel.allocatedBotCapital, 500);
-  assert.equal(body.accountingModel.unallocatedReserve, 500);
+  assert.equal(body.accountingModel.reservedBotPools, 6);
+  assert.equal(body.accountingModel.allocatedBotCapital, 600);
+  assert.equal(body.accountingModel.unallocatedReserve, 400);
   assert.equal(body.accountingModel.virtualLedgerIsAuthority, true);
   assert.equal(body.accountingModel.executionVenueBalanceIsNotProgramCapital, true);
   assert.equal(body.bots[0].equity, 100);
