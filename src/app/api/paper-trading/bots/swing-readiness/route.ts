@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import { z } from "zod";
 import { evaluateSwingReadiness, type SwingPreparedPlan } from "@/lib/paper-swing-revalidation";
 import { buildSwingExecutionPreview } from "@/lib/paper-swing-execution";
@@ -169,14 +170,13 @@ export async function GET(request: Request) {
   };
 
   try {
-    const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw, quoteRaw, barsRaw, intradayRaw] = await Promise.all([
+    const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw, barsRaw, intradayRaw] = await Promise.all([
       readDb(`paper_bot_ledgers?select=status,equity,buying_power,open_planned_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,metadata&bot_id=eq.${BOT_ID}&limit=1`),
       readDb(`paper_bot_orders?select=client_order_id,strategy_id,strategy_version,symbol,requested_notional,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,created_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,metadata&bot_id=eq.${BOT_ID}&side=eq.buy&status=eq.prepared&order=created_at.asc&limit=20`),
       readDb(`paper_bot_positions?select=symbol,planned_risk_dollars&bot_id=eq.${BOT_ID}&quantity=gt.0&limit=20`),
       readDb(`paper_bot_orders?select=submitted_at,status&bot_id=eq.${BOT_ID}&side=eq.buy&status=in.(submitted,partially_filled,filled)&limit=100`),
       readAlpaca("https://paper-api.alpaca.markets/v2/clock"),
-      readAlpaca("https://data.alpaca.markets/v2/stocks/quotes/latest?symbols=QQQ,NVDA,MSFT,SPY&feed=iex"),
-      readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=QQQ,NVDA,MSFT,SPY&timeframe=1Day&limit=1000&feed=iex&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(Date.now()-45*86_400_000).toISOString())}`),
+      readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=QQQ,NVDA,MSFT,SPY&timeframe=1Day&limit=1000&feed=sip&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(Date.now()-45*86_400_000).toISOString())}&end=${encodeURIComponent(new Date(Date.now()-24*60*60_000).toISOString())}`),
       readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=QQQ,NVDA,MSFT&timeframe=5Min&limit=1000&feed=iex&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(Date.now()-3*86_400_000).toISOString())}`),
     ]);
 
@@ -189,7 +189,8 @@ export async function GET(request: Request) {
 
     const now = Date.now();
     const clock = clockRaw as AlpacaClock;
-    const quotes = (quoteRaw as { quotes?: Record<string,AlpacaQuote> }).quotes ?? {};
+    const liveQuoteBatch = await fetchPreferredStockQuotes(["QQQ","NVDA","MSFT","SPY"]);
+    const quotes = liveQuoteBatch.quotes;
     const bars = (barsRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
     const intradayBarsRaw = (intradayRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
     const completedIntradayBars = Object.fromEntries(
@@ -215,9 +216,9 @@ export async function GET(request: Request) {
     const spyCloses = (bars.SPY ?? []).map(bar => bar.c).filter(value => Number.isFinite(value) && value > 0);
     const spySma20 = average(spyCloses.slice(-20));
     const spyQuote = quotes.SPY;
-    const spyMid = typeof spyQuote?.bp === "number" && typeof spyQuote?.ap === "number"
-      ? (spyQuote.bp + spyQuote.ap) / 2
-      : spyCloses.at(-1) ?? null;
+    const spyMid = spyQuote?.bid != null && spyQuote?.ask != null
+      ? (spyQuote.bid + spyQuote.ask) / 2
+      : spyQuote?.last ?? spyCloses.at(-1) ?? null;
     const broadMarketSupportive = spyMid !== null && spySma20 !== null && spyMid >= spySma20;
 
     let minutesSinceOpen: number | null = null;
@@ -291,9 +292,9 @@ export async function GET(request: Request) {
       quotes: Object.fromEntries(plans.map(plan => {
         const quote = quotes[plan.symbol];
         return [plan.symbol, {
-          bid: typeof quote?.bp === "number" ? quote.bp : null,
-          ask: typeof quote?.ap === "number" ? quote.ap : null,
-          timestamp: quote?.t ?? null,
+          bid: quote?.bid ?? null,
+          ask: quote?.ask ?? null,
+          timestamp: quote?.timestamp ?? null,
         }];
       })),
     });
@@ -488,6 +489,13 @@ export async function GET(request: Request) {
       ...result,
       plans: plansWithExecution,
       executionEnabled,
+      marketData:{
+        source:liveQuoteBatch.source,
+        fallback:liveQuoteBatch.fallback,
+        providerError:liveQuoteBatch.providerError,
+        dailyHistory:"alpaca-sip-completed",
+        intradayEvidence:"alpaca-iex",
+      },
       submissionReady: executionEnabled && result.readyCount > 0,
       brokerProtection: "bracket",
       ...(evidenceRun ? { evidencePersisted, expiredPlans, counterfactualTracking } : {}),
