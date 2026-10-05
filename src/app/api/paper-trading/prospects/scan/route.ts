@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import { PAPER_PROSPECT_SCANNER_V1 as config } from "@/lib/paper-prospect-scanner-config";
 import {
   prospectVolumeRatio,
@@ -177,14 +178,23 @@ export async function GET(request: Request) {
   const stockSymbols = [...new Set([...stockMoverMap.keys(), ...stockActivityMap.keys()])]
     .filter(symbol => /^[A-Z][A-Z0-9]{0,5}$/.test(symbol));
 
-  const stockSnapshots: Record<string, JsonRecord> = {};
-  if (stockSourceFresh) {
+  const liveStockBatch = stockSourceFresh
+    ? await fetchPreferredStockQuotes(stockSymbols)
+    : await fetchPreferredStockQuotes([]);
+  const stockPreviousVolume = new Map<string, number | null>();
+  if (stockSourceFresh && stockSymbols.length) {
+    const historyStart = new Date(now - 10 * 86_400_000).toISOString();
+    const historyEnd = new Date(now - 24 * 60 * 60_000).toISOString();
     for (const batch of chunk(stockSymbols, 45)) {
       if (!batch.length) continue;
-      const payload = record(await fetchJson(
-        `${DATA_URL}/v2/stocks/snapshots?feed=iex&symbols=${encodeURIComponent(batch.join(","))}`,
+      const raw = record(await fetchJson(
+        `${DATA_URL}/v2/stocks/bars?symbols=${encodeURIComponent(batch.join(","))}&timeframe=1Day&limit=1000&feed=sip&adjustment=split&sort=asc&start=${encodeURIComponent(historyStart)}&end=${encodeURIComponent(historyEnd)}`,
       ));
-      for (const [symbol, value] of Object.entries(payload)) stockSnapshots[symbol] = record(value);
+      const barsRoot = record(raw.bars);
+      for (const symbol of batch) {
+        const bars = array(barsRoot[symbol]).map(record);
+        stockPreviousVolume.set(symbol, bars.length ? num(bars.at(-1)?.v) : null);
+      }
     }
   }
 
@@ -225,14 +235,24 @@ export async function GET(request: Request) {
 
   if (stockSourceFresh) {
     for (const symbol of stockSymbols) {
-      const snapshot = stockSnapshots[symbol];
-      if (!snapshot || !Object.keys(snapshot).length) continue;
-      const metrics = snapshotMetrics(snapshot);
+      const quote = liveStockBatch.quotes[symbol];
+      if (!quote) continue;
       const mover = stockMoverMap.get(symbol);
       const activity = stockActivityMap.get(symbol);
-      const price = metrics.price ?? mover?.price ?? null;
+      const midpoint = quote.bid !== null && quote.ask !== null && quote.bid > 0 && quote.ask >= quote.bid
+        ? (quote.bid + quote.ask) / 2
+        : null;
+      const price = midpoint ?? quote.last ?? quote.close ?? mover?.price ?? null;
       if (price === null || price < config.stock.minimumPriceUsd) continue;
-      const percentChange = mover?.percentChange ?? metrics.percentChange;
+      const previousClose = quote.previousClose;
+      const computedChange = previousClose !== null && previousClose > 0 ? (price / previousClose - 1) * 100 : null;
+      const percentChange = mover?.percentChange ?? quote.changePct ?? computedChange;
+      const spread = quote.bid !== null && quote.ask !== null && quote.bid > 0 && quote.ask >= quote.bid
+        ? (quote.ask - quote.bid) / ((quote.ask + quote.bid) / 2) * 100
+        : null;
+      const nearHigh = quote.high !== null && quote.high > 0
+        ? Math.max(0, (quote.high - price) / quote.high * 100)
+        : null;
       const sourceFlags = [
         ...(mover ? ["top stock gainer"] : []),
         ...(activity ? ["most-active stock"] : []),
@@ -242,19 +262,22 @@ export async function GET(request: Request) {
         symbol,
         price,
         percentChange,
-        spreadPct: metrics.spreadPct,
-        volume: metrics.volume,
-        previousVolume: metrics.previousVolume,
+        spreadPct: spread,
+        volume: quote.volume ?? activity?.volume ?? null,
+        previousVolume: stockPreviousVolume.get(symbol) ?? null,
         activityRank: activity?.rank ?? null,
-        nearHighPct: metrics.nearHighPct,
+        nearHighPct: nearHigh,
         sourceFlags,
-        sourceUpdatedAt: stockSourceUpdatedAt,
+        sourceUpdatedAt: quote.timestamp ?? stockSourceUpdatedAt,
         metadata: {
           moverRank: mover?.rank ?? null,
           tradeCount: activity?.tradeCount ?? null,
           marketVolume: activity?.volume ?? null,
-          quoteAt: metrics.quoteAt,
-          snapshotDay: metrics.dailyAt,
+          quoteAt: quote.timestamp,
+          marketDataSource: liveStockBatch.source,
+          marketDataFallback: liveStockBatch.fallback,
+          marketDataProviderError: liveStockBatch.providerError,
+          historyDataSource: "alpaca-sip-completed",
         },
       });
     }
@@ -436,6 +459,9 @@ export async function GET(request: Request) {
       stockSourceUpdatedAt,
       stockSourceFresh,
       stockCandidates: stockSourceFresh ? stockSymbols.length : 0,
+      stockMarketDataSource: liveStockBatch.source,
+      stockMarketDataFallback: liveStockBatch.fallback,
+      stockHistorySource: "alpaca-sip-completed",
       cryptoCandidates: cryptoSymbols.length,
     },
     results: {
