@@ -56,7 +56,7 @@ type WatchRow = {
 const ACTIVE_PROFILES = PAPER_BOT_PROFILES.filter(profile => {
   if (profile.status !== "active") return false;
   if (profile.tradePlan.source === "not-configured") {
-    throw new Error(`Active PAPER bot ${profile.id} is missing a trade-plan adapter.`);
+    throw new Error(`Active bot ${profile.id} is missing a trade-plan adapter.`);
   }
   return true;
 });
@@ -268,7 +268,7 @@ function WatchRows({ rows, compact = false }: { rows: WatchRow[]; compact?: bool
 
 function BrokerOrderRows({ orders, compact = false }: { orders: PaperBrokerOrder[]; compact?: boolean }) {
   const visible = compact ? orders.slice(0, 4) : orders;
-  if (!visible.length) return <EmptyState>No live PAPER execution orders for this bot.</EmptyState>;
+  if (!visible.length) return <EmptyState>No live simulated execution orders for this bot.</EmptyState>;
   return <div className={styles.portfolioRows}>
     {visible.map((order, index) => <div className={styles.portfolioRow} key={`${order.symbol}-${order.submitted_at ?? order.last_seen_at}-${index}`}>
       <div className={styles.portfolioRowMain}><strong>{order.symbol}</strong><span>{order.side.toUpperCase()} · {order.order_type ?? "order"}</span></div>
@@ -354,11 +354,19 @@ function ProspectRows({ rows, currentPriceFor, compact = false }: {
   return <div className={styles.prospectGrid}>
     {visible.map(row => {
       const isNew = row.metadata.alreadyKnown !== true;
+      const isPenny = row.asset_class === "stock" && row.price != null && row.price >= 0.08 && row.price <= 5;
+      const isSqueeze = row.source_flags.includes("squeeze-scanner") || row.metadata.scannerSource === "squeeze";
+      const labels = [
+        row.asset_class === "crypto" ? "Crypto" : "Stock",
+        isPenny ? "PENNY" : null,
+        isSqueeze ? "SQUEEZE" : null,
+        isNew ? "NEW PROSPECT" : "already monitored",
+      ].filter(Boolean).join(" · ");
       return <article className={styles.prospectCard} key={`${row.asset_class}-${row.symbol}`}>
         <div className={styles.prospectHeader}>
           <div>
             <strong>{row.symbol}</strong>
-            <small>{row.asset_class === "crypto" ? "Crypto" : "Stock"}{isNew ? " · NEW PROSPECT" : " · already monitored"}</small>
+            <small>{labels}</small>
           </div>
           <div className={styles.prospectScore}><span>Prospect score</span><strong>{row.score.toFixed(0)}/100</strong></div>
         </div>
@@ -762,14 +770,14 @@ export default function PaperBotLab() {
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
       <div>
-        <Link href="/paper-trading">← Paper Trading</Link>
-        <h1>PAPER Bot Portfolios</h1>
-        <p>A $1,000 virtual PAPER fund reserves six $100 bot pools now, with the remaining $400 held for future bots. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot.</p>
+        <Link href="/paper-trading">← Trading Lab</Link>
+        <h1>Bot Portfolios</h1>
+        <p>A $1,000 virtual trading fund reserves six $100 bot pools now, with the remaining $400 held for future bots. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot.</p>
       </div>
       <div className={styles.botLabActions}><button onClick={refreshAll}>Refresh</button></div>
     </header>
 
-    <nav className={styles.botSwitcher} aria-label="Paper bot portfolios">
+    <nav className={styles.botSwitcher} aria-label="Bot portfolios">
       {PAPER_BOT_PROFILES.map(item => {
         const itemLedger = ledgerReport?.bots.find(bot => bot.botId === item.id);
         const active = item.status === "active";
@@ -790,7 +798,7 @@ export default function PaperBotLab() {
     <section className={styles.portfolioHero}>
       <div className={styles.portfolioHeroTitle}>
         <div>
-          <span className={styles.botStatusActive}>ACTIVE · PAPER</span>
+          <span className={styles.botStatusActive}>ACTIVE · SIMULATION</span>
           <h2>{profile.name}</h2>
           <p>{profile.style}</p>
         </div>
@@ -810,7 +818,7 @@ export default function PaperBotLab() {
       </div>
       <div className={styles.portfolioMeta}>
         <span>Strategy {ledger?.strategyId ?? profile.strategyId ?? "pending"}{ledger?.strategyVersion ? ` · v${ledger.strategyVersion}` : ""}</span>
-        <span>PAPER fund {money(programCapital)} · {reservedBotPools} × {money(botPoolCapital)} pools · {money(unallocatedReserve)} reserve</span>
+        <span>Virtual fund {money(programCapital)} · {reservedBotPools} × {money(botPoolCapital)} pools · {money(unallocatedReserve)} reserve</span>
         <span>Last ledger sync {stamp(ledger?.lastSyncedAt)}</span>
       </div>
     </section>
@@ -852,9 +860,9 @@ export default function PaperBotLab() {
       <WatchRows rows={watchRows} />
       <p className={styles.portfolioNote}>D / S / L describes the strategy horizon this symbol is currently configured to be considered for. It is not trade authorization; score, setup state, risk, liquidity, and execution gates still have to pass.</p>
       {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
-      {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
-      {profile.id === "crypto-swing-100" ? <p className={styles.portfolioNote}>Crypto Swing v1 uses 1-hour trend, momentum, volume expansion and breakout structure for 1-7 day reference plans. It receives only scanner-assigned crypto prospects. PAPER execution is intentionally disabled while we collect initial swing evidence.</p> : null}
-      {profile.id === "squeeze-breakout-100" ? <p className={styles.portfolioNote}>Squeeze Breakout v1 looks for an extended compressed stock base, historically quieter volume, then increasing relative-volume pace as price presses toward or through the base high. The 20–30% opportunity zone is a target scenario, not a prediction. PAPER execution stays disabled while we validate the signal.</p> : null}
+      {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a simulated submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
+      {profile.id === "crypto-swing-100" ? <p className={styles.portfolioNote}>Crypto Swing v1 uses 1-hour trend, momentum, volume expansion and breakout structure for 1-7 day reference plans. It receives only scanner-assigned crypto prospects. Automated execution is intentionally disabled while we collect initial swing evidence.</p> : null}
+      {profile.id === "squeeze-breakout-100" ? <p className={styles.portfolioNote}>Squeeze Breakout v1 looks for an extended compressed stock base, historically quieter volume, then increasing relative-volume pace as price presses toward or through the base high. The 20–30% opportunity zone is a target scenario, not a prediction. Automated execution stays disabled while we validate the signal.</p> : null}
     </PortfolioPanel> : null}
 
     {view === "prospects" ? <div className={styles.portfolioSingleColumn}>
@@ -881,7 +889,7 @@ export default function PaperBotLab() {
     </div> : null}
 
     {view === "orders" ? <div className={styles.portfolioSingleColumn}>
-      <PortfolioPanel title="Live tagged PAPER orders">
+      <PortfolioPanel title="Live tagged simulation orders">
         <BrokerOrderRows orders={liveBrokerOrders} />
       </PortfolioPanel>
       <PortfolioPanel title="Prepared plans">
@@ -927,7 +935,7 @@ export default function PaperBotLab() {
     </div> : null}
 
     <footer className={styles.portfolioFooter}>
-      <span>Virtual bot ledgers are authoritative for strategy performance. Market data and PAPER execution infrastructure are shared services, not strategy capital.</span>
+      <span>Virtual bot ledgers are authoritative for strategy performance. Market data and execution infrastructure are shared services, not strategy capital.</span>
       <span>{history.length} equity checkpoints recorded.</span>
     </footer>
   </main>;
