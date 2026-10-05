@@ -79,6 +79,7 @@ export async function GET(request: Request){
       snapshots=record(await market(`${ALPACA_DATA}/v2/stocks/snapshots?feed=iex&symbols=${encodeURIComponent(symbols.join(","))}`));
     }
     const now=Date.now();
+    const executionEnabled=ledger.metadata.executionEnabled === true;
     const plans=prospects.map(item=>{
       const snapshot=record(snapshots[item.symbol]);
       const quote=record(snapshot.latestQuote);
@@ -109,7 +110,6 @@ export async function GET(request: Request){
       });
     }).sort((a,b)=>(b.score ?? -1)-(a.score ?? -1));
 
-    const executionEnabled=ledger.metadata.executionEnabled === true;
     const cronSecret=process.env.CRON_SECRET?.trim() ?? "";
     const isCron=Boolean(cronSecret && request.headers.get("authorization") === `Bearer ${cronSecret}`);
     if(isCron && plans.length){
@@ -151,7 +151,7 @@ export async function GET(request: Request){
       strategyId:strategy.id,
       strategyVersion:strategy.version,
       paperOnly:true,
-      executionEnabled:ledger.metadata.executionEnabled === true,
+      executionEnabled,
       opportunityZonePct:strategy.opportunity.opportunityZonePct,
       partialProfitPct:strategy.opportunity.partialProfitPct,
       primaryTargetPct:strategy.opportunity.primaryTargetPct,
