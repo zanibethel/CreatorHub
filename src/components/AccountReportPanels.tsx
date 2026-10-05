@@ -31,7 +31,7 @@ function History({ points }: { points: AccountHistoryPoint[] }) {
   const first = Date.parse(points[0].time), last = Date.parse(points.at(-1)!.time);
   const path = points.map(p => `${12 + (Date.parse(p.time) - first) / (last - first || 1) * 576},${164 - (p.equity - low) / (high - low || 1) * 144}`).join(" ");
   return <div className={styles.accountChart}>
-    <svg viewBox="0 0 600 184" role="img" aria-label={`${points.length} recorded paper-account equity snapshots, from ${formatPaperMoney(values[0])} to ${formatPaperMoney(values.at(-1)!)}`}><polyline points={path} fill="none" stroke="#62d9aa" strokeWidth="3" /></svg>
+    <svg viewBox="0 0 600 184" role="img" aria-label={`${points.length} recorded simulated-account equity snapshots, from ${formatPaperMoney(values[0])} to ${formatPaperMoney(values.at(-1)!)}`}><polyline points={path} fill="none" stroke="#62d9aa" strokeWidth="3" /></svg>
     <div className={styles.chartRange}><span>{stamp(points[0].time)}</span><span>{stamp(points.at(-1)!.time)}</span></div>
     <p className={styles.meta}>Recorded account equity · includes cashflows · latest {points.length} minute checkpoints</p>
   </div>;
@@ -71,7 +71,7 @@ function CryptoSetupPlan({ candidate, collectedAt, evidence, ledger }: { candida
     ? "No executable trigger is available yet."
     : `Enter near ${money(candidate.trigger)} if reached before ${stamp(validUntil)} and all gates still pass.`;
   const status = candidate.selectedForSubmission
-    ? "selected for PAPER submission"
+    ? "selected for simulated submission"
     : observedEntry
       ? "entry observed"
       : candidate.state === "blocked"
@@ -155,7 +155,7 @@ function StagedPlan({ order, botName, evidence, now, entryWindowStart, entryWind
     </div>
     <p className={styles.meta}>{windowStatus}{observedEntry ? " · review evidence only, not an execution-venue fill" : ""}</p>
     <p className={styles.meta}>{order.stage_reason ?? "Prepared strategy plan."}{order.trail_remainder && fraction ? ` · trail remaining ${pct(1 - fraction)}` : ""}</p>
-    <p className={styles.meta}>Prepared only · not yet a submitted PAPER execution order</p>
+    <p className={styles.meta}>Prepared only · not yet a submitted execution order</p>
   </article>;
 }
 
@@ -173,7 +173,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
 
   const snapshot = report?.snapshot;
   const title = { portfolio: "Portfolio overview", trades: "Recent fills", orders: "Upcoming orders", positions: "Open positions" }[view];
-  const waiting = error || report?.message || "Waiting for the first saved PAPER execution snapshot.";
+  const waiting = error || report?.message || "Waiting for the first saved execution snapshot.";
   const snapshotAge = snapshot ? now - Date.parse(snapshot.collectedAt) : 0;
   const botLedger = (botId: string) => botReport?.bots.find(bot => bot.botId === botId) ?? null;
   const botName = (botId: string) => botLedger(botId)?.displayName ?? botId;
@@ -223,26 +223,26 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
   const programPl = currentProgramEquity - programStart;
 
   return <section className={styles.card}>
-    <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{view === "portfolio" ? "Virtual PAPER capital" : snapshot ? "PAPER execution feed" : "Execution feed pending"}</span></div>
+    <div className={styles.cardHeader}><h2>{title}</h2><span className={styles.meta}>{view === "portfolio" ? "Virtual trading capital" : snapshot ? "Execution feed" : "Execution feed pending"}</span></div>
     {view !== "portfolio" && snapshot ? <p className={snapshotAge > 90_000 ? styles.stale : styles.meta}>Execution snapshot {stamp(snapshot.collectedAt)} · updates about every 30 seconds{snapshotAge > 90_000 ? " · update overdue" : ""}</p> : null}
     {view !== "portfolio" && snapshot && (error || report?.message) ? <p role="status" className={styles.error}>{error || report?.message} Showing the last saved execution snapshot.</p> : null}
     {view === "portfolio" ? <>
-      <div className={`${styles.empty} ${styles.growth}`}><strong>{money(currentProgramEquity)}</strong><span>Current PAPER program value · started with {money(programStart)}</span></div>
+      <div className={`${styles.empty} ${styles.growth}`}><strong>{money(currentProgramEquity)}</strong><span>Current program value · started with {money(programStart)}</span></div>
       <div className={styles.accountStats}>
         <div><span>Reserved bot capital</span><strong>{money(allocatedStart)}</strong></div>
         <div><span>Unallocated reserve</span><strong>{money(reserve)}</strong></div>
         <div><span>Reserved bot pools</span><strong>{reservedPools}</strong></div>
         <div><span>Program P/L</span><strong>{signedMoney(programPl)}</strong></div>
       </div>
-      <p className={styles.meta}>Five {money(PAPER_STARTING_CASH)} bot pools are reserved now. The remaining capital stays unallocated for future bots. External execution-venue balances are intentionally excluded from PAPER program capital.</p>
+      <p className={styles.meta}>Five {money(PAPER_STARTING_CASH)} bot pools are reserved now. The remaining capital stays unallocated for future bots. External execution-venue balances are intentionally excluded from program capital.</p>
     </> : !snapshot ? <div className={styles.empty}><p>{waiting}</p></div>
     : view === "trades" ? <>
-      <p className={styles.meta}>Latest 10 PAPER executions, including partial fills and buys/sells. These are fills, not matched round-trip trade reports.</p>
-      {snapshot.fills === null ? <div className={styles.empty}>{snapshot.errors.fills || "Fill history unavailable."}</div> : !snapshot.fills.length ? <div className={styles.empty}>No fills recorded in the PAPER execution feed.</div>
+      <p className={styles.meta}>Latest 10 simulated executions, including partial fills and buys/sells. These are fills, not matched round-trip trade reports.</p>
+      {snapshot.fills === null ? <div className={styles.empty}>{snapshot.errors.fills || "Fill history unavailable."}</div> : !snapshot.fills.length ? <div className={styles.empty}>No fills recorded in the execution feed.</div>
       : <div className={styles.recordList}>{snapshot.fills.map((fill, index) => <article className={styles.record} key={index}><h3>{fill.symbol} · {fill.side}</h3><div className={styles.recordFields}><span>Quantity <strong>{fill.quantity ?? "—"}</strong></span><span>Fill price <strong>{money(fill.price)}</strong></span></div><p className={styles.meta}>{stamp(fill.time)}</p></article>)}</div>}
     </> : view === "orders" ? <>
-      <p className={styles.meta}>Submitted PAPER execution orders are shown first. Bot take-profit levels remain planned unless a matching execution order exists.</p>
-      {snapshot.orders === null ? <div className={styles.empty}>{snapshot.errors.orders || "Order data unavailable."}</div> : !snapshot.orders.length ? <div className={styles.empty}>No open PAPER execution orders.</div>
+      <p className={styles.meta}>Submitted execution orders are shown first. Bot take-profit levels remain planned unless a matching execution order exists.</p>
+      {snapshot.orders === null ? <div className={styles.empty}>{snapshot.errors.orders || "Order data unavailable."}</div> : !snapshot.orders.length ? <div className={styles.empty}>No open execution orders.</div>
       : <div className={styles.recordList}>{snapshot.orders.slice(0, 50).map((order, index) => {
         const plans = matchingPlans(order.symbol);
         const stopLimit = order.type.includes("stop") && order.stop !== null;
@@ -270,7 +270,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
           evidence={cryptoEvidence(candidate.symbol)}
           ledger={botLedger("weekend-crypto-day-100")}
         />)}</div>
-        <p className={styles.meta}>Showing execution-tier Daily Crypto candidates scoring 60+ for review. The bot still requires 80+ plus all other gates before PAPER submission.</p>
+        <p className={styles.meta}>Showing execution-tier Daily Crypto candidates scoring 60+ for review. The bot still requires 80+ plus all other gates before simulated submission.</p>
       </> : null}
 
       {staged.length ? <>
@@ -289,7 +289,7 @@ export default function AccountReportPanels({ view, report, error }: { view: "po
         />)}</div>
       </> : null}
     </> : <>
-      {snapshot.positions === null ? <div className={styles.empty}>{snapshot.errors.positions || "Position data unavailable."}</div> : !snapshot.positions.length ? <div className={styles.empty}>No open positions in the PAPER execution feed.</div>
+      {snapshot.positions === null ? <div className={styles.empty}>{snapshot.errors.positions || "Position data unavailable."}</div> : !snapshot.positions.length ? <div className={styles.empty}>No open positions in the execution feed.</div>
       : <div className={styles.recordList}>{snapshot.positions.slice(0, 50).map((position, index) => {
         const currentPrice = position.quantity && position.marketValue !== null ? Math.abs(position.marketValue / position.quantity) : null;
         return <article className={styles.record} key={index}><h3>{position.symbol} · {position.side}</h3><div className={styles.recordFields}><span>Quantity <strong>{position.quantity ?? "—"}</strong></span><span>Average entry <strong>{money(position.entry)}</strong></span><span>Current price <strong>{money(currentPrice)}</strong></span><span>Market value <strong>{money(position.marketValue)}</strong></span><span>Unrealized P/L <strong>{signedMoney(position.unrealizedPl)}</strong></span></div>{matchingPlans(position.symbol).map(({ botId, plan }) => <ProfitPlan key={`${botId}-${plan.symbol}`} plan={plan} botName={botName(botId)} ledger={botLedger(botId)} />)}</article>;
