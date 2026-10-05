@@ -16,6 +16,14 @@
     {
       "path": "/api/paper-trading/bots/crypto-swing-readiness",
       "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/paper-trading/squeeze/scan",
+      "schedule": "*/15 * * * 1-5"
+    },
+    {
+      "path": "/api/paper-trading/bots/squeeze-breakout-readiness",
+      "schedule": "*/5 * * * 1-5"
     }
   ]
 }
