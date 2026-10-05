@@ -64,7 +64,7 @@ export function buildSwingExecutionPreview(input: {
   const quantityByAllocation = allocationBudget / ask;
   const quantity = floorQuantity(Math.min(quantityByRisk, quantityByAllocation));
 
-  if (!(quantity > 0)) throw new Error("Calculated paper quantity is below the supported minimum.");
+  if (!(quantity > 0)) throw new Error("Calculated simulated quantity is below the supported minimum.");
 
   const estimatedNotional = quantity * ask;
   const plannedRiskDollars = quantity * stopDistance;
@@ -95,8 +95,8 @@ export function assertSwingPaperExecutionAllowed(input: {
   paperOnly?: boolean;
 }) {
   if (input.paperOnly === false) throw new Error("Live-money swing execution is not supported.");
-  if (!strategy.execution.paperOnly) throw new Error("Strategy is not locked to paper mode.");
-  if (!input.executionEnabled) throw new Error("Swing paper execution kill switch is disabled.");
+  if (!strategy.execution.paperOnly) throw new Error("Strategy is not locked to simulation mode.");
+  if (!input.executionEnabled) throw new Error("Swing execution kill switch is disabled.");
   if (!input.readinessSelected) throw new Error("Plan is not selected by same-session revalidation.");
   if (!input.marketOpen) throw new Error("Market is not open.");
   if (!input.quoteFresh) throw new Error("Quote is stale.");
@@ -106,7 +106,7 @@ export function buildAlpacaSwingBracketRequest(
   preview: SwingExecutionPreview,
   clientOrderId: string,
 ): AlpacaSwingBracketRequest {
-  if (!preview.paperOnly) throw new Error("Only paper bracket requests are supported.");
+  if (!preview.paperOnly) throw new Error("Only simulated bracket requests are supported.");
   if (!clientOrderId || clientOrderId.length > 128) throw new Error("A valid client order ID is required.");
   if (!(preview.takeProfit > preview.entryReference && preview.stopLoss < preview.entryReference)) {
     throw new Error("Bracket prices do not surround the entry reference.");
