@@ -7,6 +7,12 @@ export const dynamic = "force-dynamic";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
 const SQUEEZE_BOT_ID = "squeeze-breakout-100";
 
+const nullablePositiveNumber = z.preprocess(value => {
+  if (value == null) return null;
+  const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
+  return Number.isFinite(parsed) && parsed <= 0 ? null : value;
+}, z.coerce.number().finite().positive().nullable());
+
 const trendRowSchema = z.object({
   asset_class: z.enum(["stock","crypto"]),
   symbol: z.string(),
@@ -77,8 +83,8 @@ const squeezeRowSchema = z.object({
   source_updated_at: z.string().nullable(),
   first_seen_at: z.string(),
   last_seen_at: z.string(),
-  base_high: z.coerce.number().finite().positive().nullable(),
-  base_low: z.coerce.number().finite().positive().nullable(),
+  base_high: nullablePositiveNumber,
+  base_low: nullablePositiveNumber,
   base_range_pct: z.coerce.number().finite().nonnegative().nullable(),
   average_dollar_volume: z.coerce.number().finite().nonnegative().nullable(),
   metadata: z.record(z.string(),z.unknown()),
