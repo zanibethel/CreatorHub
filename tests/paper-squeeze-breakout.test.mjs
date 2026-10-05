@@ -134,3 +134,27 @@ test("squeeze strategy explicitly includes the requested penny stock range", () 
   assert.equal(scannerConfig.pennyStockMaximumPriceUsd, 5);
   assert.ok(scannerConfig.maximumPriceUsd > scannerConfig.pennyStockMaximumPriceUsd);
 });
+
+
+test("squeeze scanner preserves valid sub-cent historical base prices", () => {
+  const bars = compressedBars().map(bar => ({
+    ...bar,
+    o: 0.0045,
+    h: 0.0049,
+    l: 0.0041,
+    c: 0.0045,
+  }));
+  const result = scanner.scoreSqueezeProspect({
+    symbol: "MICRO",
+    bars,
+    currentPrice: 0.08,
+    previousClose: 0.0045,
+    currentVolume: 2_000_000,
+    sessionElapsedFraction: 0.5,
+    spreadPct: 0.2,
+  });
+
+  assert.equal(result.metrics.baseLow, 0.0041);
+  assert.equal(result.metrics.baseHigh, 0.0049);
+  assert.ok(result.metrics.baseLow > 0);
+});
