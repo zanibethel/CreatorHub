@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import { z } from "zod";
 import { evaluateSqueezeBreakoutCandidate } from "@/lib/paper-squeeze-breakout-readiness";
 import { SQUEEZE_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-squeeze-breakout-strategy-config";
@@ -6,7 +7,6 @@ import { SQUEEZE_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-squeeze-br
 export const dynamic = "force-dynamic";
 
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
-const ALPACA_DATA = "https://data.alpaca.markets";
 
 const prospectSchema = z.object({
   symbol:z.string(),
@@ -54,13 +54,6 @@ export async function GET(request: Request){
     if(!response.ok) throw new Error(`Squeeze readiness storage returned HTTP ${response.status}.`);
     return response.json();
   };
-  const alpacaHeaders={"APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,Accept:"application/json"};
-  const market=async(url:string)=>{
-    const response=await fetch(url,{headers:alpacaHeaders,cache:"no-store",signal:AbortSignal.timeout(15_000)});
-    if(!response.ok) throw new Error(`Squeeze readiness market data returned HTTP ${response.status}.`);
-    return response.json();
-  };
-
   try{
     const [prospectRaw,ledgerRaw,positionsRaw]=await Promise.all([
       db(`paper_squeeze_prospects?status=neq.expired&watchlist_eligible=eq.true&select=symbol,score,base_high,base_low,base_range_pct,relative_volume_pace,session_change_pct,spread_pct,average_dollar_volume,reasons&order=score.desc,last_seen_at.desc&limit=20`),
@@ -74,16 +67,12 @@ export async function GET(request: Request){
     if(!ledger) return reply({error:"Squeeze Breakout virtual ledger is not configured."},503);
 
     const symbols=prospects.map(item=>item.symbol);
-    let snapshots:Record<string,unknown>={};
-    if(symbols.length){
-      snapshots=record(await market(`${ALPACA_DATA}/v2/stocks/snapshots?feed=iex&symbols=${encodeURIComponent(symbols.join(","))}`));
-    }
+    const liveQuoteBatch=await fetchPreferredStockQuotes(symbols);
     const now=Date.now();
     const executionEnabled=ledger.metadata.executionEnabled === true;
     const plans=prospects.map(item=>{
-      const snapshot=record(snapshots[item.symbol]);
-      const quote=record(snapshot.latestQuote);
-      const bid=num(quote.bp), ask=num(quote.ap), timestamp=str(quote.t);
+      const quote=liveQuoteBatch.quotes[item.symbol];
+      const bid=quote?.bid ?? null, ask=quote?.ask ?? null, timestamp=quote?.timestamp ?? null;
       return evaluateSqueezeBreakoutCandidate({
         now,
         prospect:{
@@ -155,6 +144,11 @@ export async function GET(request: Request){
       opportunityZonePct:strategy.opportunity.opportunityZonePct,
       partialProfitPct:strategy.opportunity.partialProfitPct,
       primaryTargetPct:strategy.opportunity.primaryTargetPct,
+      marketData:{
+        source:liveQuoteBatch.source,
+        fallback:liveQuoteBatch.fallback,
+        providerError:liveQuoteBatch.providerError,
+      },
       plans,
     });
   }catch(reason){
