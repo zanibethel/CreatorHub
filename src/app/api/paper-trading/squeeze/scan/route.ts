@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import { scoreSqueezeProspect, type SqueezeDailyBar } from "@/lib/paper-squeeze-scanner";
 import { SQUEEZE_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-squeeze-breakout-strategy-config";
 
@@ -33,29 +34,6 @@ function chunk<T>(items: T[], size: number) {
 }
 function sourceAgeMinutes(timestamp: string | null, now: number) {
   return timestamp ? Math.max(0,(now-Date.parse(timestamp))/60_000) : Number.POSITIVE_INFINITY;
-}
-function spreadPct(snapshot: JsonRecord) {
-  const quote = record(snapshot.latestQuote);
-  const bid = num(quote.bp), ask = num(quote.ap);
-  if (!(bid && ask && ask >= bid)) return null;
-  const mid=(bid+ask)/2;
-  return mid > 0 ? (ask-bid)/mid*100 : null;
-}
-function snapshotMetrics(snapshot: JsonRecord) {
-  const quote=record(snapshot.latestQuote);
-  const trade=record(snapshot.latestTrade);
-  const minute=record(snapshot.minuteBar);
-  const daily=record(snapshot.dailyBar);
-  const previous=record(snapshot.prevDailyBar);
-  const bid=num(quote.bp), ask=num(quote.ap);
-  const midpoint=bid!==null && ask!==null && bid>0 && ask>=bid ? (bid+ask)/2 : null;
-  return {
-    price: midpoint ?? num(trade.p) ?? num(minute.c) ?? num(daily.c),
-    previousClose: num(previous.c),
-    currentVolume: num(daily.v),
-    spreadPct: spreadPct(snapshot),
-    quoteAt: iso(quote.t),
-  };
 }
 function sessionElapsedFraction(now: number) {
   const parts = new Intl.DateTimeFormat("en-US",{
@@ -132,12 +110,8 @@ export async function GET(request: Request) {
   }
   const candidates=[...symbols].slice(0,180);
 
-  const snapshots:Record<string,JsonRecord>={};
-  for(const batch of chunk(candidates,45)) {
-    if(!batch.length) continue;
-    const payload=record(await fetchJson(`${DATA_URL}/v2/stocks/snapshots?feed=iex&symbols=${encodeURIComponent(batch.join(","))}`));
-    for(const [symbol,value] of Object.entries(payload)) snapshots[symbol]=record(value);
-  }
+  const liveQuoteBatch=await fetchPreferredStockQuotes(candidates);
+  const liveQuotes=liveQuoteBatch.quotes;
 
   const barsBySymbol:Record<string,SqueezeDailyBar[]>={};
   const end=new Date(now-24*60*60_000).toISOString();
@@ -145,21 +119,33 @@ export async function GET(request: Request) {
   for(const batch of chunk(candidates,30)) {
     if(!batch.length) continue;
     const raw=await fetchJson(
-      `${DATA_URL}/v2/stocks/bars?symbols=${encodeURIComponent(batch.join(","))}&timeframe=1Day&limit=10000&feed=iex&adjustment=all&sort=asc&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
+      `${DATA_URL}/v2/stocks/bars?symbols=${encodeURIComponent(batch.join(","))}&timeframe=1Day&limit=10000&feed=sip&adjustment=all&sort=asc&start=${encodeURIComponent(start)}&end=${encodeURIComponent(end)}`,
     );
     Object.assign(barsBySymbol,parseBars(raw));
   }
 
   const elapsed=sessionElapsedFraction(now);
   const provisional=candidates.map(symbol=>{
-    const snapshot=snapshots[symbol];
-    const metrics=snapshot ? snapshotMetrics(snapshot) : null;
+    const live=liveQuotes[symbol];
     const bars=barsBySymbol[symbol] ?? [];
-    if(!metrics || metrics.price==null || metrics.price<strategy.scanner.minimumPriceUsd || metrics.price>strategy.scanner.maximumPriceUsd) return null;
-    if(bars.length<strategy.scanner.minimumHistoryBars) return null;
+    if(!live || bars.length<strategy.scanner.minimumHistoryBars) return null;
+    const midpoint=live.bid!==null && live.ask!==null && live.bid>0 && live.ask>=live.bid ? (live.bid+live.ask)/2 : null;
+    const price=midpoint ?? live.last ?? live.close;
+    if(price==null || price<strategy.scanner.minimumPriceUsd || price>strategy.scanner.maximumPriceUsd) return null;
+    const previousClose=live.previousClose ?? bars.at(-1)?.c ?? null;
+    const spreadPct=live.bid!==null && live.ask!==null && live.bid>0 && live.ask>=live.bid
+      ? (live.ask-live.bid)/((live.ask+live.bid)/2)*100
+      : null;
+    const metrics={
+      price,
+      previousClose,
+      currentVolume:live.volume,
+      spreadPct,
+      quoteAt:live.timestamp,
+    };
     const result=scoreSqueezeProspect({
-      symbol,bars,currentPrice:metrics.price,previousClose:metrics.previousClose,currentVolume:metrics.currentVolume,
-      sessionElapsedFraction:elapsed,spreadPct:metrics.spreadPct,
+      symbol,bars,currentPrice:price,previousClose,currentVolume:live.volume,
+      sessionElapsedFraction:elapsed,spreadPct,
     });
     return {symbol,metrics,result};
   }).filter((item):item is NonNullable<typeof item>=>Boolean(item));
@@ -211,6 +197,10 @@ export async function GET(request: Request) {
       metadata:{
         assetName:valid?.name ?? null,
         quoteAt:metrics.quoteAt,
+        marketDataSource:liveQuoteBatch.source,
+        marketDataFallback:liveQuoteBatch.fallback,
+        marketDataProviderError:liveQuoteBatch.providerError,
+        historyDataSource:"alpaca-sip-completed",
         sessionElapsedFraction:elapsed,
         paperResearchOnly:true,
         orderAuthorization:false,
@@ -238,7 +228,7 @@ export async function GET(request: Request) {
 
   return reply({
     ok:true,paperResearchOnly:true,scannerId:strategy.scanner.id,scannerVersion:strategy.scanner.version,scannedAt,
-    thresholds:strategy.scanner.thresholds,sources:{sourceUpdatedAt,sourceFresh,evaluatedUniverse:candidates.length},
+    thresholds:strategy.scanner.thresholds,sources:{sourceUpdatedAt,sourceFresh,evaluatedUniverse:candidates.length,liveQuotes:liveQuoteBatch.source,liveQuoteFallback:liveQuoteBatch.fallback,history:"alpaca-sip-completed"},
     results:{
       evaluated:rows.length,
       observationsSaved:observations.length,
