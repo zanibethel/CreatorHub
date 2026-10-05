@@ -23,6 +23,9 @@ function num(value: unknown) {
   const parsed = typeof value === "number" ? value : typeof value === "string" ? Number(value) : NaN;
   return Number.isFinite(parsed) ? parsed : null;
 }
+function positiveOrNull(value: number | null) {
+  return value != null && Number.isFinite(value) && value > 0 ? value : null;
+}
 function iso(value: unknown) {
   const valueString = str(value);
   return valueString && Number.isFinite(Date.parse(valueString)) ? valueString : null;
@@ -177,8 +180,8 @@ export async function GET(request: Request) {
       spread_pct:metrics.spreadPct,
       current_volume:metrics.currentVolume,
       base_days:qualified.metrics.baseDays,
-      base_high:qualified.metrics.baseHigh,
-      base_low:qualified.metrics.baseLow,
+      base_high:positiveOrNull(qualified.metrics.baseHigh),
+      base_low:positiveOrNull(qualified.metrics.baseLow),
       base_range_pct:qualified.metrics.baseRangePct,
       pre_ignition_position_pct:qualified.metrics.preIgnitionPositionPct,
       volume_dry_ratio:qualified.metrics.volumeDryRatio,
