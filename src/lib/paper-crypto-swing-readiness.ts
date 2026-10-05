@@ -241,7 +241,7 @@ export function evaluateCryptoSwingCandidate(input: {
   else if (score < strategy.setup.qualifiedScore) warnings.push("Swing setup is watch-quality but not yet qualified.");
   else if (score < strategy.setup.readyScore) warnings.push("Swing setup is qualified but has not reached the ready threshold.");
   if (score >= strategy.setup.readyScore && !triggerReady) warnings.push("Swing score is high, but the breakout entry trigger has not cleanly confirmed.");
-  if (strategyReady && !ledger.executionEnabled) warnings.push("Strategy gates pass, but Crypto Swing PAPER execution is intentionally not armed yet.");
+  if (strategyReady && !ledger.executionEnabled) warnings.push("Strategy gates pass, but Crypto Swing automated execution is intentionally not armed yet.");
 
   const state = strategyReady
     ? ledger.executionEnabled ? "READY" : "QUALIFIED"
