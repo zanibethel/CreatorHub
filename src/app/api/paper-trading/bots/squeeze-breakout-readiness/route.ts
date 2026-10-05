@@ -41,7 +41,7 @@ function num(value:unknown){
 }
 function str(value:unknown){return typeof value==="string" && value.trim() ? value.trim() : null;}
 
-export async function GET(){
+export async function GET(request: Request){
   const supabaseSecret=process.env.SUPABASE_SECRET_KEY?.trim() ?? "";
   const alpacaKey=process.env.ALPACA_API_KEY_ID?.trim() ?? "";
   const alpacaSecret=process.env.ALPACA_API_SECRET_KEY?.trim() ?? "";
@@ -104,10 +104,47 @@ export async function GET(){
           buyingPower:ledger.buying_power ?? ledger.equity,
           openRiskPct:ledger.open_planned_risk_pct ?? 0,
           openPositions:positions.length,
-          executionEnabled:ledger.metadata.executionEnabled === true,
+          executionEnabled,
         },
       });
     }).sort((a,b)=>(b.score ?? -1)-(a.score ?? -1));
+
+    const executionEnabled=ledger.metadata.executionEnabled === true;
+    const cronSecret=process.env.CRON_SECRET?.trim() ?? "";
+    const isCron=Boolean(cronSecret && request.headers.get("authorization") === `Bearer ${cronSecret}`);
+    if(isCron && plans.length){
+      const response=await fetch(`${SUPABASE_URL}/rest/v1/paper_bot_journal`,{
+        method:"POST",
+        headers:{...dbHeaders,"Content-Type":"application/json",Prefer:"return=minimal"},
+        body:JSON.stringify(plans.map(plan=>({
+          bot_id:strategy.botProfileId,
+          strategy_id:strategy.id,
+          strategy_version:strategy.version,
+          event_type:"candidate",
+          symbol:plan.symbol,
+          asset_class:"stock",
+          occurred_at:new Date(now).toISOString(),
+          score:plan.score,
+          qualification:plan.score !== null && plan.score >= strategy.setup.readyScore
+            ? "trade-ready"
+            : plan.score !== null && plan.score >= strategy.setup.qualifiedScore
+              ? "qualified"
+              : plan.score !== null && plan.score >= strategy.setup.watchScore
+                ? "watch"
+                : "unqualified",
+          regime:"unknown",
+          component_scores:{prospectSource:strategy.scanner.id,compressionIgnition:true},
+          market_snapshot:{currentPrice:plan.currentPrice},
+          risk_plan:plan.plan,
+          blockers:plan.blockers,
+          warnings:plan.warnings,
+          metadata:{executionEnabled,reviewOnly:!executionEnabled,targetOpportunityZonePct:strategy.opportunity.opportunityZonePct},
+        }))),
+        cache:"no-store",
+        signal:AbortSignal.timeout(10_000),
+      });
+      if(!response.ok) throw new Error(`Squeeze readiness journal returned HTTP ${response.status}.`);
+    }
 
     return reply({
       collectedAt:new Date(now).toISOString(),
