@@ -54,7 +54,7 @@ export default function MarketDataPanel({ snapshot, stocks, crypto, onSetup, wat
       quote: snapshot?.stocks[symbol],
       candles: snapshot?.stockBars[symbol] ?? [],
       benchmarkCandles: stockBenchmark,
-      source: "IEX · daily chart",
+      source: `${snapshot?.sources?.stocks ?? "Stock market data"} · SIP daily chart`,
       time: snapshot?.stocks[symbol]?.timestamp,
     })),
     ...symbols(crypto).map(symbol => {
