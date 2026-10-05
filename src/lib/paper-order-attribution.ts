@@ -15,7 +15,7 @@ export type PaperOrderAttribution = {
 
 export function createPaperClientOrderId(botId: string, strategyVersion: number, nonce = crypto.randomUUID()) {
   const brokerTag = botToTag.get(botId);
-  if (!brokerTag) throw new Error("Unknown paper bot profile.");
+  if (!brokerTag) throw new Error("Unknown bot profile.");
   if (!Number.isInteger(strategyVersion) || strategyVersion < 1) throw new Error("A positive strategy version is required.");
   const cleanNonce = safeNonce(nonce);
   if (cleanNonce.length < 6) throw new Error("Order nonce is too short.");
