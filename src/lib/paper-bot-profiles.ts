@@ -61,9 +61,9 @@ export const DEFAULT_DIVERSE_BOT: PaperBotProfile = {
     shareRiskBudgetWithOtherBots: false,
   },
   notes: [
-    "This is the default profile for the current paper decision engine and uses the same $100 challenge baseline as every comparison bot.",
+    "This is the default profile for the current decision engine and uses the same $100 challenge baseline as every comparison bot.",
     "Current strategy logic remains PAPER_STRATEGY_V1 and is not duplicated here.",
-    "The profile is paper-only; a trade-ready score is not itself order permission.",
+    "The profile is simulation-only; a trade-ready score is not itself order permission.",
   ],
 };
 
@@ -93,7 +93,7 @@ export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
   notes: [
     "Higher volatility does not remove stop-loss, liquidity, spread, daily-loss, or kill-switch requirements.",
     "Exact scoring, sizing, stop, trade-frequency, and liquidity thresholds are intentionally not approved yet.",
-    "This profile remains disabled until its own strategy version is designed and paper-validated.",
+    "This profile remains disabled until its own strategy version is designed and simulation-validated.",
   ],
 };
 
@@ -123,7 +123,7 @@ export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
   notes: [
     "The three-trade limit applies to new entries, not protective exits or risk-reducing actions.",
     "Unused weekly trade slots do not create pressure to enter marginal setups.",
-    "Strategy v1 stages at most three fresh swing entries per week, sizes from a 1% planned-loss ceiling, and requires same-session revalidation before any paper submission."
+    "Strategy v1 stages at most three fresh swing entries per week, sizes from a 1% planned-loss ceiling, and requires same-session revalidation before any simulated submission."
   ],
 };
 
@@ -142,7 +142,7 @@ export const CRYPTO_SWING_BOT: PaperBotProfile = {
     description: "Dynamic crypto prospects promoted by the market Prospect Scanner rather than a fixed execution list.",
   },
   cadence: {
-    description: "Multi-day crypto swings; up to three new entries per week and at most two open positions once PAPER execution is armed.",
+    description: "Multi-day crypto swings; up to three new entries per week and at most two open positions once automated execution is armed.",
     maximumNewTradesPerWeek: 3,
     swingOnly: true,
   },
@@ -153,7 +153,7 @@ export const CRYPTO_SWING_BOT: PaperBotProfile = {
   },
   notes: [
     "The bot receives review-ready crypto prospects from the separate scanner and applies its own multi-hour trend, momentum, volume, structure, spread and risk gates.",
-    "Crypto Swing v1 is active for PAPER research and reference-plan tracking, while broker execution remains intentionally disabled until enough evidence is collected.",
+    "Crypto Swing v1 is active for simulation research and reference-plan tracking, while broker execution remains intentionally disabled until enough evidence is collected.",
     "A scanner assignment is not trade authorization; the swing strategy has its own 70 watch / 80 qualified / 85 ready scoring ladder.",
   ],
 };
@@ -173,7 +173,7 @@ export const SQUEEZE_BREAKOUT_BOT: PaperBotProfile = {
     maximumPriceUsd: SQUEEZE_BREAKOUT_STRATEGY_V1.scanner.maximumPriceUsd,
   },
   cadence: {
-    description: "Short-horizon breakout trades held intraday to several sessions; maximum two new entries per day and two open positions once PAPER execution is armed.",
+    description: "Short-horizon breakout trades held intraday to several sessions; maximum two new entries per day and two open positions once automated execution is armed.",
   },
   isolation: {
     separateVirtualLedger: true,
@@ -183,7 +183,7 @@ export const SQUEEZE_BREAKOUT_BOT: PaperBotProfile = {
   notes: [
     "The scanner looks for roughly 20–60 trading days of price compression, historical volume contraction, and renewed relative-volume pace near a base-high breakout.",
     "The 20–30% range is an opportunity zone, not an expected or guaranteed return. Strategy v1 uses a 25% reference target with a 15% partial-profit reference and trailing remainder.",
-    "Squeeze Breakout v1 is active for PAPER research and reference-plan tracking. Broker execution remains intentionally disabled until signal quality is validated.",
+    "Squeeze Breakout v1 is active for simulation research and reference-plan tracking. Broker execution remains intentionally disabled until signal quality is validated.",
     "A candidate is not assumed to be a true short squeeze unless future data adds actual short-interest/borrow evidence.",
   ],
 };
