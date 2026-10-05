@@ -213,6 +213,8 @@ Current adapters:
 - `decision-engine` — Default Diverse.
 - `swing-readiness` — Three-Trade Weekly Swing.
 - `crypto-readiness` — Daily Crypto Day.
+- `crypto-swing-readiness` — Crypto Swing.
+- `squeeze-breakout-readiness` — Squeeze Breakout.
 - `not-configured` — allowed for planned/disabled profiles only while their strategy is still being designed.
 
 When a new strategy family is introduced, add its source identifier and adapter to the normalized source map. TypeScript intentionally requires every configured source to have an adapter, so a newly activated bot cannot silently fall through to an unrelated dashboard behavior. Planned profiles may remain `not-configured` until their strategy contract is implemented.
