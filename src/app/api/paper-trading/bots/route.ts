@@ -221,9 +221,9 @@ export async function GET() {
       accountingModel: {
         challengeStartingCash: capitalPlan?.bot_pool_capital ?? 100,
         programStartingCapital: capitalPlan?.total_capital ?? 1000,
-        reservedBotPools: capitalPlan?.reserved_bot_pools ?? 5,
-        allocatedBotCapital: capitalPlan?.allocated_capital ?? 500,
-        unallocatedReserve: capitalPlan?.unallocated_reserve ?? 500,
+        reservedBotPools: capitalPlan?.reserved_bot_pools ?? 6,
+        allocatedBotCapital: capitalPlan?.allocated_capital ?? 600,
+        unallocatedReserve: capitalPlan?.unallocated_reserve ?? 400,
         currency: capitalPlan?.currency ?? "USD",
         virtualLedgerIsAuthority: true,
         executionVenueBalanceIsNotProgramCapital: true,
