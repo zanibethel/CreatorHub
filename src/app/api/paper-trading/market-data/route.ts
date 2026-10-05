@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +34,7 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Provide up to 20 comma-separated stock symbols and/or 10 USD crypto pairs." }, { status: 400 });
   }
 
-  const stocksPromise = stockSymbols.length ? fetchStockQuotes(stockSymbols) : Promise.resolve({});
+  const stocksPromise = stockSymbols.length ? fetchPreferredStockQuotes(stockSymbols) : Promise.resolve(null);
   const stockBarsPromise = stockSymbols.length && includeHistory ? fetchStockBars(stockSymbols) : Promise.resolve({});
   const [stocksResult, barsResult, ...cryptoResults] = await Promise.allSettled([
     stocksPromise,
@@ -55,7 +56,9 @@ export async function GET(request: Request) {
     return [];
   });
 
-  const stocks = stocksResult.status === "fulfilled" ? stocksResult.value : {};
+  const stockBatch = stocksResult.status === "fulfilled" ? stocksResult.value : null;
+  if (stockBatch?.providerError) errors.stockProvider = `${stockBatch.providerError} Using IEX fallback.`;
+  const stocks = stockBatch?.quotes ?? {};
   const stockBars = barsResult.status === "fulfilled" ? barsResult.value : {};
   const hasQuotes = Object.values(stocks).some(Boolean) || crypto.some(book => book.bestBid || book.bestAsk);
   if (!hasQuotes) {
@@ -68,7 +71,11 @@ export async function GET(request: Request) {
   return NextResponse.json({
     collectedAt: new Date().toISOString(),
     sources: {
-      stocks: stockSymbols.length ? "US equities single-exchange feed" : null,
+      stocks: stockSymbols.length
+        ? stockBatch?.source === "tradier-consolidated"
+          ? "Tradier consolidated real-time"
+          : "Alpaca IEX real-time fallback"
+        : null,
       crypto: cryptoProducts.length ? "Kraken public order book" : null,
     },
     stocks,
@@ -80,34 +87,6 @@ export async function GET(request: Request) {
   }, { headers: { "Cache-Control": "no-store" } });
 }
 
-async function fetchStockQuotes(symbols: string[]) {
-  const key = process.env.ALPACA_API_KEY_ID;
-  const secret = process.env.ALPACA_API_SECRET_KEY;
-  if (!key || !secret) throw new Error("Market-data credentials are not configured on the server.");
-
-  const query = new URLSearchParams({ symbols: symbols.join(","), feed: "iex" });
-  const response = await fetch(`https://data.alpaca.markets/v2/stocks/quotes/latest?${query.toString()}`, {
-    headers: { "APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret },
-    cache: "no-store",
-    signal: AbortSignal.timeout(10_000),
-  });
-  if (!response.ok) throw new Error(`Market-data feed returned HTTP ${response.status}.`);
-
-  const payload = await response.json() as {
-    quotes?: Record<string, { ap?: number; as?: number; bp?: number; bs?: number; t?: string }>;
-  };
-  return Object.fromEntries(symbols.map((symbol) => {
-    const quote = payload.quotes?.[symbol];
-    return [symbol, quote ? {
-      bid: quote.bp ?? null,
-      bidSize: quote.bs ?? null,
-      ask: quote.ap ?? null,
-      askSize: quote.as ?? null,
-      timestamp: quote.t ?? null,
-    } : null];
-  }));
-}
-
 async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[]>> {
   const key = process.env.ALPACA_API_KEY_ID;
   const secret = process.env.ALPACA_API_SECRET_KEY;
@@ -117,7 +96,7 @@ async function fetchStockBars(symbols: string[]): Promise<Record<string, Candle[
     symbols: symbols.join(","),
     timeframe: "1Day",
     limit: "1000",
-    feed: "iex",
+    feed: "sip",
     start: new Date(Date.now() - 60 * 86_400_000).toISOString(),
     adjustment: "split",
     sort: "asc",
