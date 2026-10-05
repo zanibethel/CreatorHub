@@ -200,7 +200,7 @@ export function buildPaperStrategyReview(input: {
       recommendations.push({
         id:"collect-more-evidence",
         severity:"info",
-        title:"Keep collecting PAPER evidence",
+        title:"Keep collecting simulation evidence",
         rationale:`Only ${outcomeEvidenceCount} resolved outcome samples are available. Parameter changes are intentionally withheld until at least ${evidenceMaturity.minimumForRecommendations} resolved outcomes exist.`,
         evidenceCount:outcomeEvidenceCount,
         advisoryOnly:true,
