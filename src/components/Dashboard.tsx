@@ -402,7 +402,7 @@ export default function Dashboard({ userId }: { userId: string }) {
         </div>
         <div style={{ display: "flex", gap: 7 }}>
           <a href="/paper-trading" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
-            Paper Trading Lab
+            Trading Lab
           </a>
           <a href="/paper-trading/bots" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
             Bot Lab
