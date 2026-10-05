@@ -26,6 +26,7 @@ import usePaperProspects, { type PaperProspect } from "./usePaperProspects";
 import useSharedWatchlist from "./useSharedWatchlist";
 import useSwingReadiness from "./useSwingReadiness";
 import useCryptoSwingReadiness from "./useCryptoSwingReadiness";
+import useSqueezeBreakoutReadiness from "./useSqueezeBreakoutReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import styles from "./PaperTradingLab.module.css";
 
@@ -84,6 +85,7 @@ function botShortName(profile: PaperBotProfile) {
   if (profile.id === "weekend-crypto-day-100") return "Daily Crypto";
   if (profile.id === "three-trade-weekly-swing-100") return "Weekly Swing";
   if (profile.id === "crypto-swing-100") return "Crypto Swing";
+  if (profile.id === "squeeze-breakout-100") return "Squeeze Breakout";
   if (profile.id === "penny-volatility-day-100") return "Penny Volatility";
   return "Default Diverse";
 }
@@ -394,6 +396,7 @@ export default function PaperBotLab() {
   const { report: ledgerReport, error: ledgerError, refresh: refreshLedgers } = usePaperBotLedgers();
   const { report: swingReadiness, error: swingReadinessError } = useSwingReadiness();
   const { report: cryptoSwingReadiness, error: cryptoSwingReadinessError } = useCryptoSwingReadiness();
+  const { report: squeezeReadiness, error: squeezeReadinessError } = useSqueezeBreakoutReadiness();
   const { report: cryptoReadiness, error: cryptoReadinessError } = useWeekendCryptoReadiness();
   const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
   const { report: prospectReport, error: prospectError } = usePaperProspects();
@@ -683,6 +686,7 @@ export default function PaperBotLab() {
     "swing-readiness": swingTradePlans,
     "crypto-readiness": cryptoTradePlans,
     "crypto-swing-readiness": cryptoSwingReadiness?.plans ?? [],
+    "squeeze-breakout-readiness": squeezeReadiness?.plans ?? [],
   } satisfies Record<Exclude<PaperBotProfile["tradePlan"]["source"], "not-configured">, PaperBotTradePlan[]>;
 
   const candidateTradePlans = profile.tradePlan.source === "not-configured"
@@ -751,16 +755,16 @@ export default function PaperBotLab() {
 
   const capitalModel = ledgerReport?.accountingModel;
   const programCapital = capitalModel?.programStartingCapital ?? 1000;
-  const reservedBotPools = capitalModel?.reservedBotPools ?? 5;
+  const reservedBotPools = capitalModel?.reservedBotPools ?? 6;
   const botPoolCapital = capitalModel?.challengeStartingCash ?? 100;
-  const unallocatedReserve = capitalModel?.unallocatedReserve ?? 500;
+  const unallocatedReserve = capitalModel?.unallocatedReserve ?? 400;
 
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
       <div>
         <Link href="/paper-trading">← Paper Trading</Link>
         <h1>PAPER Bot Portfolios</h1>
-        <p>A $1,000 virtual PAPER fund reserves five $100 bot pools now, with the remaining $500 held for future bots. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot.</p>
+        <p>A $1,000 virtual PAPER fund reserves six $100 bot pools now, with the remaining $400 held for future bots. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot.</p>
       </div>
       <div className={styles.botLabActions}><button onClick={refreshAll}>Refresh</button></div>
     </header>
@@ -815,9 +819,9 @@ export default function PaperBotLab() {
       {views.map(item => <button key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
     </nav>
 
-    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError || prospectMarketError
+    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || squeezeReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError || prospectMarketError
       ? <div className={styles.portfolioWarnings}>
-          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError, prospectMarketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
+          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, squeezeReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError, prospectMarketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
         </div>
       : null}
 
@@ -850,6 +854,7 @@ export default function PaperBotLab() {
       {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
       {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a PAPER submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
       {profile.id === "crypto-swing-100" ? <p className={styles.portfolioNote}>Crypto Swing v1 uses 1-hour trend, momentum, volume expansion and breakout structure for 1-7 day reference plans. It receives only scanner-assigned crypto prospects. PAPER execution is intentionally disabled while we collect initial swing evidence.</p> : null}
+      {profile.id === "squeeze-breakout-100" ? <p className={styles.portfolioNote}>Squeeze Breakout v1 looks for an extended compressed stock base, historically quieter volume, then increasing relative-volume pace as price presses toward or through the base high. The 20–30% opportunity zone is a target scenario, not a prediction. PAPER execution stays disabled while we validate the signal.</p> : null}
     </PortfolioPanel> : null}
 
     {view === "prospects" ? <div className={styles.portfolioSingleColumn}>
