@@ -126,3 +126,11 @@ test("ready-quality squeeze remains non-executable while PAPER research executio
   assert.ok(Math.abs(plan.plan.projectedProfitPct - 25) < 0.0001);
   assert.match(plan.warnings.join(" "), /execution.*not armed/i);
 });
+
+
+test("squeeze strategy explicitly includes the requested penny stock range", () => {
+  const scannerConfig = strategy.SQUEEZE_BREAKOUT_STRATEGY_V1.scanner;
+  assert.equal(scannerConfig.minimumPriceUsd, 0.08);
+  assert.equal(scannerConfig.pennyStockMaximumPriceUsd, 5);
+  assert.ok(scannerConfig.maximumPriceUsd > scannerConfig.pennyStockMaximumPriceUsd);
+});
