@@ -2,10 +2,11 @@ import { PAPER_STRATEGY_V1 } from "./paper-strategy-config";
 import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
 import { ACTIVE_DAILY_CRYPTO_DAY_STRATEGY } from "./paper-weekend-crypto-strategy-config";
 import { CRYPTO_SWING_STRATEGY_V1 } from "./paper-crypto-swing-strategy-config";
+import { SQUEEZE_BREAKOUT_STRATEGY_V1 } from "./paper-squeeze-breakout-strategy-config";
 import { PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION } from "./paper-bot-trade-plan";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
-export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "crypto-swing-readiness" | "not-configured";
+export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "crypto-swing-readiness" | "squeeze-breakout-readiness" | "not-configured";
 
 export type PaperBotProfile = {
   id: string;
@@ -157,6 +158,36 @@ export const CRYPTO_SWING_BOT: PaperBotProfile = {
   ],
 };
 
+export const SQUEEZE_BREAKOUT_BOT: PaperBotProfile = {
+  id: "squeeze-breakout-100",
+  name: "$100 Squeeze Breakout Bot",
+  status: "active",
+  challengeStartingCash: 100,
+  brokerTag: "sqz",
+  strategyId: SQUEEZE_BREAKOUT_STRATEGY_V1.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "squeeze-breakout-readiness" },
+  style: "Base-compression and volume-ignition stock breakout strategy targeting asymmetric 20–30% opportunity zones",
+  universe: {
+    assetClasses: ["stock"],
+    description: "Dynamic stock candidates discovered by the dedicated Squeeze Scanner after an extended compressed base and renewed volume activity.",
+    maximumPriceUsd: SQUEEZE_BREAKOUT_STRATEGY_V1.scanner.maximumPriceUsd,
+  },
+  cadence: {
+    description: "Short-horizon breakout trades held intraday to several sessions; maximum two new entries per day and two open positions once PAPER execution is armed.",
+  },
+  isolation: {
+    separateVirtualLedger: true,
+    sharePositionsWithOtherBots: false,
+    shareRiskBudgetWithOtherBots: false,
+  },
+  notes: [
+    "The scanner looks for roughly 20–60 trading days of price compression, historical volume contraction, and renewed relative-volume pace near a base-high breakout.",
+    "The 20–30% range is an opportunity zone, not an expected or guaranteed return. Strategy v1 uses a 25% reference target with a 15% partial-profit reference and trailing remainder.",
+    "Squeeze Breakout v1 is active for PAPER research and reference-plan tracking. Broker execution remains intentionally disabled until signal quality is validated.",
+    "A candidate is not assumed to be a true short squeeze unless future data adds actual short-interest/borrow evidence.",
+  ],
+};
+
 export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   id: "weekend-crypto-day-100",
   name: "$100 Daily Crypto Day Bot",
@@ -192,6 +223,7 @@ export const PAPER_BOT_PROFILES = [
   PENNY_VOLATILITY_DAY_BOT,
   THREE_TRADE_SWING_BOT,
   CRYPTO_SWING_BOT,
+  SQUEEZE_BREAKOUT_BOT,
   DAILY_CRYPTO_DAY_BOT,
 ] as const;
 
