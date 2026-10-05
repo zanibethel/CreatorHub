@@ -4,7 +4,7 @@
 
 `/paper-trading` opens a public interactive report directly, without account setup or sign-in. The user requested a report, not a built-in paper-trade simulator. Do not add simulator controls or a simulator engine to this report. The page is read-only and never routes orders.
 
-The PAPER program starts with a persisted $1,000 virtual fund. Five $100 bot pools are reserved now and $500 remains unallocated. Each strategy sizes risk from its own virtual ledger; external PAPER execution-account balances are infrastructure only and are not strategy capital. Bot-attributed fills will be reconciled into the appropriate virtual ledger; untagged broker activity must never silently change challenge performance. The public report deliberately excludes credentials, account identifiers, client order identifiers and personal details.
+The PAPER program starts with a persisted $1,000 virtual fund. Six $100 bot pools are reserved now and $400 remains unallocated. Each strategy sizes risk from its own virtual ledger; external PAPER execution-account balances are infrastructure only and are not strategy capital. Bot-attributed fills will be reconciled into the appropriate virtual ledger; untagged broker activity must never silently change challenge performance. The public report deliberately excludes credentials, account identifiers, client order identifiers and personal details.
 
 ## Five report views
 
