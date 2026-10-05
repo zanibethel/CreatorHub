@@ -176,7 +176,7 @@ export function evaluateSqueezeBreakoutCandidate(input: {
   if (score >= strategy.setup.readyScore && !volumeReady) warnings.push("High setup score, but relative-volume ignition has not reached the READY threshold.");
   if (score >= strategy.setup.readyScore && !breakoutConfirmed) warnings.push("High setup score, but price has not confirmed the base-high breakout.");
   if (breakoutPct != null && !notOverChased) warnings.push("Price is already beyond the v1 maximum chase distance.");
-  if (strategyReady && !ledger.executionEnabled) warnings.push("Strategy gates pass, but Squeeze Breakout PAPER execution is intentionally not armed yet.");
+  if (strategyReady && !ledger.executionEnabled) warnings.push("Strategy gates pass, but Squeeze Breakout automated execution is intentionally not armed yet.");
 
   const state = strategyReady
     ? ledger.executionEnabled ? "READY" : "QUALIFIED"
