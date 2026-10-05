@@ -172,7 +172,7 @@ Current six reserved $100 pools:
 5. `squeeze-breakout-100` — active research-only under `squeeze-breakout-v1`; dedicated compressed-base / volume-ignition stock scanner with PAPER execution disabled during initial validation.
 6. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
 
-No additional bot receives capital automatically. Future bots must be explicitly assigned from the remaining $500 reserve.
+No additional bot receives capital automatically. Future bots must be explicitly assigned from the remaining $400 reserve.
 
 New bots should be added to this registry with a unique ID, unique short broker tag, $100 challenge capital, isolated ledger, strategy version, universe, cadence constraints, and explicit activation status.
 
