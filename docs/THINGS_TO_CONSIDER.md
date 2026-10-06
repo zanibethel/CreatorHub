@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-05
+Last reviewed: 2026-10-06
 
 ## Status key
 
@@ -66,7 +66,8 @@ Do **not** let a newsletter mention create an entry signal or override spread/li
 ## 2. Prospect Scanner cadence is configured for 10 minutes
 
 **Status:** Recommend review  
-**Added:** 2026-10-05
+**Added:** 2026-10-05  
+**Last reviewed:** 2026-10-06
 
 ### Finding
 `src/lib/paper-prospect-scanner-config.ts` currently contains:
@@ -91,12 +92,16 @@ Before changing:
 ### Recommendation
 Move to five minutes if current provider limits and scheduler behavior support it, but verify the end-to-end cadence rather than changing only the displayed/config value.
 
+### 2026-10-06 evidence update
+The canonical config was rechecked and still reads `cadenceMinutes: 10`. No scheduler or production change was made. The five-minute change remains an approval item and still needs provider/runtime/load verification.
+
 ---
 
 ## 3. 2026-10-05 prepared swing candidates received market confirmation but still require revalidation
 
-**Status:** Time-sensitive observation  
-**Added:** 2026-10-05
+**Status:** Superseded / counterfactual follow-up  
+**Added:** 2026-10-05  
+**Last reviewed:** 2026-10-06
 
 ### Finding
 The prepared swing candidates QQQ, NVDA, and MSFT traded into/near their previously staged entry regions during a strong technology/Nasdaq session.
@@ -112,12 +117,25 @@ This supports the original continuation/breakout thesis but does not replace the
 ### Recommendation
 Treat this as evidence for the journal/counterfactual system. Do not hard-code or permanently boost these symbols because of one session.
 
+### 2026-10-06 evidence update
+At about 8:56 a.m. Central, external market data showed:
+- QQQ about $760.81, slightly above the prior $760.11 maximum entry;
+- NVDA about $242.40, above the prior $240.63 maximum entry;
+- MSFT about $532.04, above the prior $528.82 maximum entry.
+
+The prior entry windows should therefore be treated as stale pending the strategy's own persisted revalidation. Do not chase or rewrite the historical plan. Preserve the original proposal and measure the subsequent counterfactual outcome.
+
+Market context: the S&P 500 briefly reached an intraday record while the Nasdaq traded at record highs as yields and oil eased.
+
+Reference: https://www.reuters.com/business/wall-st-futures-rise-yields-oil-dip-2026-10-06/
+
 ---
 
 ## 4. Crypto volume expansion without clean bot-review qualification
 
 **Status:** Monitor  
-**Added:** 2026-10-05
+**Added:** 2026-10-05  
+**Last reviewed:** 2026-10-06
 
 ### Finding
 Research snapshot:
@@ -137,21 +155,30 @@ Track subsequent 1h/4h/24h outcomes for combinations of:
 - spread;
 - broader BTC regime.
 
+### 2026-10-06 evidence update
+Bitcoin was rejected near $87,000 for the third time since September 23 and remained near $86,000, while ETH and SOL were modestly negative in the reviewed snapshot. ADA showed a stronger multi-session move but was also off its intraday high. This increases breakout/reversal uncertainty rather than supplying a new entry authorization.
+
 ### Recommendation
-Collect evidence before changing score weights.
+Collect evidence before changing score weights. Preserve the $87,000 BTC area as research context, but require the existing quote, spread, trend, breakout, fee-coverage, and score gates.
+
+Reference: https://www.coindesk.com/markets/2026/10/06/bitcoin-keeps-getting-rejected-at-usd87-000-as-stocks-hover-near-records
 
 ---
 
 ## 5. Squeeze liquidity gates appear to be protecting against headline-chasing
 
-**Status:** Monitor / validation evidence  
-**Added:** 2026-10-05
+**Status:** Monitor / stronger validation evidence  
+**Added:** 2026-10-05  
+**Last reviewed:** 2026-10-06
 
 ### Finding
 BSBR was the strongest current squeeze candidate in the reviewed snapshot but remained below the watchlist threshold. FNGR showed a notable positive session move while the scanner still rejected it because the observed setup/liquidity quality was poor, including a very wide quoted spread in the snapshot.
 
 ### Why it may matter
 This is the behavior we want: price movement alone should not qualify a squeeze trade.
+
+### 2026-10-06 evidence update
+At about 8:57 a.m. Central, FNGR was about $0.2467 and down roughly 8.6% after the prior session's positive move. BSBR was about $5.80 and up only about 0.35%. This is consistent with the scanner refusing to promote a flashy but poor-liquidity move and supports retaining the existing gates.
 
 ### Recommendation
 Preserve spread/liquidity gates. Use future outcomes to test whether thresholds are too strict or appropriately filtering false positives rather than loosening them because an individual rejected symbol later moves.
