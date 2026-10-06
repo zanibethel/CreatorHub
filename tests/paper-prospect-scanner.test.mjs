@@ -40,7 +40,7 @@ test("strong liquid stock prospect reaches bot review threshold", () => {
     nearHighPct:0.7,
     sourceFlags:["top stock gainer","most-active stock"],
   });
-  assert.ok(result.score >= config.PAPER_PROSPECT_SCANNER_V1.thresholds.botReviewScore);
+  assert.ok(result.score >= config.PAPER_PROSPECT_SCANNER_V2.thresholds.botReviewScore);
   assert.equal(result.status,"review-ready");
   assert.equal(result.watchlistEligible,true);
   assert.equal(result.botReviewEligible,true);
@@ -78,7 +78,7 @@ test("crypto momentum and volume expansion can promote a new prospect", () => {
     nearHighPct:1.5,
     sourceFlags:["top crypto gainer"],
   });
-  assert.ok(result.score >= config.PAPER_PROSPECT_SCANNER_V1.thresholds.botReviewScore);
+  assert.ok(result.score >= config.PAPER_PROSPECT_SCANNER_V2.thresholds.botReviewScore);
   assert.equal(result.status,"review-ready");
   assert.deepEqual(Array.from(result.suggestedBotIds), ["weekend-crypto-day-100","crypto-swing-100","default-diverse"]);
 });
@@ -96,8 +96,58 @@ test("ordinary movement stays below prospect watchlist threshold", () => {
     nearHighPct:8,
     sourceFlags:[],
   });
-  assert.ok(result.score < config.PAPER_PROSPECT_SCANNER_V1.thresholds.watchlistScore);
+  assert.ok(result.score < config.PAPER_PROSPECT_SCANNER_V2.thresholds.watchlistScore);
   assert.equal(result.watchlistEligible,false);
   assert.equal(result.botReviewEligible,false);
   assert.deepEqual(Array.from(result.suggestedBotIds), []);
+});
+
+
+test("verified positive news can lift a borderline prospect but remains capped", () => {
+  const base = {
+    assetClass:"stock",
+    symbol:"NEWS",
+    price:25,
+    percentChange:2,
+    spreadPct:0.20,
+    volume:2_000_000,
+    previousVolume:1_500_000,
+    activityRank:60,
+    nearHighPct:2.5,
+    sourceFlags:["most-active stock"],
+  };
+  const withoutNews = scanner.scoreProspect(base);
+  const withNews = scanner.scoreProspect({
+    ...base,
+    newsImpact: config.PAPER_PROSPECT_SCANNER_V2.news.maxScannerImpactPoints,
+  });
+  assert.equal(
+    Number((withNews.score - withoutNews.score).toFixed(2)),
+    config.PAPER_PROSPECT_SCANNER_V2.news.maxScannerImpactPoints,
+  );
+  assert.equal(
+    withNews.components.news,
+    config.PAPER_PROSPECT_SCANNER_V2.news.maxScannerImpactPoints,
+  );
+});
+
+test("negative news can reduce score but does not create a new risk bypass", () => {
+  const result = scanner.scoreProspect({
+    assetClass:"crypto",
+    symbol:"RISK/USD",
+    price:2,
+    percentChange:8,
+    spreadPct:0.12,
+    volume:4_000_000,
+    previousVolume:1_000_000,
+    activityRank:null,
+    nearHighPct:1,
+    sourceFlags:["top crypto gainer"],
+    newsImpact:-999,
+  });
+  assert.equal(
+    result.components.news,
+    -config.PAPER_PROSPECT_SCANNER_V2.news.maxScannerImpactPoints,
+  );
+  assert.ok(result.score >= 0 && result.score <= 100);
 });
