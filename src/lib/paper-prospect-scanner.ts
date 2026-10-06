@@ -1,4 +1,4 @@
-import { PAPER_PROSPECT_SCANNER_V1 as config } from "./paper-prospect-scanner-config";
+import { PAPER_PROSPECT_SCANNER_V2 as config } from "./paper-prospect-scanner-config";
 
 export type ProspectAssetClass = "stock" | "crypto";
 export type ProspectStatus = "candidate" | "watchlist" | "review-ready" | "expired";
@@ -14,6 +14,7 @@ export type ProspectScoreInput = {
   activityRank: number | null;
   nearHighPct: number | null;
   sourceFlags: string[];
+  newsImpact?: number | null;
 };
 
 export type ProspectScoreResult = {
@@ -28,6 +29,7 @@ export type ProspectScoreResult = {
     liquidity: number;
     volumeExpansion: number;
     structure: number;
+    news: number;
   };
   reasons: string[];
 };
@@ -155,10 +157,13 @@ export function scoreProspect(input: ProspectScoreInput): ProspectScoreResult {
   const liquidity = liquidityScore(input);
   const volumeExpansion = volumeExpansionScore(input);
   const structure = structureScore(input);
+  const news = finite(input.newsImpact)
+    ? clamp(input.newsImpact, -config.news.maxScannerImpactPoints, config.news.maxScannerImpactPoints)
+    : 0;
 
   const raw = input.assetClass === "crypto"
-    ? momentum + liquidity + volumeExpansion + structure
-    : momentum + activity + liquidity + volumeExpansion + structure;
+    ? momentum + liquidity + volumeExpansion + structure + news
+    : momentum + activity + liquidity + volumeExpansion + structure + news;
 
   const score = round(clamp(raw, 0, 100));
   const watchlistEligible = score >= config.thresholds.watchlistScore;
@@ -175,6 +180,7 @@ export function scoreProspect(input: ProspectScoreInput): ProspectScoreResult {
   if (positive(input.volume) && positive(input.previousVolume)) reasons.push(`${(input.volume / input.previousVolume).toFixed(2)}× prior-day volume`);
   if (finite(input.nearHighPct)) reasons.push(`${input.nearHighPct.toFixed(2)}% below session high`);
   if (finite(input.spreadPct)) reasons.push(`${input.spreadPct.toFixed(2)}% spread`);
+  if (news !== 0) reasons.push(`News impact ${news > 0 ? "+" : ""}${news.toFixed(2)} points`);
   for (const flag of input.sourceFlags) if (!reasons.includes(flag)) reasons.push(flag);
 
   return {
@@ -183,7 +189,7 @@ export function scoreProspect(input: ProspectScoreInput): ProspectScoreResult {
     watchlistEligible,
     botReviewEligible,
     suggestedBotIds: suggestedProspectBots({ assetClass: input.assetClass, price: input.price, botReviewEligible }),
-    components: { momentum, activity, liquidity, volumeExpansion, structure },
+    components: { momentum, activity, liquidity, volumeExpansion, structure, news },
     reasons,
   };
 }
