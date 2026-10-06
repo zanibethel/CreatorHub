@@ -12,6 +12,9 @@ const ALPACA_DATA = "https://data.alpaca.markets";
 const prospectSchema = z.object({
   symbol: z.string(),
   score: z.coerce.number().finite(),
+  news_score: z.coerce.number().finite().min(-100).max(100),
+  news_bot_impact: z.coerce.number().finite().min(-20).max(20),
+  news_evidence_count: z.coerce.number().int().nonnegative(),
   reasons: z.array(z.string()),
   first_seen_at: z.string(),
   assigned_bot_ids: z.array(z.string()),
@@ -92,7 +95,7 @@ export async function GET(request: Request) {
   try {
     const now = Date.now();
     const [prospectsRaw, ledgerRaw, positionsRaw] = await Promise.all([
-      readDb("paper_prospects?select=symbol,score,reasons,first_seen_at,assigned_bot_ids&asset_class=eq.crypto&status=neq.expired&order=score.desc,last_seen_at.desc&limit=40"),
+      readDb("paper_prospects?select=symbol,score,news_score,news_bot_impact,news_evidence_count,reasons,first_seen_at,assigned_bot_ids&asset_class=eq.crypto&status=neq.expired&order=score.desc,last_seen_at.desc&limit=40"),
       readDb(`paper_bot_ledgers?select=status,equity,buying_power,open_planned_risk_pct,metadata&bot_id=eq.${BOT_ID}&limit=1`),
       readDb(`paper_bot_positions?select=symbol,quantity&bot_id=eq.${BOT_ID}&quantity=gt.0&limit=20`),
     ]);
@@ -151,6 +154,8 @@ export async function GET(request: Request) {
           prospectScore:candidate.score,
           prospectReasons:candidate.reasons,
           firstSeenAt:candidate.first_seen_at,
+          newsScore:candidate.news_score,
+          newsBotImpact:candidate.news_bot_impact,
         },
         quote,
         bars:completedBars(barRecord[candidate.symbol], now),
