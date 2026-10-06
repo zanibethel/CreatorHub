@@ -1,8 +1,8 @@
-export const PAPER_PROSPECT_SCANNER_V1 = {
-  id: "paper-prospect-scanner-v1",
-  version: 1,
+export const PAPER_PROSPECT_SCANNER_V2 = {
+  id: "paper-prospect-scanner-v2",
+  version: 2,
   mode: "paper-research-only",
-  cadenceMinutes: 10,
+  cadenceMinutes: 5,
   thresholds: {
     observationScore: 40,
     watchlistScore: 65,
@@ -22,9 +22,15 @@ export const PAPER_PROSPECT_SCANNER_V1 = {
     quoteCurrency: "USD",
     maximumSpreadPct: 1.00,
   },
+  news: {
+    minimumConfidenceScore: 60,
+    maxSignalsPerSymbol: 8,
+    maxScannerImpactPoints: 8,
+    maxBotImpactPoints: 6,
+  },
   assignment: {
     pennyPriceCeilingUsd: 5,
   },
 } as const;
 
-export type PaperProspectScannerConfig = typeof PAPER_PROSPECT_SCANNER_V1;
+export type PaperProspectScannerConfig = typeof PAPER_PROSPECT_SCANNER_V2;
