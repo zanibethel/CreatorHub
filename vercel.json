@@ -11,7 +11,7 @@
     },
     {
       "path": "/api/paper-trading/prospects/scan",
-      "schedule": "*/10 * * * *"
+      "schedule": "*/5 * * * *"
     },
     {
       "path": "/api/paper-trading/bots/crypto-swing-readiness",
