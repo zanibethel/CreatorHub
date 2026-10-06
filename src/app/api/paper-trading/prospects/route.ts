@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
-import { PAPER_PROSPECT_SCANNER_V1 as config } from "@/lib/paper-prospect-scanner-config";
+import { PAPER_PROSPECT_SCANNER_V2 as config } from "@/lib/paper-prospect-scanner-config";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +31,11 @@ const rowSchema = z.object({
   symbol: z.string(),
   status: z.enum(["candidate","watchlist","review-ready","expired"]),
   score: z.coerce.number().finite().min(0).max(100),
+  news_score: z.coerce.number().finite().min(-100).max(100),
+  news_scanner_impact: z.coerce.number().finite().min(-20).max(20),
+  news_bot_impact: z.coerce.number().finite().min(-20).max(20),
+  news_evidence_count: z.coerce.number().int().nonnegative(),
+  news_score_updated_at: z.string().nullable(),
   price: z.coerce.number().finite().positive().nullable(),
   percent_change: z.coerce.number().finite().nullable(),
   spread_pct: z.coerce.number().finite().nonnegative().nullable(),
@@ -48,6 +53,7 @@ const rowSchema = z.object({
     liquidity: z.coerce.number().finite().nonnegative(),
     volumeExpansion: z.coerce.number().finite().nonnegative(),
     structure: z.coerce.number().finite().nonnegative(),
+    news: z.coerce.number().finite().min(-20).max(20),
   }),
   reasons: z.array(z.string()),
   source_flags: z.array(z.string()),
@@ -103,6 +109,11 @@ function mapSqueezeRow(row: z.infer<typeof squeezeRowSchema>): ProspectRow {
     symbol:row.symbol,
     status:row.status,
     score:row.score,
+    news_score:0,
+    news_scanner_impact:0,
+    news_bot_impact:0,
+    news_evidence_count:0,
+    news_score_updated_at:null,
     price:row.price,
     percent_change:row.session_change_pct,
     spread_pct:row.spread_pct,
@@ -120,6 +131,7 @@ function mapSqueezeRow(row: z.infer<typeof squeezeRowSchema>): ProspectRow {
       liquidity:row.score_components.liquidity,
       volumeExpansion:row.score_components.volumeDryness + row.score_components.volumeIgnition,
       structure:row.score_components.compression,
+      news:0,
     },
     reasons:row.reasons,
     source_flags:["squeeze-scanner", ...(isPenny ? ["penny-stock"] : [])],
@@ -188,7 +200,7 @@ export async function GET() {
   const trendCutoff = encodeURIComponent(new Date(Date.now() - 48 * 60 * 60_000).toISOString());
   const [response,trendResponse,squeezeResponse,squeezeTrendResponse] = await Promise.all([
     fetch(
-      `${SUPABASE_URL}/rest/v1/paper_prospects?select=asset_class,symbol,status,score,price,percent_change,spread_pct,volume,volume_ratio,activity_rank,near_high_pct,watchlist_eligible,bot_review_eligible,suggested_bot_ids,assigned_bot_ids,score_components,reasons,source_flags,source_updated_at,first_seen_at,first_watchlist_at,first_review_ready_at,last_seen_at,metadata&status=neq.expired&order=score.desc,last_seen_at.desc&limit=100`,
+      `${SUPABASE_URL}/rest/v1/paper_prospects?select=asset_class,symbol,status,score,news_score,news_scanner_impact,news_bot_impact,news_evidence_count,news_score_updated_at,price,percent_change,spread_pct,volume,volume_ratio,activity_rank,near_high_pct,watchlist_eligible,bot_review_eligible,suggested_bot_ids,assigned_bot_ids,score_components,reasons,source_flags,source_updated_at,first_seen_at,first_watchlist_at,first_review_ready_at,last_seen_at,metadata&status=neq.expired&order=score.desc,last_seen_at.desc&limit=100`,
       { headers, cache:"no-store", signal:AbortSignal.timeout(10_000) },
     ),
     fetch(
