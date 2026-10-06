@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
-import { PAPER_PROSPECT_SCANNER_V1 as config } from "@/lib/paper-prospect-scanner-config";
+import { PAPER_PROSPECT_SCANNER_V2 as config } from "@/lib/paper-prospect-scanner-config";
+import { aggregatePaperNewsSignals, type PaperNewsSignalRow } from "@/lib/paper-news-score";
 import {
   prospectVolumeRatio,
   scoreProspect,
@@ -134,6 +135,24 @@ export async function GET(request: Request) {
 
   const now = Date.now();
   const scannedAt = new Date(now).toISOString();
+
+  const newsDbHeaders: Record<string,string> = {
+    apikey: supabaseSecret,
+    Accept: "application/json",
+  };
+  if (supabaseSecret.startsWith("eyJ")) newsDbHeaders.Authorization = `Bearer ${supabaseSecret}`;
+  const activeNewsResponse = await fetch(
+    `${SUPABASE_URL}/rest/v1/paper_news_signals?select=symbol,news_score,confidence_score,source_name,headline,published_at&verified=eq.true&confidence_score=gte.${config.news.minimumConfidenceScore}&expires_at=gt.${encodeURIComponent(scannedAt)}&order=published_at.desc&limit=500`,
+    {
+      headers: newsDbHeaders,
+      cache: "no-store",
+      signal: AbortSignal.timeout(10_000),
+    },
+  );
+  const activeNewsRows = activeNewsResponse.ok
+    ? await activeNewsResponse.json() as PaperNewsSignalRow[]
+    : [];
+  const newsBySymbol = aggregatePaperNewsSignals(activeNewsRows);
 
   const [stockMoversRaw, stockActiveRaw, cryptoMoversRaw, cryptoAssetsRaw] = await Promise.all([
     fetchJson(`${DATA_URL}/v1beta1/screener/stocks/movers?top=${config.stock.topMovers}`),
@@ -317,8 +336,12 @@ export async function GET(request: Request) {
   ]);
 
   const provisional = normalized.map(input => {
-    const scored = scoreProspect(input);
-    return { input, scored };
+    const news = newsBySymbol.get(canonical(input.symbol)) ?? null;
+    const scored = scoreProspect({
+      ...input,
+      newsImpact: news?.scannerImpact ?? 0,
+    });
+    return { input, scored, news };
   });
 
   const stockNeedsValidation = provisional
@@ -340,7 +363,7 @@ export async function GET(request: Request) {
     }));
   }
 
-  const rows = provisional.map(({ input, scored }) => {
+  const rows = provisional.map(({ input, scored, news }) => {
     const validation = input.assetClass === "stock" && scored.watchlistEligible
       ? stockValidation.get(input.symbol)
       : null;
@@ -361,6 +384,11 @@ export async function GET(request: Request) {
       scanner_version: config.version,
       status: qualified.status,
       score: qualified.score,
+      news_score: news?.newsScore ?? 0,
+      news_scanner_impact: news?.scannerImpact ?? 0,
+      news_bot_impact: news?.botImpact ?? 0,
+      news_evidence_count: news?.evidenceCount ?? 0,
+      news_score_updated_at: news?.updatedAt ?? null,
       price: input.price,
       percent_change: input.percentChange,
       spread_pct: input.spreadPct,
@@ -386,6 +414,7 @@ export async function GET(request: Request) {
         validatedAssetName: validation?.name ?? null,
         discoveryOnly: true,
         orderAuthorization: false,
+        newsEvidence: news?.evidence ?? [],
       },
     };
   });
@@ -425,6 +454,11 @@ export async function GET(request: Request) {
       symbol: row.symbol,
       status: row.status === "expired" ? "candidate" : row.status,
       score: row.score,
+      news_score: row.news_score,
+      news_scanner_impact: row.news_scanner_impact,
+      news_bot_impact: row.news_bot_impact,
+      news_evidence_count: row.news_evidence_count,
+      news_score_updated_at: row.news_score_updated_at,
       price: row.price,
       percent_change: row.percent_change,
       spread_pct: row.spread_pct,
@@ -463,6 +497,8 @@ export async function GET(request: Request) {
       stockMarketDataFallback: liveStockBatch.fallback,
       stockHistorySource: "alpaca-sip-completed",
       cryptoCandidates: cryptoSymbols.length,
+      activeVerifiedNewsSignals: activeNewsRows.length,
+      symbolsWithNewsScore: newsBySymbol.size,
     },
     results: {
       evaluated: rows.length,
