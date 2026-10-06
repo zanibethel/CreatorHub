@@ -21,6 +21,8 @@ export type CryptoSwingCandidate = {
   prospectScore: number;
   prospectReasons: string[];
   firstSeenAt: string;
+  newsScore: number;
+  newsBotImpact: number;
 };
 
 export type CryptoSwingLedger = {
@@ -151,12 +153,15 @@ export function evaluateCryptoSwingCandidate(input: {
   if (finitePositive(fast) && finitePositive(slow) && fast > slow) trend += 20;
   if (finitePositive(close) && finitePositive(fast) && close > fast) trend += 10;
 
+  const newsImpact = clamp(candidate.newsBotImpact, -6, 6);
+
   const score = clamp(
     trend
       + momentumPoints(momentum)
       + structurePoints(distanceFromHighPct)
       + volumePoints(volumeExpansion)
-      + discoveryPoints(candidate.prospectScore),
+      + discoveryPoints(candidate.prospectScore)
+      + newsImpact,
     0,
     100,
   );
@@ -251,7 +256,7 @@ export function evaluateCryptoSwingCandidate(input: {
 
   const detail = blockers[0]
     ?? warnings[0]
-    ?? `Prospect ${candidate.prospectScore.toFixed(0)}/100 · 1-7 day crypto swing review.`;
+    ?? `Prospect ${candidate.prospectScore.toFixed(0)}/100 · news ${candidate.newsScore >= 0 ? "+" : ""}${candidate.newsScore.toFixed(0)}/100 (${newsImpact >= 0 ? "+" : ""}${newsImpact.toFixed(1)} bot points) · 1-7 day crypto swing review.`;
 
   return {
     contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION,
