@@ -1,5 +1,7 @@
 # PAPER Prospect Scanner
 
+> Product direction: the scanner, bot review, simulated execution, and visual dashboard must remain one shared automated path. See [AUTOMATED_SIGNAL_PRODUCT_PLAN.md](./AUTOMATED_SIGNAL_PRODUCT_PLAN.md).
+
 Status: active research scanner; simulated-trading discovery only; no order authority.
 
 ## Purpose
