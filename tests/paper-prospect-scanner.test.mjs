@@ -183,9 +183,9 @@ test("fresh acceleration and a recent catalyst can re-promote a large mover", ()
     price:31.25,
     percentChange:33.7,
     spreadPct:0.08,
-    volume:4_000_000,
-    previousVolume:2_000_000,
-    activityRank:20,
+    volume:2_000_000,
+    previousVolume:8_000_000,
+    activityRank:null,
     nearHighPct:0.2,
     sourceFlags:["most-active stock","recent market news"],
     gapPct:21.5,
@@ -195,9 +195,9 @@ test("fresh acceleration and a recent catalyst can re-promote a large mover", ()
     freshCatalystAgeMinutes:13,
     marketSession:"premarket",
   });
-  assert.ok(result.components.acceleration >= 18);
-  assert.ok(result.components.catalyst >= 6);
-  assert.ok(result.components.chasePenalty <= 8);
+  assert.ok(result.components.acceleration >= 22);
+  assert.ok(result.components.catalyst >= 8);
+  assert.equal(result.components.chasePenalty,0);
   assert.ok(result.score >= config.PAPER_PROSPECT_SCANNER_V2.thresholds.botReviewScore);
   assert.equal(result.status,"review-ready");
 });
