@@ -28,6 +28,7 @@ const planSchema = z.object({
   client_order_id: z.string().min(12).max(128),
   strategy_id: z.string().min(1),
   strategy_version: z.coerce.number().int().positive(),
+  asset_class: z.enum(["stock","etf"]),
   symbol: z.string().min(1).max(32),
   requested_notional: z.coerce.number().finite().positive(),
   entry_trigger: z.coerce.number().finite().positive(),
@@ -170,14 +171,12 @@ export async function GET(request: Request) {
   };
 
   try {
-    const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw, barsRaw, intradayRaw] = await Promise.all([
+    const [ledgerRaw, plansRaw, positionsRaw, priorRaw, clockRaw] = await Promise.all([
       readDb(`paper_bot_ledgers?select=status,equity,buying_power,open_planned_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,metadata&bot_id=eq.${BOT_ID}&limit=1`),
-      readDb(`paper_bot_orders?select=client_order_id,strategy_id,strategy_version,symbol,requested_notional,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,created_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,metadata&bot_id=eq.${BOT_ID}&side=eq.buy&status=eq.prepared&order=created_at.asc&limit=20`),
+      readDb(`paper_bot_orders?select=client_order_id,strategy_id,strategy_version,asset_class,symbol,requested_notional,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,created_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,metadata&bot_id=eq.${BOT_ID}&side=eq.buy&status=eq.prepared&order=created_at.asc&limit=20`),
       readDb(`paper_bot_positions?select=symbol,planned_risk_dollars&bot_id=eq.${BOT_ID}&quantity=gt.0&limit=20`),
       readDb(`paper_bot_orders?select=submitted_at,status&bot_id=eq.${BOT_ID}&side=eq.buy&status=in.(submitted,partially_filled,filled)&limit=100`),
       readAlpaca("https://paper-api.alpaca.markets/v2/clock"),
-      readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=QQQ,NVDA,MSFT,SPY&timeframe=1Day&limit=1000&feed=sip&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(Date.now()-45*86_400_000).toISOString())}&end=${encodeURIComponent(new Date(Date.now()-24*60*60_000).toISOString())}`),
-      readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=QQQ,NVDA,MSFT&timeframe=5Min&limit=1000&feed=iex&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(Date.now()-3*86_400_000).toISOString())}`),
     ]);
 
     const ledgerRows = z.array(ledgerSchema).parse(ledgerRaw);
@@ -187,14 +186,27 @@ export async function GET(request: Request) {
     const ledger = ledgerRows[0];
     if (!ledger) return json("Swing bot ledger is unavailable.");
 
+    const orderedPlanRows = [...planRows].sort((a,b) => {
+      const aScore = typeof a.metadata.scannerScore === "number" ? a.metadata.scannerScore : -1;
+      const bScore = typeof b.metadata.scannerScore === "number" ? b.metadata.scannerScore : -1;
+      return bScore - aScore || Date.parse(a.created_at) - Date.parse(b.created_at);
+    });
+    const planSymbols = [...new Set(orderedPlanRows.map(plan => plan.symbol))];
+    const historySymbols = [...new Set([...planSymbols,"SPY"])];
     const now = Date.now();
     const clock = clockRaw as AlpacaClock;
-    const liveQuoteBatch = await fetchPreferredStockQuotes(["QQQ","NVDA","MSFT","SPY"]);
+    const [barsRaw,intradayRaw,liveQuoteBatch] = await Promise.all([
+      readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=${encodeURIComponent(historySymbols.join(","))}&timeframe=1Day&limit=5000&feed=sip&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(now-45*86_400_000).toISOString())}&end=${encodeURIComponent(new Date(now-24*60*60_000).toISOString())}`),
+      planSymbols.length
+        ? readAlpaca(`https://data.alpaca.markets/v2/stocks/bars?symbols=${encodeURIComponent(planSymbols.join(","))}&timeframe=5Min&limit=5000&feed=iex&adjustment=split&sort=asc&start=${encodeURIComponent(new Date(now-3*86_400_000).toISOString())}`)
+        : Promise.resolve({ bars:{} }),
+      fetchPreferredStockQuotes(historySymbols),
+    ]);
     const quotes = liveQuoteBatch.quotes;
     const bars = (barsRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
     const intradayBarsRaw = (intradayRaw as { bars?: Record<string,AlpacaBar[]> }).bars ?? {};
     const completedIntradayBars = Object.fromEntries(
-      ["QQQ","NVDA","MSFT"].map(symbol => [
+      planSymbols.map(symbol => [
         symbol,
         (intradayBarsRaw[symbol] ?? [])
           .filter(bar => Number.isFinite(Date.parse(bar.t)) && Date.parse(bar.t) + 5*60_000 <= now)
@@ -205,7 +217,7 @@ export async function GET(request: Request) {
     const weeklyNewEntries = priorOrders.filter(order => order.submitted_at && Date.parse(order.submitted_at) >= weekStart).length;
 
     const trendValid: Record<string,boolean> = {};
-    for (const symbol of ["QQQ","NVDA","MSFT"]) {
+    for (const symbol of planSymbols) {
       const closes = (bars[symbol] ?? []).map(bar => bar.c).filter(value => Number.isFinite(value) && value > 0);
       const sma10 = average(closes.slice(-10));
       const sma20 = average(closes.slice(-20));
@@ -239,7 +251,7 @@ export async function GET(request: Request) {
       ? null
       : new Date(entryWindowOpen + strategy.execution.maximumMinutesAfterOpen * 60_000).toISOString();
 
-    const plans: SwingPreparedPlan[] = planRows.map(plan => ({
+    const plans: SwingPreparedPlan[] = orderedPlanRows.map(plan => ({
       symbol: plan.symbol,
       requestedNotional: plan.requested_notional,
       entryTrigger: plan.entry_trigger,
@@ -249,9 +261,10 @@ export async function GET(request: Request) {
       expiresAt: plan.expires_at,
     }));
 
-    const evidencePlans = planRows.map(plan => ({
+    const evidencePlans = orderedPlanRows.map(plan => ({
       clientOrderId: plan.client_order_id,
       symbol: plan.symbol,
+      assetClass: plan.asset_class,
       requestedNotional: plan.requested_notional,
       entryTrigger: plan.entry_trigger,
       maxEntryPrice: plan.max_entry_price,
@@ -348,7 +361,7 @@ export async function GET(request: Request) {
           plans: evidencePlans.map(plan => ({
             clientOrderId: plan.clientOrderId,
             symbol: plan.symbol,
-            assetClass: plan.symbol === "QQQ" ? "etf" as const : "stock" as const,
+            assetClass: plan.assetClass === "etf" ? "etf" as const : "stock" as const,
             createdAt: plan.createdAt,
             entryTrigger: plan.entryTrigger,
             maxEntryPrice: plan.maxEntryPrice,
@@ -413,7 +426,7 @@ export async function GET(request: Request) {
 
       for (const row of rows) {
         if (row.metadata.terminalDisposition !== "expired" || !row.client_order_id) continue;
-        const source = planRows.find(plan => plan.client_order_id === row.client_order_id);
+        const source = orderedPlanRows.find(plan => plan.client_order_id === row.client_order_id);
         if (!source) continue;
         await writeDb(
           `paper_bot_orders?client_order_id=eq.${encodeURIComponent(source.client_order_id)}&status=eq.prepared`,
@@ -435,7 +448,7 @@ export async function GET(request: Request) {
 
     const plansWithExecution = result.plans.map(readiness => {
       const sourcePlan = plans.find(plan => plan.symbol === readiness.symbol);
-      const storedPlan = planRows.find(plan => plan.symbol === readiness.symbol);
+      const storedPlan = orderedPlanRows.find(plan => plan.symbol === readiness.symbol);
       const referenceQuantity = sourcePlan?.entryTrigger
         ? sourcePlan.requestedNotional / sourcePlan.entryTrigger
         : null;
