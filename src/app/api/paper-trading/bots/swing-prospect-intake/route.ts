@@ -167,6 +167,9 @@ export async function GET(request:Request){
       ...positions.map(row=>row.symbol),
       ...activeOrders.map(row=>row.symbol),
     ]);
+    const ownReservedSlots=
+      positions.filter(row=>row.bot_id===BOT_ID).length
+      + activeOrders.filter(row=>row.bot_id===BOT_ID).length;
 
     if(!prospects.length){
       return reply({ok:true,action:"none",reason:"no-review-ready-swing-prospects",session});
@@ -214,10 +217,13 @@ export async function GET(request:Request){
     const journalRows:Record<string,unknown>[]=[];
     const staged:Record<string,unknown>[]=[];
     const dispositions:Record<string,unknown>[]=[];
-    let stageSlots=3;
+    let stageSlots=Math.max(0,strategy.cadence.maximumOpenPositions-ownReservedSlots);
 
     for(const prospect of prospects){
       const quote=liveQuotes.quotes[prospect.symbol];
+      const freshSpreadPct=quote?.bid!=null&&quote?.ask!=null&&quote.bid>0&&quote.ask>=quote.bid
+        ? (quote.ask-quote.bid)/((quote.ask+quote.bid)/2)*100
+        : prospect.spread_pct;
       const components=prospect.score_components;
       const disposition=evaluateSwingProspectIntake({
         symbol:prospect.symbol,
@@ -228,7 +234,7 @@ export async function GET(request:Request){
         assignedBotIds:prospect.assigned_bot_ids,
         price:prospect.price,
         percentChange:prospect.percent_change,
-        spreadPct:prospect.spread_pct,
+        spreadPct:freshSpreadPct,
         scoreComponents:{
           momentum:numberRecord(components,"momentum"),
           activity:numberRecord(components,"activity"),
@@ -334,7 +340,7 @@ export async function GET(request:Request){
         market_snapshot:{
           price:prospect.price,
           percentChange:prospect.percent_change,
-          spreadPct:prospect.spread_pct,
+          spreadPct:freshSpreadPct,
           bid:quote?.bid??null,
           ask:quote?.ask??null,
           quoteAt:quote?.timestamp??null,
