@@ -138,30 +138,30 @@ function accelerationScore(input: ProspectScoreInput) {
   if (input.assetClass !== "stock") return 0;
 
   const score5m = finite(input.recent5mChangePct) && input.recent5mChangePct > 0
-    ? input.recent5mChangePct >= 5 ? 20
-      : input.recent5mChangePct >= 3 ? 18
-        : input.recent5mChangePct >= 2 ? 16
-          : input.recent5mChangePct >= 1 ? 12
-            : input.recent5mChangePct >= 0.5 ? 8
-              : input.recent5mChangePct >= 0.25 ? 4
+    ? input.recent5mChangePct >= 5 ? 25
+      : input.recent5mChangePct >= 3 ? 22
+        : input.recent5mChangePct >= 2 ? 19
+          : input.recent5mChangePct >= 1 ? 15
+            : input.recent5mChangePct >= 0.5 ? 10
+              : input.recent5mChangePct >= 0.25 ? 5
                 : 0
     : 0;
   const score15m = finite(input.recent15mChangePct) && input.recent15mChangePct > 0
-    ? input.recent15mChangePct >= 8 ? 20
-      : input.recent15mChangePct >= 5 ? 18
-        : input.recent15mChangePct >= 3 ? 15
-          : input.recent15mChangePct >= 2 ? 12
-            : input.recent15mChangePct >= 1 ? 8
-              : input.recent15mChangePct >= 0.5 ? 4
+    ? input.recent15mChangePct >= 8 ? 25
+      : input.recent15mChangePct >= 5 ? 22
+        : input.recent15mChangePct >= 3 ? 18
+          : input.recent15mChangePct >= 2 ? 15
+            : input.recent15mChangePct >= 1 ? 10
+              : input.recent15mChangePct >= 0.5 ? 5
                 : 0
     : 0;
   const score60m = finite(input.recent60mChangePct) && input.recent60mChangePct > 0
-    ? input.recent60mChangePct >= 12 ? 20
-      : input.recent60mChangePct >= 8 ? 18
-        : input.recent60mChangePct >= 5 ? 15
-          : input.recent60mChangePct >= 3 ? 12
-            : input.recent60mChangePct >= 1.5 ? 8
-              : input.recent60mChangePct >= 0.75 ? 4
+    ? input.recent60mChangePct >= 12 ? 25
+      : input.recent60mChangePct >= 8 ? 22
+        : input.recent60mChangePct >= 5 ? 18
+          : input.recent60mChangePct >= 3 ? 15
+            : input.recent60mChangePct >= 1.5 ? 10
+              : input.recent60mChangePct >= 0.75 ? 5
                 : 0
     : 0;
 
@@ -178,8 +178,8 @@ function catalystScore(input: ProspectScoreInput) {
   ) return 0;
 
   const age = input.freshCatalystAgeMinutes;
-  const score = age <= 15 ? 8
-    : age <= 30 ? 7
+  const score = age <= 15 ? 10
+    : age <= 30 ? 8
       : age <= 60 ? 6
         : age <= 120 ? 4
           : age <= config.timing.catalystFreshMinutes ? 2
@@ -191,10 +191,12 @@ function chasePenaltyScore(input: ProspectScoreInput, acceleration: number, cata
   if (input.assetClass !== "stock" || !finite(input.percentChange) || input.percentChange < 15) return 0;
 
   const change = input.percentChange;
-  const freshContinuation = acceleration >= 12 || catalyst >= 6;
+  const freshContinuation = acceleration >= 12;
   let penalty = 0;
 
-  if (freshContinuation) {
+  if (freshContinuation && input.marketSession === "premarket") {
+    penalty = 0;
+  } else if (freshContinuation) {
     if (change >= 35) penalty = 8;
     else if (change >= 25) penalty = 5;
     else penalty = 2;
