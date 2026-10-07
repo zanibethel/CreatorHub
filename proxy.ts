@@ -40,12 +40,13 @@ export async function proxy(request: NextRequest) {
   if (access?.access_level === "full") return response;
 
   const pathname = request.nextUrl.pathname;
-  const allowedPage = pathname === "/upload" || pathname === "/download";
+  const allowedPage = pathname === "/upload" || pathname === "/download" || pathname === "/password";
   const allowedFileApi = pathname.startsWith("/api/files/");
   const allowedAuthApi =
     pathname === "/api/auth/login" ||
     pathname === "/api/auth/signup" ||
-    pathname === "/api/auth/logout";
+    pathname === "/api/auth/logout" ||
+    pathname === "/api/auth/change-password";
 
   if (allowedPage || allowedFileApi || allowedAuthApi) return response;
 
