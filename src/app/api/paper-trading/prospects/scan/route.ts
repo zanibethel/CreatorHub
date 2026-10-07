@@ -104,6 +104,38 @@ function canonical(value: string) {
   return value.replace("-", "/").toUpperCase();
 }
 
+function marketSessionAt(timestamp: number): "premarket" | "regular" | "after-hours" | "closed" {
+  const parts = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/New_York",
+    weekday: "short",
+    hour: "2-digit",
+    minute: "2-digit",
+    hourCycle: "h23",
+  }).formatToParts(new Date(timestamp));
+  const weekday = parts.find(part => part.type === "weekday")?.value ?? "";
+  if (weekday === "Sat" || weekday === "Sun") return "closed";
+  const hour = Number(parts.find(part => part.type === "hour")?.value ?? "0");
+  const minute = Number(parts.find(part => part.type === "minute")?.value ?? "0");
+  const minutes = hour * 60 + minute;
+  if (minutes >= 4 * 60 && minutes < 9 * 60 + 30) return "premarket";
+  if (minutes >= 9 * 60 + 30 && minutes < 16 * 60) return "regular";
+  if (minutes >= 16 * 60 && minutes < 20 * 60) return "after-hours";
+  return "closed";
+}
+
+function recentChangePct(bars: JsonRecord[], windowMinutes: number, currentPrice: number | null, now: number) {
+  if (!(currentPrice && currentPrice > 0) || !bars.length) return null;
+  const threshold = now - windowMinutes * 60_000;
+  const eligible = bars.filter(bar => {
+    const timestamp = iso(bar.t);
+    return timestamp !== null && Date.parse(timestamp) >= threshold;
+  });
+  if (!eligible.length) return null;
+  const anchor = num(eligible[0].o) ?? num(eligible[0].c);
+  if (!(anchor && anchor > 0)) return null;
+  return (currentPrice / anchor - 1) * 100;
+}
+
 export async function GET(request: Request) {
   const cronSecret = process.env.CRON_SECRET?.trim() ?? "";
   if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
@@ -135,6 +167,8 @@ export async function GET(request: Request) {
 
   const now = Date.now();
   const scannedAt = new Date(now).toISOString();
+  const marketSession = marketSessionAt(now);
+  const marketNewsStart = new Date(now - config.stock.newsDiscoveryLookbackMinutes * 60_000).toISOString();
 
   const newsDbHeaders: Record<string,string> = {
     apikey: supabaseSecret,
@@ -154,21 +188,28 @@ export async function GET(request: Request) {
     : [];
   const newsBySymbol = aggregatePaperNewsSignals(activeNewsRows);
 
-  const [stockMoversRaw, stockActiveRaw, cryptoMoversRaw, cryptoAssetsRaw] = await Promise.all([
+  const [stockMoversRaw, stockActiveRaw, cryptoMoversRaw, cryptoAssetsRaw, marketNewsRaw] = await Promise.all([
     fetchJson(`${DATA_URL}/v1beta1/screener/stocks/movers?top=${config.stock.topMovers}`),
     fetchJson(`${DATA_URL}/v1beta1/screener/stocks/most-actives?by=volume&top=${config.stock.mostActive}`),
     fetchJson(`${DATA_URL}/v1beta1/screener/crypto/movers?top=50`),
     fetchJson(`${TRADING_URL}/v2/assets?status=active&asset_class=crypto`),
+    fetchJson(
+      `${DATA_URL}/v1beta1/news?start=${encodeURIComponent(marketNewsStart)}&sort=desc&limit=50&include_content=false`,
+    ).catch(() => ({ news: [] })),
   ]);
 
   const stockMovers = record(stockMoversRaw);
   const stockActive = record(stockActiveRaw);
   const cryptoMovers = record(cryptoMoversRaw);
-  const stockSourceUpdatedAt = [iso(stockMovers.last_updated), iso(stockActive.last_updated)]
+  const marketNews = record(marketNewsRaw);
+  const stockMoversUpdatedAt = iso(stockMovers.last_updated);
+  const stockActivityUpdatedAt = iso(stockActive.last_updated);
+  const stockMoversFresh = sourceAgeMinutes(stockMoversUpdatedAt, now) <= config.freshness.stockSourceMinutes;
+  const stockActivityFresh = sourceAgeMinutes(stockActivityUpdatedAt, now) <= config.freshness.stockSourceMinutes;
+  const stockSourceUpdatedAt = [stockMoversUpdatedAt, stockActivityUpdatedAt]
     .filter((value): value is string => Boolean(value))
     .sort()
     .at(-1) ?? null;
-  const stockSourceFresh = sourceAgeMinutes(stockSourceUpdatedAt, now) <= config.freshness.stockSourceMinutes;
 
   const stockMoverMap = new Map<string, { rank: number; percentChange: number | null; price: number | null }>();
   array(stockMovers.gainers).forEach((raw, index) => {
@@ -194,14 +235,37 @@ export async function GET(request: Request) {
     });
   });
 
-  const stockSymbols = [...new Set([...stockMoverMap.keys(), ...stockActivityMap.keys()])]
-    .filter(symbol => /^[A-Z][A-Z0-9]{0,5}$/.test(symbol));
+  const marketNewsBySymbol = new Map<string, { createdAt: string; headline: string | null; source: string | null }>();
+  for (const raw of array(marketNews.news)) {
+    const item = record(raw);
+    const createdAt = iso(item.created_at) ?? iso(item.updated_at);
+    if (!createdAt) continue;
+    for (const rawSymbol of array(item.symbols)) {
+      const symbol = str(rawSymbol)?.toUpperCase();
+      if (!symbol || !/^[A-Z][A-Z0-9]{0,5}$/.test(symbol)) continue;
+      if (!marketNewsBySymbol.has(symbol) && marketNewsBySymbol.size >= config.stock.newsDiscoveryMaxSymbols) continue;
+      const current = marketNewsBySymbol.get(symbol);
+      if (current && Date.parse(current.createdAt) >= Date.parse(createdAt)) continue;
+      marketNewsBySymbol.set(symbol, {
+        createdAt,
+        headline: str(item.headline),
+        source: str(item.source),
+      });
+    }
+  }
 
-  const liveStockBatch = stockSourceFresh
+  const stockSymbols = [...new Set([
+    ...(stockMoversFresh ? [...stockMoverMap.keys()] : []),
+    ...(stockActivityFresh ? [...stockActivityMap.keys()] : []),
+    ...marketNewsBySymbol.keys(),
+  ])].filter(symbol => /^[A-Z][A-Z0-9]{0,5}$/.test(symbol));
+  const stockSourceFresh = stockMoversFresh || stockActivityFresh || marketNewsBySymbol.size > 0;
+
+  const liveStockBatch = stockSymbols.length
     ? await fetchPreferredStockQuotes(stockSymbols)
     : await fetchPreferredStockQuotes([]);
   const stockPreviousVolume = new Map<string, number | null>();
-  if (stockSourceFresh && stockSymbols.length) {
+  if (stockSymbols.length) {
     const historyStart = new Date(now - 10 * 86_400_000).toISOString();
     const historyEnd = new Date(now - 24 * 60 * 60_000).toISOString();
     for (const batch of chunk(stockSymbols, 45)) {
@@ -213,6 +277,73 @@ export async function GET(request: Request) {
       for (const symbol of batch) {
         const bars = array(barsRoot[symbol]).map(record);
         stockPreviousVolume.set(symbol, bars.length ? num(bars.at(-1)?.v) : null);
+      }
+    }
+  }
+
+  const stockTimingSymbols = stockSymbols.filter(symbol => {
+    const quote = liveStockBatch.quotes[symbol];
+    if (!quote) return false;
+    const midpoint = quote.bid !== null && quote.ask !== null && quote.bid > 0 && quote.ask >= quote.bid
+      ? (quote.bid + quote.ask) / 2
+      : null;
+    const price = midpoint ?? quote.last ?? quote.close ?? null;
+    const previousClose = quote.previousClose;
+    const change = price !== null && previousClose !== null && previousClose > 0
+      ? (price / previousClose - 1) * 100
+      : null;
+    const activity = stockActivityFresh ? stockActivityMap.get(symbol) : null;
+    return marketNewsBySymbol.has(symbol)
+      || stockMoverMap.has(symbol) && stockMoversFresh
+      || (activity?.rank ?? 999) <= 50
+      || (change !== null && change >= 1);
+  });
+
+  const stockRecentMetrics = new Map<string, {
+    recent5mChangePct: number | null;
+    recent15mChangePct: number | null;
+    recent60mChangePct: number | null;
+    dataSource: string;
+  }>();
+  if (stockTimingSymbols.length) {
+    const recentStart = new Date(now - config.stock.recentBarLookbackMinutes * 60_000).toISOString();
+    const recentEnd = new Date(now).toISOString();
+    for (const batch of chunk(stockTimingSymbols, config.stock.recentBarBatchSize)) {
+      let raw: JsonRecord | null = null;
+      let dataSource = "alpaca-sip";
+      try {
+        raw = record(await fetchJson(
+          `${DATA_URL}/v2/stocks/bars?symbols=${encodeURIComponent(batch.join(","))}&timeframe=1Min&limit=4000&feed=sip&adjustment=split&sort=asc&start=${encodeURIComponent(recentStart)}&end=${encodeURIComponent(recentEnd)}`,
+        ));
+      } catch {
+        dataSource = "alpaca-iex";
+        try {
+          raw = record(await fetchJson(
+            `${DATA_URL}/v2/stocks/bars?symbols=${encodeURIComponent(batch.join(","))}&timeframe=1Min&limit=4000&feed=iex&adjustment=split&sort=asc&start=${encodeURIComponent(recentStart)}&end=${encodeURIComponent(recentEnd)}`,
+          ));
+        } catch {
+          raw = null;
+        }
+      }
+      if (!raw) continue;
+      const barsRoot = record(raw.bars);
+      for (const symbol of batch) {
+        const quote = liveStockBatch.quotes[symbol];
+        if (!quote) continue;
+        const midpoint = quote.bid !== null && quote.ask !== null && quote.bid > 0 && quote.ask >= quote.bid
+          ? (quote.bid + quote.ask) / 2
+          : null;
+        const currentPrice = midpoint ?? quote.last ?? quote.close ?? null;
+        const bars = array(barsRoot[symbol])
+          .map(record)
+          .filter(bar => iso(bar.t) !== null)
+          .sort((a, b) => Date.parse(iso(a.t)!) - Date.parse(iso(b.t)!));
+        stockRecentMetrics.set(symbol, {
+          recent5mChangePct: recentChangePct(bars, 5, currentPrice, now),
+          recent15mChangePct: recentChangePct(bars, 15, currentPrice, now),
+          recent60mChangePct: recentChangePct(bars, 60, currentPrice, now),
+          dataSource,
+        });
       }
     }
   }
@@ -252,12 +383,14 @@ export async function GET(request: Request) {
 
   const normalized: NormalizedProspect[] = [];
 
-  if (stockSourceFresh) {
+  if (stockSymbols.length) {
     for (const symbol of stockSymbols) {
       const quote = liveStockBatch.quotes[symbol];
       if (!quote) continue;
-      const mover = stockMoverMap.get(symbol);
-      const activity = stockActivityMap.get(symbol);
+      const mover = stockMoversFresh ? stockMoverMap.get(symbol) : undefined;
+      const activity = stockActivityFresh ? stockActivityMap.get(symbol) : undefined;
+      const marketNewsCandidate = marketNewsBySymbol.get(symbol);
+      const recent = stockRecentMetrics.get(symbol);
       const midpoint = quote.bid !== null && quote.ask !== null && quote.bid > 0 && quote.ask >= quote.bid
         ? (quote.bid + quote.ask) / 2
         : null;
@@ -272,22 +405,36 @@ export async function GET(request: Request) {
       const nearHigh = quote.high !== null && quote.high > 0
         ? Math.max(0, (quote.high - price) / quote.high * 100)
         : null;
+      const gapPct = quote.open !== null && quote.open > 0 && previousClose !== null && previousClose > 0
+        ? (quote.open / previousClose - 1) * 100
+        : null;
       const sourceFlags = [
         ...(mover ? ["top stock gainer"] : []),
         ...(activity ? ["most-active stock"] : []),
+        ...(marketNewsCandidate ? ["recent market news"] : []),
       ];
+      const freshCatalystAgeMinutes = marketNewsCandidate
+        ? Math.max(0, (now - Date.parse(marketNewsCandidate.createdAt)) / 60_000)
+        : null;
+      const sessionVolume = activity?.volume ?? quote.volume ?? null;
       normalized.push({
         assetClass: "stock",
         symbol,
         price,
         percentChange,
         spreadPct: spread,
-        volume: quote.volume ?? activity?.volume ?? null,
+        volume: sessionVolume,
         previousVolume: stockPreviousVolume.get(symbol) ?? null,
         activityRank: activity?.rank ?? null,
         nearHighPct: nearHigh,
         sourceFlags,
-        sourceUpdatedAt: quote.timestamp ?? stockSourceUpdatedAt,
+        gapPct,
+        recent5mChangePct: recent?.recent5mChangePct ?? null,
+        recent15mChangePct: recent?.recent15mChangePct ?? null,
+        recent60mChangePct: recent?.recent60mChangePct ?? null,
+        freshCatalystAgeMinutes,
+        marketSession,
+        sourceUpdatedAt: quote.timestamp ?? marketNewsCandidate?.createdAt ?? stockSourceUpdatedAt,
         metadata: {
           moverRank: mover?.rank ?? null,
           tradeCount: activity?.tradeCount ?? null,
@@ -297,6 +444,15 @@ export async function GET(request: Request) {
           marketDataFallback: liveStockBatch.fallback,
           marketDataProviderError: liveStockBatch.providerError,
           historyDataSource: "alpaca-sip-completed",
+          recentBarsDataSource: recent?.dataSource ?? null,
+          marketSession,
+          gapPct,
+          recent5mChangePct: recent?.recent5mChangePct ?? null,
+          recent15mChangePct: recent?.recent15mChangePct ?? null,
+          recent60mChangePct: recent?.recent60mChangePct ?? null,
+          recentMarketNewsAt: marketNewsCandidate?.createdAt ?? null,
+          recentMarketNewsHeadline: marketNewsCandidate?.headline ?? null,
+          recentMarketNewsSource: marketNewsCandidate?.source ?? null,
         },
       });
     }
@@ -492,7 +648,12 @@ export async function GET(request: Request) {
     sources: {
       stockSourceUpdatedAt,
       stockSourceFresh,
-      stockCandidates: stockSourceFresh ? stockSymbols.length : 0,
+      stockMoversFresh,
+      stockActivityFresh,
+      marketSession,
+      stockCandidates: stockSymbols.length,
+      recentNewsStockCandidates: marketNewsBySymbol.size,
+      recentBarCandidates: stockTimingSymbols.length,
       stockMarketDataSource: liveStockBatch.source,
       stockMarketDataFallback: liveStockBatch.fallback,
       stockHistorySource: "alpaca-sip-completed",
