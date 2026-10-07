@@ -400,7 +400,10 @@ export default function Dashboard({ userId }: { userId: string }) {
             Track → understand → suggest → approve → learn
           </div>
         </div>
-        <div style={{ display: "flex", gap: 7 }}>
+        <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <a href="/upload" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+            Upload
+          </a>
           <a href="/paper-trading" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
             Trading Lab
           </a>
