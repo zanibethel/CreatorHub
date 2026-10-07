@@ -14,7 +14,18 @@ type UploadRow = {
   created_at: string;
 };
 
+type ResumeState = {
+  uploadUrl: string;
+  storagePath: string;
+};
+
 const MAX_FILE_BYTES = 5 * 1024 * 1024 * 1024;
+const TUS_CHUNK_BYTES = 6 * 1024 * 1024;
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY =
+  process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "sb_publishable_JpayDIqb8Gy-hnGSL99fdg_jmKQQNJh";
+const TUS_ENDPOINT =
+  SUPABASE_URL.replace(".supabase.co", ".storage.supabase.co") + "/storage/v1/upload/resumable";
 
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -28,11 +39,24 @@ function safeFileName(name: string) {
   return cleaned.slice(0, 160) || "upload";
 }
 
+function encodeTusMetadata(value: string) {
+  return btoa(value);
+}
+
+function resumeKey(userId: string, file: File) {
+  return `creatorhub:tus:${userId}:${file.name}:${file.size}:${file.lastModified}`;
+}
+
+function sleep(ms: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, ms));
+}
+
 export default function UploadCenter({ userId }: { userId: string }) {
   const supabase = useMemo(() => createClient(), []);
   const [uploads, setUploads] = useState<UploadRow[]>([]);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState("");
+  const [progress, setProgress] = useState<number | null>(null);
 
   const loadUploads = useCallback(async () => {
     const { data, error } = await supabase
@@ -71,6 +95,179 @@ export default function UploadCenter({ userId }: { userId: string }) {
     }
   }
 
+  async function authHeaders() {
+    const {
+      data: { session },
+      error,
+    } = await supabase.auth.getSession();
+
+    if (error || !session?.access_token) {
+      throw new Error("Your sign-in session expired. Sign in again and retry.");
+    }
+
+    return {
+      Authorization: `Bearer ${session.access_token}`,
+      apikey: SUPABASE_PUBLISHABLE_KEY,
+    };
+  }
+
+  async function createTusUpload(file: File, storagePath: string) {
+    const metadata = [
+      `bucketName ${encodeTusMetadata("creatorhub-uploads")}`,
+      `objectName ${encodeTusMetadata(storagePath)}`,
+      `contentType ${encodeTusMetadata(file.type || "application/octet-stream")}`,
+      `cacheControl ${encodeTusMetadata("3600")}`,
+      `metadata ${encodeTusMetadata("{}")}`,
+    ].join(",");
+
+    const response = await fetch(TUS_ENDPOINT, {
+      method: "POST",
+      headers: {
+        ...(await authHeaders()),
+        "Tus-Resumable": "1.0.0",
+        "Upload-Length": String(file.size),
+        "Upload-Metadata": metadata,
+      },
+    });
+
+    if (!response.ok) {
+      throw new Error((await response.text()) || "Could not start the resumable upload.");
+    }
+
+    const location = response.headers.get("Location");
+    if (!location) throw new Error("Storage did not return a resumable upload URL.");
+
+    if (location.startsWith("http")) return location;
+
+    const directStorageOrigin = SUPABASE_URL.replace(".supabase.co", ".storage.supabase.co");
+    return `${directStorageOrigin}${location}`;
+  }
+
+  async function readTusOffset(uploadUrl: string) {
+    try {
+      const response = await fetch(uploadUrl, {
+        method: "HEAD",
+        headers: {
+          ...(await authHeaders()),
+          "Tus-Resumable": "1.0.0",
+        },
+      });
+
+      if (!response.ok) return null;
+
+      const offset = Number(response.headers.get("Upload-Offset") || 0);
+      return Number.isFinite(offset) && offset >= 0 ? offset : null;
+    } catch {
+      return null;
+    }
+  }
+
+  async function patchChunk(uploadUrl: string, file: File, startingOffset: number) {
+    const retryDelays = [0, 3000, 5000, 10000, 20000];
+    let offset = startingOffset;
+    let lastError: Error | null = null;
+
+    for (const delay of retryDelays) {
+      if (delay) await sleep(delay);
+
+      const end = Math.min(offset + TUS_CHUNK_BYTES, file.size);
+      const chunk = file.slice(offset, end);
+
+      try {
+        const response = await fetch(uploadUrl, {
+          method: "PATCH",
+          headers: {
+            ...(await authHeaders()),
+            "Tus-Resumable": "1.0.0",
+            "Upload-Offset": String(offset),
+            "Content-Type": "application/offset+octet-stream",
+          },
+          body: chunk,
+        });
+
+        if (response.ok) {
+          const serverOffset = Number(response.headers.get("Upload-Offset") || end);
+          return Number.isFinite(serverOffset) ? serverOffset : end;
+        }
+
+        lastError = new Error((await response.text()) || "Upload chunk failed.");
+
+        const serverOffset = await readTusOffset(uploadUrl);
+        if (serverOffset !== null && serverOffset !== offset) {
+          return serverOffset;
+        }
+      } catch (error) {
+        lastError = error instanceof Error ? error : new Error("Upload interrupted.");
+
+        const serverOffset = await readTusOffset(uploadUrl);
+        if (serverOffset !== null && serverOffset !== offset) {
+          return serverOffset;
+        }
+      }
+    }
+
+    throw lastError ?? new Error("Upload interrupted after several retries.");
+  }
+
+  function readResumeState(key: string): ResumeState | null {
+    try {
+      const raw = window.localStorage.getItem(key);
+      if (!raw) return null;
+      const parsed = JSON.parse(raw) as ResumeState;
+      if (!parsed.uploadUrl || !parsed.storagePath) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  }
+
+  function saveResumeState(key: string, state: ResumeState) {
+    window.localStorage.setItem(key, JSON.stringify(state));
+  }
+
+  async function uploadResumable(file: File) {
+    const key = resumeKey(userId, file);
+    let state = readResumeState(key);
+    let offset = 0;
+
+    if (state) {
+      const serverOffset = await readTusOffset(state.uploadUrl);
+
+      if (serverOffset === null || serverOffset > file.size) {
+        window.localStorage.removeItem(key);
+        state = null;
+      } else {
+        offset = serverOffset;
+        setMessage(offset > 0 ? `Resuming at ${((offset / file.size) * 100).toFixed(1)}%…` : "Resuming upload…");
+      }
+    }
+
+    if (!state) {
+      const cleanName = safeFileName(file.name);
+      const storagePath = `${userId}/${crypto.randomUUID()}-${cleanName}`;
+      const uploadUrl = await createTusUpload(file, storagePath);
+      state = { uploadUrl, storagePath };
+      saveResumeState(key, state);
+    }
+
+    setProgress(file.size ? Math.min(100, (offset / file.size) * 100) : 0);
+
+    while (offset < file.size) {
+      const nextOffset = await patchChunk(state.uploadUrl, file, offset);
+
+      if (nextOffset <= offset) {
+        throw new Error("Upload did not advance. Retry the same file to resume.");
+      }
+
+      offset = nextOffset;
+      const percent = Math.min(100, (offset / file.size) * 100);
+      setProgress(percent);
+      setMessage(`Uploading… ${percent.toFixed(1)}%`);
+    }
+
+    return { key, storagePath: state.storagePath };
+  }
+
   async function uploadFile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
@@ -90,47 +287,50 @@ export default function UploadCenter({ userId }: { userId: string }) {
     }
 
     setBusy(true);
-    setMessage("Uploading…");
+    setProgress(0);
+    setMessage("Preparing resumable upload…");
 
-    const cleanName = safeFileName(file.name);
-    const storagePath = `${userId}/${crypto.randomUUID()}-${cleanName}`;
+    try {
+      const { key, storagePath } = await uploadResumable(file);
 
-    const { error: uploadError } = await supabase.storage
-      .from("creatorhub-uploads")
-      .upload(storagePath, file, {
-        contentType: file.type || "application/octet-stream",
-        upsert: false,
-      });
+      setMessage("Upload finished. Creating access links…");
 
-    if (uploadError) {
+      const { data: row, error: insertError } = await supabase
+        .from("creator_uploads")
+        .upsert(
+          {
+            user_id: userId,
+            original_name: file.name || safeFileName(file.name),
+            storage_path: storagePath,
+            mime_type: file.type || null,
+            size_bytes: file.size,
+          },
+          { onConflict: "storage_path" },
+        )
+        .select("id,original_name,mime_type,size_bytes,share_token,share_enabled,created_at")
+        .single();
+
+      if (insertError || !row) {
+        throw new Error(
+          insertError?.message ??
+            "The file finished uploading, but CreatorHub could not create its links. Select the same file and retry; the upload will resume at 100%.",
+        );
+      }
+
+      window.localStorage.removeItem(key);
+      form.reset();
+      setUploads((current) => [row as UploadRow, ...current.filter((item) => item.id !== row.id)].slice(0, 20));
+      setProgress(100);
+      setMessage("Upload complete. The access and download links are ready.");
+    } catch (error) {
+      setMessage(
+        error instanceof Error
+          ? `${error.message} Select the same file again to resume.`
+          : "Upload interrupted. Select the same file again to resume.",
+      );
+    } finally {
       setBusy(false);
-      setMessage(uploadError.message);
-      return;
     }
-
-    const { data: row, error: insertError } = await supabase
-      .from("creator_uploads")
-      .insert({
-        user_id: userId,
-        original_name: file.name || cleanName,
-        storage_path: storagePath,
-        mime_type: file.type || null,
-        size_bytes: file.size,
-      })
-      .select("id,original_name,mime_type,size_bytes,share_token,share_enabled,created_at")
-      .single();
-
-    if (insertError || !row) {
-      await supabase.storage.from("creatorhub-uploads").remove([storagePath]);
-      setBusy(false);
-      setMessage(insertError?.message ?? "The file uploaded, but CreatorHub could not create its share links.");
-      return;
-    }
-
-    form.reset();
-    setUploads((current) => [row as UploadRow, ...current].slice(0, 20));
-    setBusy(false);
-    setMessage("Upload complete. The access and download links are ready.");
   }
 
   return (
@@ -144,7 +344,33 @@ export default function UploadCenter({ userId }: { userId: string }) {
           Upload once, then open or download the file from another device using the links CreatorHub gives you.
         </p>
         <input name="file" required type="file" style={input} />
-        <div style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>Private storage · up to 5 GB per file</div>
+        <div style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>
+          Private storage · up to 5 GB per file · resumable 6 MB chunks
+        </div>
+
+        {progress !== null ? (
+          <div style={{ marginTop: 12 }}>
+            <div
+              style={{
+                height: 10,
+                background: "rgba(255,255,255,.08)",
+                borderRadius: 999,
+                overflow: "hidden",
+              }}
+            >
+              <div
+                style={{
+                  width: `${Math.max(0, Math.min(100, progress))}%`,
+                  height: "100%",
+                  background: colors.purpleBright,
+                  transition: "width .15s ease",
+                }}
+              />
+            </div>
+            <div style={{ color: colors.muted, fontSize: 11, marginTop: 5 }}>{progress.toFixed(1)}%</div>
+          </div>
+        ) : null}
+
         <button disabled={busy} style={{ ...primaryButton, marginTop: 14 }}>
           {busy ? "Uploading…" : "Upload file"}
         </button>
