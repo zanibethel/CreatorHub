@@ -1,6 +1,6 @@
 export const PAPER_PROSPECT_SCANNER_V2 = {
-  id: "paper-prospect-scanner-v2",
-  version: 2,
+  id: "paper-prospect-scanner-v3",
+  version: 3,
   mode: "paper-research-only",
   cadenceMinutes: 5,
   thresholds: {
@@ -15,8 +15,18 @@ export const PAPER_PROSPECT_SCANNER_V2 = {
   stock: {
     topMovers: 50,
     mostActive: 100,
-    minimumPriceUsd: 0.25,
+    minimumPriceUsd: 0.08,
     maximumSpreadPct: 1.00,
+    newsDiscoveryLookbackMinutes: 180,
+    newsDiscoveryMaxSymbols: 120,
+    recentBarLookbackMinutes: 65,
+    recentBarBatchSize: 35,
+  },
+  timing: {
+    maxAccelerationPoints: 20,
+    maxCatalystPoints: 8,
+    maxChasePenaltyPoints: 24,
+    catalystFreshMinutes: 180,
   },
   crypto: {
     quoteCurrency: "USD",
