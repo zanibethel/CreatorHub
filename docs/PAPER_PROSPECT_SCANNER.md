@@ -116,6 +116,33 @@ Bot Lab includes a global **Prospects** view showing:
 
 A second section shows near-miss prospects within ten points of the Prospect Watchlist threshold.
 
+## Automated Weekly Swing handoff
+
+Scanner v3 can now hand a review-ready **stock** prospect to the Weekly Swing bot without granting the scanner order authority.
+
+The production path is:
+
+`Prospect Scanner v3 -> Swing prospect intake -> prepared plan -> same-session Swing readiness -> simulated bracket execution`
+
+The intake layer only stages a plan when all of the following remain true:
+
+- Prospect Score is at least 80 and the candidate is explicitly assigned to `three-trade-weekly-swing-100`.
+- Scanner evidence is fresh and comes from v3 or newer.
+- No open position or active buy order already owns the symbol.
+- The fresh live spread is within the Swing strategy limit.
+- At least 20 completed daily bars are available.
+- The completed-day trend remains above both the 10-day and 20-day averages.
+- Five-day momentum remains positive.
+- ATR and recent structure support a protective stop below the entry.
+- Chase-risk remains within the intake limit.
+- A stock already up roughly 20% or more must still show fresh acceleration or a sufficiently fresh catalyst.
+
+Eligible plans use the bot's existing 1% planned-loss budget and 30% maximum allocation. Entry trigger, maximum chase price, ATR/structure stop, first 2R target, and same-session expiry are persisted in `paper_bot_orders`.
+
+Every evaluated candidate is also written to `paper_bot_journal` as a `prospect-intake` event, including candidates that are rejected or deferred, so later strategy review can measure whether the handoff rules helped or hurt.
+
+The scheduled `/api/paper-trading/bots/swing-run` route executes every five minutes on weekdays. It performs intake, runs the existing Swing readiness engine, and attempts **at most one** new simulated submission per cycle. The next cycle recalculates buying power, open risk, positions, market regime, quote freshness, spread, and chase limits before another order can be submitted.
+
 ## Safety boundary
 
 The scanner is discovery-only.
