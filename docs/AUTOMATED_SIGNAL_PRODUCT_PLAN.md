@@ -103,6 +103,8 @@ without changing scanner, strategy, revalidation, risk, evidence, or UI semantic
 
 Every material decision must be timestamped before the outcome is known.
 
+Historical decisions must also remain pinned to the exact scanner, strategy, risk-policy, and execution-policy versions that produced them. Future model or strategy improvements must not retroactively rewrite the original score, qualification, proposed trade, or decision. Re-analysis may be stored separately as a later comparison.
+
 Persist:
 - scanner observations
 - score components
