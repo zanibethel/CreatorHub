@@ -1,27 +1,27 @@
-"use client";
-
-import { useEffect, useMemo, useState } from "react";
+import { redirect } from "next/navigation";
 import AuthPanel from "@/components/AuthPanel";
 import Dashboard from "@/components/Dashboard";
-import { createClient } from "@/lib/supabase";
+import { createServerSupabaseClient } from "@/lib/supabase-server";
 
-export default function Home() {
-  const supabase = useMemo(() => createClient(), []);
-  const [userId, setUserId] = useState<string | null | undefined>(undefined);
+export const dynamic = "force-dynamic";
 
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null));
-    const { data } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUserId(session?.user?.id ?? null);
-    });
-    return () => data.subscription.unsubscribe();
-  }, [supabase]);
+export default async function Home() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
 
-  if (userId === undefined) {
-    return <main style={{ padding: 24 }}>Loading CreatorHub…</main>;
+  if (!user) return <AuthPanel />;
+
+  if (!user.is_anonymous) {
+    const { data: access } = await supabase
+      .from("creatorhub_account_access")
+      .select("access_level")
+      .eq("user_id", user.id)
+      .maybeSingle();
+
+    if (access?.access_level !== "full") {
+      redirect("/upload");
+    }
   }
 
-  if (!userId) return <AuthPanel />;
-
-  return <Dashboard userId={userId} />;
+  return <Dashboard userId={user.id} />;
 }
