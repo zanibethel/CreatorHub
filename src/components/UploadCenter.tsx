@@ -14,7 +14,7 @@ type UploadRow = {
   created_at: string;
 };
 
-const MAX_FILE_BYTES = 250 * 1024 * 1024;
+const MAX_FILE_BYTES = 5 * 1024 * 1024 * 1024;
 
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 B";
@@ -85,7 +85,7 @@ export default function UploadCenter({ userId }: { userId: string }) {
     }
 
     if (file.size > MAX_FILE_BYTES) {
-      setMessage("For this first version, files are limited to 250 MB each.");
+      setMessage("Files are limited to 5 GB each.");
       return;
     }
 
@@ -144,7 +144,7 @@ export default function UploadCenter({ userId }: { userId: string }) {
           Upload once, then open or download the file from another device using the links CreatorHub gives you.
         </p>
         <input name="file" required type="file" style={input} />
-        <div style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>Private storage · up to 250 MB per file in this first version</div>
+        <div style={{ color: colors.muted, fontSize: 12, marginTop: 8 }}>Private storage · up to 5 GB per file</div>
         <button disabled={busy} style={{ ...primaryButton, marginTop: 14 }}>
           {busy ? "Uploading…" : "Upload file"}
         </button>

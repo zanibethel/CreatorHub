@@ -13,7 +13,7 @@ CreatorHub now has a standalone `/upload` page for moving files between devices.
 - The bucket remains private.
 - Upload/list/delete permissions are scoped by the first Storage path segment matching the authenticated user's ID.
 - Anonymous/guest accounts are intentionally excluded from upload storage.
-- MVP per-file size limit: 250 MB.
+- Per-file size limit: 5 GB. The current browser uploader uses Supabase standard uploads; resumable TUS uploads are the next reliability upgrade for very large files.
 
 ## Why stable CreatorHub links
 
