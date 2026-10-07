@@ -14,7 +14,10 @@ const BOT_ID = "three-trade-weekly-swing-100";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
 
 const requestSchema = z.object({
-  symbol: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9.]{0,15}$/),
+  symbol: z.preprocess(
+    value => typeof value === "string" ? value.trim().toUpperCase() : value,
+    z.string().regex(/^[A-Z][A-Z0-9.]{0,15}$/),
+  ),
 }).strict();
 
 const readinessSchema = z.object({
