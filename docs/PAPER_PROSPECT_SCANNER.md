@@ -1,6 +1,6 @@
 # PAPER Prospect Scanner
 
-Status: active research scanner; PAPER-only discovery; no order authority.
+Status: active research scanner; simulated-trading discovery only; no order authority.
 
 ## Purpose
 
@@ -8,7 +8,7 @@ The Prospect Scanner is a separate discovery service that searches outside the b
 
 It does not place orders and it does not automatically expand a trading bot's execution universe. Its job is to find interesting symbols early, score them consistently, persist the evidence, and hand sufficiently strong prospects to the next bot-review stage.
 
-Scanner ID: `paper-prospect-scanner-v1`
+Scanner ID: `paper-prospect-scanner-v3`
 
 ## Promotion levels
 
@@ -25,14 +25,16 @@ These thresholds are discovery thresholds, not trading thresholds. After a prosp
 
 ### Stocks
 
-Every ten minutes, the scanner combines:
+Every five minutes, the scanner combines:
 
-- Top stock gainers from the configured market-data screener.
-- Top 100 stocks by volume from the configured market-data screener.
-- Stock market snapshots for price, quote/spread, session volume, prior-day volume, and distance from the session high.
+- Top stock gainers from the configured market-data screener during the regular session.
+- Top 100 stocks by volume when that source is fresh.
+- Symbols attached to recent market-news articles, which gives the scanner a premarket discovery path before the regular-session movers list resets.
+- Stock market snapshots for price, quote/spread, session volume, prior-day volume, session-open gap, and distance from the session high.
+- Recent one-minute bars used to measure 5-, 15-, and 60-minute acceleration.
 - Market-catalog validation before a prospect can enter the Prospect Watchlist.
 
-Stock market source data must be fresh. On weekends or other periods where the stock screener is stale, the scanner skips new stock promotion instead of repeatedly treating the prior session as current.
+The regular stock-movers endpoint does not become a current-day movers list until the opening bell, so v3 does not depend on it for premarket discovery. Stale mover/activity sources are ignored independently rather than blocking fresh news-led candidates.
 
 ### Crypto
 
@@ -53,11 +55,14 @@ Crypto quotes must be fresh before evaluation.
 The score intentionally rewards conditions that can precede a stronger normal bot score.
 
 Stock components:
-- positive session momentum / percentage change,
+- positive session momentum / percentage change, with diminishing credit once most of a very large move has already happened,
 - most-active rank,
 - tradability/liquidity quality,
-- volume expansion versus the prior day,
-- proximity to the current session high.
+- consolidated session-volume expansion versus the prior day when available,
+- proximity to the current session high,
+- 5-, 15-, and 60-minute acceleration,
+- freshness of a market-news catalyst when price action confirms it,
+- a chase-risk penalty when a stock is already up roughly 15%+ without fresh continuation.
 
 Crypto components:
 - positive session momentum / percentage change,
@@ -124,3 +129,14 @@ It cannot:
 - change position sizing or risk limits.
 
 The receiving bot remains the final strategy authority for any PAPER trade.
+
+
+## v3 timing lesson from OPCH — October 6, 2026
+
+OPCH exposed the difference between detecting a strong stock and detecting an actionable move early.
+
+The old scanner first retained OPCH at about 9:40 ET, when it was already roughly 33% above the prior close and trading close to the level it held for most of the regular session. Historical premarket data and market-news timestamps showed that OPCH was already active hours earlier.
+
+v3 therefore treats a large completed gap differently from a fresh breakout. A large session gain by itself no longer earns maximum momentum credit. A candidate can regain high priority when recent 5/15/60-minute acceleration, consolidated activity, and a fresh catalyst show that a new leg is actually developing.
+
+This keeps late movers visible as research evidence while making the 80+ review-ready band more representative of remaining opportunity instead of merely confirming that a move already happened.
