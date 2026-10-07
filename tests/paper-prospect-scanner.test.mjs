@@ -151,3 +151,53 @@ test("negative news can reduce score but does not create a new risk bypass", () 
   );
   assert.ok(result.score >= 0 && result.score <= 100);
 });
+
+
+test("large mover with flat recent action is penalized as chase risk", () => {
+  const result = scanner.scoreProspect({
+    assetClass:"stock",
+    symbol:"LATE",
+    price:31.05,
+    percentChange:32.8,
+    spreadPct:0.03,
+    volume:17_000_000,
+    previousVolume:3_000_000,
+    activityRank:15,
+    nearHighPct:0.1,
+    sourceFlags:["top stock gainer","most-active stock"],
+    gapPct:32.8,
+    recent5mChangePct:0.05,
+    recent15mChangePct:0.1,
+    recent60mChangePct:0.2,
+    freshCatalystAgeMinutes:150,
+    marketSession:"regular",
+  });
+  assert.ok(result.components.chasePenalty >= 18);
+  assert.ok(result.score < config.PAPER_PROSPECT_SCANNER_V2.thresholds.botReviewScore);
+});
+
+test("fresh acceleration and a recent catalyst can re-promote a large mover", () => {
+  const result = scanner.scoreProspect({
+    assetClass:"stock",
+    symbol:"EARLY",
+    price:31.25,
+    percentChange:33.7,
+    spreadPct:0.08,
+    volume:4_000_000,
+    previousVolume:2_000_000,
+    activityRank:20,
+    nearHighPct:0.2,
+    sourceFlags:["most-active stock","recent market news"],
+    gapPct:21.5,
+    recent5mChangePct:0.6,
+    recent15mChangePct:2.5,
+    recent60mChangePct:10.8,
+    freshCatalystAgeMinutes:13,
+    marketSession:"premarket",
+  });
+  assert.ok(result.components.acceleration >= 18);
+  assert.ok(result.components.catalyst >= 6);
+  assert.ok(result.components.chasePenalty <= 8);
+  assert.ok(result.score >= config.PAPER_PROSPECT_SCANNER_V2.thresholds.botReviewScore);
+  assert.equal(result.status,"review-ready");
+});
