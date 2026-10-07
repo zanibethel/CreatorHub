@@ -14,7 +14,7 @@ const BOT_ID = "three-trade-weekly-swing-100";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
 
 const requestSchema = z.object({
-  symbol: z.enum(["QQQ", "NVDA", "MSFT"]),
+  symbol: z.string().trim().toUpperCase().regex(/^[A-Z][A-Z0-9.]{0,15}$/),
 }).strict();
 
 const readinessSchema = z.object({
@@ -51,7 +51,7 @@ const preparedOrderSchema = z.object({
   bot_id: z.literal(BOT_ID),
   strategy_id: z.string().min(1),
   strategy_version: z.coerce.number().int().positive(),
-  symbol: z.enum(["QQQ","NVDA","MSFT"]),
+  symbol: z.string().min(1).max(32),
   asset_class: z.enum(["stock","etf"]),
   side: z.literal("buy"),
   status: z.enum(["prepared","submitted","error","rejected"]),
@@ -129,7 +129,7 @@ export async function POST(request: Request) {
   try {
     parsedBody = requestSchema.parse(await request.json());
   } catch {
-    return reply({ error: "A supported staged symbol is required." }, 400);
+    return reply({ error: "A valid staged symbol is required." }, 400);
   }
 
   const supabaseHeaders: Record<string,string> = {
