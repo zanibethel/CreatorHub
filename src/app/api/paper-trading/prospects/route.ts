@@ -35,6 +35,15 @@ const newsComponentSchema = z.preprocess(value => {
   return Number.isFinite(parsed) ? parsed : 0;
 }, z.number().finite().min(-20).max(20));
 
+const optionalNonnegativeComponentSchema = z.preprocess(value => {
+  const parsed = typeof value === "number"
+    ? value
+    : typeof value === "string"
+      ? Number(value)
+      : Number.NaN;
+  return Number.isFinite(parsed) && parsed >= 0 ? parsed : 0;
+}, z.number().finite().nonnegative());
+
 const rowSchema = z.object({
   asset_class: z.enum(["stock","crypto"]),
   symbol: z.string(),
@@ -63,6 +72,9 @@ const rowSchema = z.object({
     volumeExpansion: z.coerce.number().finite().nonnegative(),
     structure: z.coerce.number().finite().nonnegative(),
     news: newsComponentSchema,
+    acceleration: optionalNonnegativeComponentSchema,
+    catalyst: optionalNonnegativeComponentSchema,
+    chasePenalty: optionalNonnegativeComponentSchema,
   }),
   reasons: z.array(z.string()),
   source_flags: z.array(z.string()),
@@ -141,6 +153,9 @@ function mapSqueezeRow(row: z.infer<typeof squeezeRowSchema>): ProspectRow {
       volumeExpansion:row.score_components.volumeDryness + row.score_components.volumeIgnition,
       structure:row.score_components.compression,
       news:0,
+      acceleration:0,
+      catalyst:0,
+      chasePenalty:0,
     },
     reasons:row.reasons,
     source_flags:["squeeze-scanner", ...(isPenny ? ["penny-stock"] : [])],
