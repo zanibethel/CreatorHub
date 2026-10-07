@@ -14,13 +14,25 @@ export default function AuthPanel() {
     event.preventDefault();
     const supabase = createClient();
     const { error } = await supabase.auth.signInWithPassword({ email, password });
-    setMessage(error?.message ?? "Signed in.");
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    window.location.assign("/");
   }
 
   async function signUp() {
     const supabase = createClient();
-    const { error } = await supabase.auth.signUp({ email, password });
-    setMessage(error?.message ?? "Account created. If email confirmation is enabled, confirm it before signing in.");
+    const { data, error } = await supabase.auth.signUp({ email, password });
+    if (error) {
+      setMessage(error.message);
+      return;
+    }
+    if (data.session) {
+      window.location.assign("/");
+      return;
+    }
+    setMessage("Account created. If email confirmation is enabled, confirm it before signing in.");
   }
 
   async function continueAsGuest() {
@@ -32,8 +44,10 @@ export default function AuthPanel() {
       setMessage(error.message.toLowerCase().includes("anonymous")
         ? "Guest mode is built, but Anonymous Sign-Ins still need to be enabled in this Supabase project."
         : error.message);
+      setGuestLoading(false);
+      return;
     }
-    setGuestLoading(false);
+    window.location.assign("/");
   }
 
   return (
