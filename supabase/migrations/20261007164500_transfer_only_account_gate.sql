@@ -19,7 +19,10 @@ create policy creatorhub_account_access_read_own
 on public.creatorhub_account_access
 for select
 to authenticated
-using ((select auth.uid()) = user_id);
+using (
+  coalesce(((select auth.jwt()) ->> 'is_anonymous')::boolean, false) = false
+  and (select auth.uid()) = user_id
+);
 
 insert into public.creatorhub_account_access (user_id, access_level)
 select id, 'full'
