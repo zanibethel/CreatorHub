@@ -26,6 +26,15 @@ const squeezeTrendRowSchema = z.object({
   score: z.coerce.number().finite().min(0).max(100),
 });
 
+const newsComponentSchema = z.preprocess(value => {
+  const parsed = typeof value === "number"
+    ? value
+    : typeof value === "string"
+      ? Number(value)
+      : Number.NaN;
+  return Number.isFinite(parsed) ? parsed : 0;
+}, z.number().finite().min(-20).max(20));
+
 const rowSchema = z.object({
   asset_class: z.enum(["stock","crypto"]),
   symbol: z.string(),
@@ -53,7 +62,7 @@ const rowSchema = z.object({
     liquidity: z.coerce.number().finite().nonnegative(),
     volumeExpansion: z.coerce.number().finite().nonnegative(),
     structure: z.coerce.number().finite().nonnegative(),
-    news: z.coerce.number().finite().min(-20).max(20),
+    news: newsComponentSchema,
   }),
   reasons: z.array(z.string()),
   source_flags: z.array(z.string()),
