@@ -1,7 +1,6 @@
 "use client";
 
 import { FormEvent, useState } from "react";
-import { createClient } from "@/lib/supabase";
 import { card, colors, input, primaryButton, secondaryButton } from "@/lib/ui";
 
 export default function TransferAuthPanel({ destination = "/upload" }: { destination?: "/upload" | "/download" }) {
@@ -10,23 +9,40 @@ export default function TransferAuthPanel({ destination = "/upload" }: { destina
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
 
+  async function postAuth(path: string) {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, destination }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data?.error || "Authentication failed.");
+    }
+
+    return data as { ok?: boolean; session?: boolean; message?: string };
+  }
+
   async function signIn(event: FormEvent) {
     event.preventDefault();
     if (busy) return;
+
     setBusy(true);
     setMessage("");
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
+
+    try {
+      await postAuth("/api/auth/login");
+      window.location.assign(destination);
+    } catch (error) {
       setBusy(false);
-      setMessage(error.message);
-      return;
+      setMessage(error instanceof Error ? error.message : "Sign in failed.");
     }
-    window.location.assign(destination);
   }
 
   async function signUp() {
     if (busy) return;
+
     if (!email || password.length < 6) {
       setMessage("Enter an email and a password with at least 6 characters.");
       return;
@@ -34,28 +50,21 @@ export default function TransferAuthPanel({ destination = "/upload" }: { destina
 
     setBusy(true);
     setMessage("");
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        emailRedirectTo: `${window.location.origin}${destination}`,
-      },
-    });
 
-    if (error) {
+    try {
+      const data = await postAuth("/api/auth/signup");
+
+      if (data.session) {
+        window.location.assign(destination);
+        return;
+      }
+
       setBusy(false);
-      setMessage(error.message);
-      return;
+      setMessage(data.message || "Account created. Check your email if confirmation is required, then come back here and sign in.");
+    } catch (error) {
+      setBusy(false);
+      setMessage(error instanceof Error ? error.message : "Account creation failed.");
     }
-
-    if (data.session) {
-      window.location.assign(destination);
-      return;
-    }
-
-    setBusy(false);
-    setMessage("Account created. Check your email if confirmation is required, then come back here and sign in.");
   }
 
   return (

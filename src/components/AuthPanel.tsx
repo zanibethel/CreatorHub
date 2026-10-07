@@ -10,29 +10,48 @@ export default function AuthPanel() {
   const [message, setMessage] = useState("");
   const [guestLoading, setGuestLoading] = useState(false);
 
+  async function authRequest(path: string) {
+    const response = await fetch(path, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password, destination: "/" }),
+    });
+
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) {
+      throw new Error(data?.error || "Authentication failed.");
+    }
+
+    return data as { session?: boolean; message?: string };
+  }
+
   async function signIn(event: FormEvent) {
     event.preventDefault();
-    const supabase = createClient();
-    const { error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) {
-      setMessage(error.message);
-      return;
+    setMessage("");
+
+    try {
+      await authRequest("/api/auth/login");
+      window.location.assign("/");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Sign in failed.");
     }
-    window.location.assign("/");
   }
 
   async function signUp() {
-    const supabase = createClient();
-    const { data, error } = await supabase.auth.signUp({ email, password });
-    if (error) {
-      setMessage(error.message);
-      return;
+    setMessage("");
+
+    try {
+      const data = await authRequest("/api/auth/signup");
+
+      if (data.session) {
+        window.location.assign("/");
+        return;
+      }
+
+      setMessage(data.message || "Account created. If email confirmation is enabled, confirm it before signing in.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Account creation failed.");
     }
-    if (data.session) {
-      window.location.assign("/");
-      return;
-    }
-    setMessage("Account created. If email confirmation is enabled, confirm it before signing in.");
   }
 
   async function continueAsGuest() {
@@ -40,6 +59,7 @@ export default function AuthPanel() {
     setMessage("");
     const supabase = createClient();
     const { error } = await supabase.auth.signInAnonymously({ options: { data: { preview_mode: true } } });
+
     if (error) {
       setMessage(error.message.toLowerCase().includes("anonymous")
         ? "Guest mode is built, but Anonymous Sign-Ins still need to be enabled in this Supabase project."
@@ -47,6 +67,7 @@ export default function AuthPanel() {
       setGuestLoading(false);
       return;
     }
+
     window.location.assign("/");
   }
 
@@ -80,7 +101,7 @@ export default function AuthPanel() {
           <input style={input} type="password" minLength={6} required placeholder="Password" value={password} onChange={(event) => setPassword(event.target.value)} />
           <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 12 }}>
             <button style={primaryButton}>Sign in</button>
-            <button type="button" style={secondaryButton} onClick={signUp}>Create account</button>
+            <button type="button" style={secondaryButton} onClick={() => void signUp()}>Create account</button>
           </div>
           {message && <p style={{ color: colors.muted }}>{message}</p>}
         </form>

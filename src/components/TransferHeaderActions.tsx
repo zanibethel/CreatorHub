@@ -1,12 +1,10 @@
 "use client";
 
-import { createClient } from "@/lib/supabase";
 import { secondaryButton } from "@/lib/ui";
 
 export default function TransferHeaderActions({ fullAccess }: { fullAccess: boolean }) {
   async function signOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
+    await fetch("/api/auth/logout", { method: "POST" });
     window.location.assign("/upload");
   }
 

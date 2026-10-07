@@ -42,8 +42,12 @@ export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
   const allowedPage = pathname === "/upload" || pathname === "/download";
   const allowedFileApi = pathname.startsWith("/api/files/");
+  const allowedAuthApi =
+    pathname === "/api/auth/login" ||
+    pathname === "/api/auth/signup" ||
+    pathname === "/api/auth/logout";
 
-  if (allowedPage || allowedFileApi) return response;
+  if (allowedPage || allowedFileApi || allowedAuthApi) return response;
 
   if (pathname.startsWith("/api/")) {
     return copyCookies(
