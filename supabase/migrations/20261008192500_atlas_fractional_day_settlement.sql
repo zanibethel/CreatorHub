@@ -1,3 +1,12 @@
+-- Atlas v2 explicit PAPER execution switch.
+UPDATE public.paper_bot_ledgers
+SET metadata=coalesce(metadata,'{}'::jsonb)||jsonb_build_object(
+  'executionEnabled',true,
+  'liveMoneyEnabled',false,
+  'atlasExecutionMode','fractional-day-v2'
+), updated_at=now()
+WHERE bot_id='default-diverse';
+
 -- Atlas fractional DAY v2 hardening.
 -- One Atlas position at a time and reservation settlement only after the
 -- matching broker fill has been applied to Atlas's virtual ledger.
