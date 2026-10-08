@@ -34,7 +34,7 @@ async function fetchBars(assetClass:HistoryAssetClass,symbol:string,timeframe:"1
   const collect=async()=>{
     const data:HistoryBar[]=[];
     let done=false;
-    for(let page=0;page<6;page++){
+    for(let page=0;page<24;page++){
       const r=await fetch(BASE+path+"?"+params.toString(),{
         headers,signal:AbortSignal.timeout(16000),cache:"no-store",
       });
