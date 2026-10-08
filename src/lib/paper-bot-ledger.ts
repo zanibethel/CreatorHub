@@ -24,6 +24,10 @@ export const paperBotLedgerRowSchema = z.object({
   weekly_drawdown_pct: nullableFinite,
   last_synced_at: timestamp.nullable(),
   source: z.string().max(80),
+  metadata: z.object({
+    executionEnabled: z.boolean().optional(),
+    liveMoneyEnabled: z.boolean().optional(),
+  }).passthrough(),
   pool_usage: z.object({
     day: z.coerce.number().finite().nonnegative(),
     "multi-day": z.coerce.number().finite().nonnegative(),
@@ -84,6 +88,8 @@ export type PaperBotSummary = {
   weeklyDrawdownPct: number | null;
   lastSyncedAt: string | null;
   source: string;
+  executionEnabled: boolean;
+  liveMoneyEnabled: boolean;
   positionCount: number;
   journalCount: number;
   brokerOrderCount: number;
@@ -120,6 +126,8 @@ export function projectPaperBotSummary(
     weeklyDrawdownPct: row.weekly_drawdown_pct,
     lastSyncedAt: row.last_synced_at,
     source: row.source,
+    executionEnabled: row.metadata.executionEnabled === true,
+    liveMoneyEnabled: row.metadata.liveMoneyEnabled === true,
     positionCount,
     journalCount,
     brokerOrderCount,
