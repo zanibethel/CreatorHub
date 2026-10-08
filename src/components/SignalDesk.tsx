@@ -100,7 +100,12 @@ export default function SignalDesk() {
       liveOrders += (ledgers?.brokerOrders?.[profile.id] ?? [])
         .filter(order => !TERMINAL_ORDER_STATUSES.has(order.status.toLowerCase())).length;
       holdings += ledgers?.positionPlans?.[profile.id]?.length ?? 0;
-      terminalDecisions += (signalDesk?.events?.[profile.id] ?? []).filter(event => {
+      const latestBySymbol = new Map<string, (typeof signalDesk.events)[string][number]>();
+      for (const event of signalDesk?.events?.[profile.id] ?? []) {
+        if (!event.symbol || latestBySymbol.has(event.symbol)) continue;
+        latestBySymbol.set(event.symbol, event);
+      }
+      terminalDecisions += [...latestBySymbol.values()].filter(event => {
         if (event.event_type === "prospect-intake") {
           return !["staged","eligible"].includes((event.qualification ?? "").toLowerCase());
         }
@@ -155,7 +160,7 @@ export default function SignalDesk() {
         <Metric label="Prepared" value={String(summary.prepared)} detail="planned entries" />
         <Metric label="Live orders" value={String(summary.liveOrders)} detail="submitted / working" />
         <Metric label="Holdings" value={String(summary.holdings)} detail="under management" />
-        <Metric label="Passed / blocked" value={String(summary.terminalDecisions)} detail="recent evidence" />
+        <Metric label="Passed / blocked" value={String(summary.terminalDecisions)} detail="latest symbol states" />
         <Metric label="Active bots" value={String(visibleProfiles.length)} />
       </div>
     </section>
