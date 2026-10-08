@@ -19,7 +19,7 @@ type CandidateRow={
   qualification:string|null;blockers:unknown;metadata:JsonMap;
 };
 type OrderRow={
-  client_order_id:string;broker_order_id:string|null;status:string;symbol:string;side:string;
+  client_order_id:string;broker_order_id:string|null;status:string;symbol:string;asset_class:string;side:string;
   requested_notional:number|string|null;requested_quantity:number|string|null;
   pool_id:string|null;entry_trigger:number|string|null;max_entry_price:number|string|null;
   protective_stop:number|string|null;planned_risk_dollars:number|string|null;
@@ -31,7 +31,7 @@ type ReservationRow={
   reservation_id:string;client_order_id:string|null;created_at:string;amount:number|string;pool:string;
 };
 type PositionRow={
-  symbol:string;quantity:number|string;average_entry:number|string;pool_id:string|null;
+  symbol:string;asset_class:string;quantity:number|string;average_entry:number|string;pool_id:string|null;
   protective_stop:number|string|null;initial_protective_stop:number|string|null;
   take_profit_price:number|string|null;take_profit_fraction:number|string|null;
   protect_winner_at_r:number|string|null;trail_remainder:boolean|null;
@@ -187,7 +187,7 @@ export async function GET(request:Request){
 
   const activeSellOrders=async(symbol:string)=>{
     const {data,error}=await db.from("paper_bot_orders")
-      .select("client_order_id,broker_order_id,status,symbol,side,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,expires_at,metadata,created_at")
+      .select("client_order_id,broker_order_id,status,symbol,asset_class,side,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,expires_at,metadata,created_at")
       .eq("bot_id",BOT_ID).eq("symbol",symbol).eq("side","sell").in("status",[...ACTIVE_STATUSES])
       .order("created_at",{ascending:false}).limit(20);
     if(error)throw new Error("Atlas protective-order lookup failed.");
@@ -380,10 +380,12 @@ export async function GET(request:Request){
     }
 
     const {data:orders,error:orderError}=await db.from("paper_bot_orders")
-      .select("client_order_id,broker_order_id,status,symbol,side,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,expires_at,metadata,created_at")
+      .select("client_order_id,broker_order_id,status,symbol,asset_class,side,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,expires_at,metadata,created_at")
       .eq("bot_id",BOT_ID).eq("client_order_id",reservation.client_order_id).limit(1);
     if(orderError||!orders?.[0])return reply({error:"Atlas reserved entry order is missing."},503);
     const order=orders[0] as OrderRow;
+    if(order.asset_class!=="stock")
+      return reply({ok:true,paperOnly:true,action:"none",reason:"crypto-reservation-owned-by-crypto-runner"});
 
     let reconciled=await reconcileStoredOrder(order);
     if(!reconciled&&order.status==="prepared"){
@@ -474,17 +476,19 @@ export async function GET(request:Request){
   }
 
   const {data:positionRows,error:positionError}=await db.from("paper_bot_positions")
-    .select("symbol,quantity,average_entry,pool_id,protective_stop,initial_protective_stop,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,exit_manager_state,metadata")
+    .select("symbol,asset_class,quantity,average_entry,pool_id,protective_stop,initial_protective_stop,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,exit_manager_state,metadata")
     .eq("bot_id",BOT_ID).gt("quantity",0).limit(1);
   if(positionError)return reply({error:"Atlas position lookup failed."},503);
   const position=(positionRows?.[0]??null) as PositionRow|null;
 
   if(position){
+    if(position.asset_class!=="stock")
+      return reply({ok:true,paperOnly:true,action:"none",reason:"crypto-position-owned-by-crypto-runner"});
     const brokerPos=await brokerPosition(position.symbol);
     if(!brokerPos)return reply({ok:true,paperOnly:true,action:"position-sync-wait",symbol:position.symbol});
 
     const {data:entryRows,error:entryError}=await db.from("paper_bot_orders")
-      .select("client_order_id,broker_order_id,status,symbol,side,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,expires_at,metadata,created_at")
+      .select("client_order_id,broker_order_id,status,symbol,asset_class,side,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,protect_winner_at_r,trail_remainder,expires_at,metadata,created_at")
       .eq("bot_id",BOT_ID).eq("symbol",position.symbol).eq("side","buy")
       .order("created_at",{ascending:false}).limit(1);
     if(entryError||!entryRows?.[0])return reply({error:"Atlas position has no attributed entry plan.",critical:true},503);
