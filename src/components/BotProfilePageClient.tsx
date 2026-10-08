@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { PAPER_BOT_PROFILES } from "@/lib/paper-bot-profiles";
 import PaperSignalPipeline from "./PaperSignalPipeline";
+import FuseResearchPanel from "./FuseResearchPanel";
 import usePaperBotLedgers from "./usePaperBotLedgers";
 import usePaperProspects, { type PaperProspect } from "./usePaperProspects";
 import usePaperSignalDesk from "./usePaperSignalDesk";
@@ -115,6 +116,8 @@ export default function BotProfilePageClient({botId}:{botId:string}){
         ...profile.notes.slice(0,2),
       ]}/>
     </section>
+
+    {botId==="penny-volatility-day-100"?<FuseResearchPanel history={ledgers?.history?.[botId]??[]} refreshVersion={0}/>:null}
 
     {executionStatusKnown?<PaperSignalPipeline
       botName={profile.codename??profile.name}

@@ -737,6 +737,7 @@ export default function PaperBotLab() {
     "squeeze-breakout-readiness": squeezeReadiness?.plans ?? [],
     "momentum-breakout-readiness": fastBotTradePlans("momentum-breakout-100", "Pulse breakout", pulseReadiness, pulseReadiness?.plans ?? []),
     "crypto-ignition-readiness": fastBotTradePlans("crypto-ignition-100", "Spark ignition", sparkReadiness, sparkReadiness?.candidates ?? []),
+    "fuse-readiness": [], // Fuse plans render in its own dedicated research panel until a shared plan hook is added.
   } satisfies Record<Exclude<PaperBotProfile["tradePlan"]["source"], "not-configured">, PaperBotTradePlan[]>;
 
   const candidateTradePlans = profile.tradePlan.source === "not-configured"
