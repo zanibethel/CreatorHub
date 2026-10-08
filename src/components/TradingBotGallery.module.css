@@ -15,3 +15,16 @@
 .noChart{display:block;padding:8px 0;font-size:10px;color:#7496a6}
 @media(max-width:1060px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
 @media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.info{padding:9px}.info strong{font-size:17px}.info p{font-size:9px}.header h2{font-size:17px}}
+
+/* Independent research characters; not additional virtual trading portfolios */
+.researchNote{font-size:11px;color:#a3c9d7}
+.researchHeading{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-top:8px}
+.researchHeading h3{margin:0;color:#eff9ff;font-size:17px}
+.researchHeading span{font-size:11px;color:#9ab9c9}
+.researchGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.researchCard{display:flex;min-width:0;min-height:180px;overflow:hidden;border:1px solid color-mix(in srgb,var(--bot-accent) 45%,#142c40);border-radius:15px;background:linear-gradient(155deg,color-mix(in srgb,var(--bot-accent) 8%,#0b1320),#06101c);text-decoration:none!important;color:#eff9ff!important;transition:transform .15s,border-color .15s}
+.researchCard:hover{transform:translateY(-2px);border-color:var(--bot-accent)}
+.researchCard>span:first-child{width:37%;height:auto;min-height:180px;border-radius:12px 0 0 12px;flex-shrink:0}
+.researchCard .info{padding:14px;gap:8px}
+.researchCard .info p{max-height:none}
+@media(max-width:700px){.researchGrid{grid-template-columns:1fr}.researchCard>span:first-child{width:37%;min-height:145px}}

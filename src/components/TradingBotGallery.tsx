@@ -12,7 +12,7 @@ function EquityLine({points,color}:{points:Array<{time:string;equity:number}>;co
 }
 export default function TradingBotGallery({history}:{history?:Record<string,Array<{time:string;equity:number}>>}){
  return <section className={styles.gallerySection} aria-label="Trading bot mascot cards">
-   <div className={styles.header}><div><h2>Meet the trading bots</h2><p>Eight specialists · one family · isolated $100 virtual portfolios</p></div><Link href="/paper-trading/movers" className={styles.midasLink}><BotMascot botId="midas" size="badge"/> Midas · Market Mover Intelligence →</Link></div>
+   <div className={styles.header}><div><h2>Meet the trading bots</h2><p>Eight specialists · one family · isolated $100 virtual portfolios</p></div><span className={styles.researchNote}>Specialized analysis and independent virtual portfolios</span></div>
    <div className={styles.grid}>{roster.map(id=>{
      const bot=PAPER_BOT_PROFILES.find(item=>item.id===id)!;
      const color=BOT_COLORS[id];
@@ -21,5 +21,16 @@ export default function TradingBotGallery({history}:{history?:Record<string,Arra
        <div className={styles.info}><strong>{bot.codename}</strong><span>{bot.role}</span><p>{bot.mission}</p><EquityLine points={history?.[id]??[]} color={color}/><small>{bot.executionState==="automatic"?"Simulated execution permitted":bot.executionState==="research"?"Research only":"Planned"} · View profile →</small></div>
      </Link>;
    })}</div>
+   <div className={styles.researchHeading}><h3>Research companions</h3><span>Advisory intelligence · not independent purchasing bots</span></div>
+   <div className={styles.researchGrid}>
+     <Link href="/paper-trading/historical-patterns" className={styles.researchCard} style={{"--bot-accent":BOT_COLORS.catalog} as React.CSSProperties}>
+       <BotMascot botId="catalog" size="gallery"/>
+       <div className={styles.info}><strong>Catalog</strong><span>Historical Pattern Intelligence</span><p>Studies market history, compares past setups, and contributes evidence for strategy research.</p><small>Research only · View historical studies →</small></div>
+     </Link>
+     <Link href="/paper-trading/movers" className={styles.researchCard} style={{"--bot-accent":BOT_COLORS.midas} as React.CSSProperties}>
+       <BotMascot botId="midas" size="gallery"/>
+       <div className={styles.info}><strong>Midas</strong><span>Market Mover Intelligence</span><p>Investigates reported insider, institutional and market-mover evidence without assuming buyer identity.</p><small>Research only · View market movers →</small></div>
+     </Link>
+   </div>
  </section>;
 }

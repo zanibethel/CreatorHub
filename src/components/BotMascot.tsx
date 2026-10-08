@@ -6,6 +6,7 @@ import styles from "./BotMascot.module.css";
 export const MASCOT_ART_URL = "https://yufptpfiwdbzzrvhkvux.supabase.co/storage/v1/object/public/creatorhub-bot-art/mascot-family.png";
 // Individual user-approved 3D character portraits. Kept separate from the six-bot legacy atlas.
 export const BOT_PORTRAIT_ART: Record<string, string> = {
+  catalog: "https://cooperativeworker.floot.app/_cdn/static/98c8269b-8657-4a7e-baf4-7d8392ea0165-creatorhub-catalog-approved-20261008.png",
   "default-diverse": "https://yufptpfiwdbzzrvhkvux.supabase.co/storage/v1/object/public/creatorhub-bot-art/atlas-approved-v2.png",
   "crypto-swing-100": "https://yufptpfiwdbzzrvhkvux.supabase.co/storage/v1/object/public/creatorhub-bot-art/orbit-approved-v2.png",
   "squeeze-breakout-100": "https://yufptpfiwdbzzrvhkvux.supabase.co/storage/v1/object/public/creatorhub-bot-art/coil-approved-v2.png",
@@ -19,6 +20,7 @@ const positions: Record<string, number> = {
   midas: 5,
 };
 export const BOT_COLORS: Record<string, string> = {
+  catalog: "#d7ac70",
   "default-diverse": "#40dbc0",
   "crypto-swing-100": "#b391ff",
   "squeeze-breakout-100": "#b8ef3a",
@@ -30,6 +32,7 @@ export const BOT_COLORS: Record<string, string> = {
   midas: "#43dcd9",
 };
 const names: Record<string,string> = {
+  catalog: "Catalog",
   "default-diverse":"Atlas",
   "crypto-swing-100":"Orbit",
   "squeeze-breakout-100":"Coil",
@@ -53,7 +56,7 @@ export function BotMascot({botId,size="badge",className=""}:{botId:string;size?:
 
 export function BotBadge({botId,showName=true}:{botId:string;showName?:boolean}){
  const name=names[botId]??botId;
- const href=botId==="midas"?"/paper-trading/movers":`/paper-trading/bots/${encodeURIComponent(botId)}`;
+ const href=botId==="midas"?"/paper-trading/movers":botId==="catalog"?"/paper-trading/historical-patterns":`/paper-trading/bots/${encodeURIComponent(botId)}`;
  return <Link href={href} className={styles.badgeLink} title={`View ${name} details`}>
    <BotMascot botId={botId}/>
    {showName?<span>{name}</span>:null}

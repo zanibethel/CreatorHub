@@ -1,5 +1,6 @@
 import type {Metadata} from "next";
 import Link from "next/link";
+import {BotMascot} from "@/components/BotMascot";
 import {createAdminSupabaseClient} from "@/lib/supabase-admin";
 
 export const dynamic="force-dynamic";
@@ -48,7 +49,15 @@ export default async function HistoricalPatternLab() {
   const percentage=(v:number|null)=>v===null?"—":(v*100).toFixed(1)+"%";
   return <main style={{maxWidth:1100,margin:"0 auto",padding:"32px 20px 80px",color:"var(--foreground)"}}>
     <p style={{fontSize:13,opacity:.75}}><Link href="/paper-trading/bots">← Bot Lab</Link> · Research-only</p>
-    <h1 style={{fontSize:30,fontWeight:750,marginTop:18}}>Historical Pattern Lab</h1>
+    <section style={{display:"flex",alignItems:"center",gap:22,flexWrap:"wrap",padding:"18px",border:"1px solid #816f527d",borderRadius:18,background:"linear-gradient(125deg,#0c1c29,#121923 65%,#221b13)",marginTop:18}}>
+      <BotMascot botId="catalog" size="profile"/>
+      <div style={{flex:"1 1 280px",minWidth:0}}>
+        <span style={{display:"inline-block",border:"1px solid #a88b56",borderRadius:999,padding:"5px 11px",color:"#f4dbb6",fontSize:11,fontWeight:750}}>RESEARCH COMPANION · NO ORDER EXECUTION</span>
+        <h1 style={{fontSize:"clamp(25px,4vw,38px)",fontWeight:800,margin:"12px 0 5px",color:"#ffebc7"}}>Catalog · Historical Pattern Lab</h1>
+        <p style={{fontSize:14,lineHeight:1.55,color:"#d8e4e9",maxWidth:590,margin:0}}>Meet Catalog, the market historian and librarian. He organizes historical stock and crypto patterns for evidence-based strategy research.</p>
+        <p style={{fontSize:12,color:"#abc2cd",margin:"9px 0 0"}}>Advisory studies only · independent of live trading decisions</p>
+      </div>
+    </section>
     <p style={{maxWidth:780,opacity:.8,lineHeight:1.7,marginTop:10}}>
       Studies historical 4–20% stock and crypto moves over the next session, three sessions, and up to two weeks.
       Compares preceding 24-hour (daily proxy), 3-month, 6-month and 12-month market context against past successes,
@@ -73,6 +82,7 @@ export default async function HistoricalPatternLab() {
           <div style={{display:"flex",justifyContent:"space-between",gap:8}}>
             <strong>{p.symbol}</strong><span style={{opacity:.65,fontSize:12}}>{p.asset_class} · {p.horizon}</span>
           </div>
+          <div style={{display:"flex",alignItems:"center",gap:8,marginTop:9,fontSize:11,opacity:.88}}><BotMascot botId="catalog" size="badge"/><span>Catalog study · shadow research</span></div>
           <p style={{fontSize:13,opacity:.75,marginTop:7}}>+{p.target_pct}% target · 3% hypothetical stop</p>
           <strong style={{fontSize:26,display:"block",marginTop:8,color:"#38bdf8"}}>
             {p.shadow_score===null?"Collecting":p.shadow_score+"/100"}
@@ -107,6 +117,7 @@ export default async function HistoricalPatternLab() {
         <div style={{display:"flex",justifyContent:"space-between",alignItems:"center",gap:10}}>
           <strong>{p.symbol}</strong><span style={{fontSize:12,opacity:.7}}>{p.asset_class.toUpperCase()}</span>
         </div>
+        <div style={{display:"flex",alignItems:"center",gap:8,marginTop:9,fontSize:11,opacity:.88}}><BotMascot botId="catalog" size="badge"/><span>Catalog historical baseline</span></div>
         <p style={{fontSize:13,marginTop:10,opacity:.8}}>{p.horizon} · +{p.target_pct}% target</p>
         <p style={{fontSize:28,fontWeight:750,marginTop:8,color:"#38bdf8"}}>
           {p.shadow_score===null?"Insufficient data":p.shadow_score+"/100"}

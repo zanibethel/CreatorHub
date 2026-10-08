@@ -19,3 +19,13 @@ The approved design uses the user's five 3D robotic mascot panels in Fuse (orang
 The portraits are original, user-approved assets uploaded through the previously approved temporary Floot bridge into CreatorHub's own public Supabase storage bucket. The temporary import endpoint was returned to a disabled/410 state after upload.
 
 `BotMascot` chooses the individual portrait for these three IDs at each size. Small association badges and bot-switcher buttons crop toward the mascot face, while the profile hero uses the poster portrait. Original Fuse/Pulse/Spark/Flash/Harbor/Midas assets and colors remain unchanged. All eight bot profiles now appear in the main gallery with their real virtual-equity trend or an honest unavailable message. No prices, wins, eligibility scores or trading permissions have been changed.
+
+## Catalog — Historical Pattern Intelligence (October 8, 2026)
+Catalog is a research companion (not a purchasing bot), so it does **not** receive a new virtual $100 ledger, bot profile record, broker attribution tag, or order permission.
+
+- Approved portrait: https://cooperativeworker.floot.app/_cdn/static/98c8269b-8657-4a7e-baf4-7d8392ea0165-creatorhub-catalog-approved-20261008.png
+- Mascot identity key: `catalog` with warm bronze-gold icon outline `#d7ac70`.
+- Destination: `/paper-trading/historical-patterns` (existing daily and intraday read-only studies).
+- Visible in the Bot Lab's **Research companions** collection, alongside Midas, and in the Historical Pattern Lab header plus individual study cards. Existing 8 purchasing bot entries remain unchanged.
+- Notes: asset currently served from the temporary Floot asset-hosting bridge (`cooperativeworker.floot.app`). No CoOperative app code was changed. This cross-project asset can be moved to the CreatorHub public Supabase storage bucket later without altering any profile/strategy IDs.
+- The Catalog attribution on historical studies denotes research display, **not** a stock or cryptocurrency automatically flagged for purchase.
