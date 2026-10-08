@@ -15,6 +15,7 @@ CREATE TABLE IF NOT EXISTS public.paper_atlas_reservations (
   updated_at timestamptz NOT NULL DEFAULT now(),
   UNIQUE (bot_id, decision_id, strategy_version, opportunity_id)
 );
+CREATE UNIQUE INDEX IF NOT EXISTS paper_atlas_reservation_order_uidx ON public.paper_atlas_reservations (client_order_id) WHERE client_order_id IS NOT NULL;
 CREATE INDEX IF NOT EXISTS paper_atlas_active_reservation_idx
   ON public.paper_atlas_reservations (bot_id,pool) WHERE status = 'reserved';
 ALTER TABLE public.paper_atlas_reservations ENABLE ROW LEVEL SECURITY;
@@ -36,7 +37,7 @@ DECLARE
   v_pool_reserved numeric;
   v_id uuid;
 BEGIN
-  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+  IF current_user <> 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
   IF nullif(trim(p_decision_id),'') IS NULL OR nullif(trim(p_opportunity_id),'') IS NULL
@@ -91,13 +92,19 @@ CREATE OR REPLACE FUNCTION public.paper_atlas_release(p_reservation_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_changed integer;
 BEGIN
-  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+  IF current_user <> 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
-  -- Serialize release with claims, preventing interleaved cash reservations.
+  -- Fail closed: only an unlinked reservation can be released, and only if no
+  -- unresolved Atlas order exists. A broker timeout requires manual reconciliation.
   PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
+  IF EXISTS (SELECT 1 FROM public.paper_bot_orders WHERE bot_id='default-diverse'
+    AND status IN ('prepared','submitted','accepted','partially_filled','pending_new')) THEN
+    RETURN false;
+  END IF;
   UPDATE public.paper_atlas_reservations SET status='released',updated_at=now()
-   WHERE reservation_id=p_reservation_id AND bot_id='default-diverse' AND status='reserved';
+   WHERE reservation_id=p_reservation_id AND bot_id='default-diverse' AND status='reserved'
+     AND client_order_id IS NULL;
   GET DIAGNOSTICS v_changed = ROW_COUNT;
   RETURN v_changed=1;
 END $$;
@@ -111,7 +118,7 @@ CREATE OR REPLACE FUNCTION public.paper_atlas_consume(
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_changed integer;
 BEGIN
-  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+  IF current_user <> 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
   PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
@@ -124,6 +131,7 @@ BEGIN
       AND o.strategy_version=1
       AND o.side='buy'
       AND o.pool_id=r.pool
+      AND (r.client_order_id IS NULL OR r.client_order_id=p_client_order_id)
       AND o.status IN ('filled','partially_filled')
       AND coalesce(o.requested_notional,0)>0
       AND o.requested_notional<=r.amount
