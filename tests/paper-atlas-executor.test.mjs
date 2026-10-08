@@ -19,8 +19,8 @@ test("Atlas executes stocks only after authorization, reservation and exact bind
   const reserve=route.indexOf('db.rpc("paper_atlas_reserve"');
   const insert=route.indexOf('db.from("paper_bot_orders").insert');
   const bind=route.indexOf('db.rpc("paper_atlas_bind_order"');
-  const brokerSubmit=route.indexOf('broker("orders"');
-  assert.ok(authorize>=0&&reserve>authorize&&insert>reserve&&bind>insert&&brokerSubmit>bind);
+  const submitCall=route.indexOf("submitBracket(prepared)",bind);
+  assert.ok(authorize>=0&&reserve>authorize&&insert>reserve&&bind>insert&&submitCall>bind);
   assert.match(route,/asset_class!=="stock"/);
   assert.match(route,/atlasExecutionPool/);
   assert.match(route,/time_in_force:"gtc"/);
