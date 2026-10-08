@@ -134,10 +134,10 @@ export async function GET(request:Request) {
       persisted=newObservations.length;
       if(persisted) {
         const events=rows.filter(row=>newObservations.some(saved=>saved.symbol===row.symbol)).map(row=>({
-          bot_id:cfg.botProfileId,strategy_id:cfg.id,strategy_version:cfg.version,event_type:"prospect-intake",
+          bot_id:cfg.botProfileId,strategy_id:cfg.id,strategy_version:cfg.version,event_type:row.readiness==="rejected"?"rejected":"candidate",
           symbol:row.symbol,asset_class:"stock",occurred_at:row.evaluated_at,
-          score:row.fuse_score,qualification:row.readiness==="research-ready"?"qualified":row.readiness==="rejected"?"rejected":"deferred",
-          regime:"intraday",component_scores:{fuseScore:row.fuse_score,scannerScore:row.scanner_score},
+          score:row.fuse_score,qualification:row.readiness==="research-ready"?"qualified":row.readiness==="rejected"?"unqualified":"watch",
+          regime:"unknown",component_scores:{fuseScore:row.fuse_score,scannerScore:row.scanner_score},
           market_snapshot:row.market_snapshot,risk_plan:row.trade_plan,blockers:row.blockers,warnings:row.warnings,
           metadata:{source:"fuse-penny-research-v1",researchOnly:true,brokerTag:cfg.brokerTag},
         }));

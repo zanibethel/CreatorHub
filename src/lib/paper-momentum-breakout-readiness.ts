@@ -49,7 +49,11 @@ const spreadPct=(quote:MomentumQuote)=>{
   const mid=(quote.bid+quote.ask)/2;
   return mid>0?(quote.ask-quote.bid)/mid*100:null;
 };
-const floorQty=(value:number)=>Math.floor((value+Number.EPSILON)*1_000_000_000)/1_000_000_000;
+export function pulseBracketWholeShareQuantity(riskCap:number,allocationCap:number){
+  if(!Number.isFinite(riskCap)||!Number.isFinite(allocationCap)||riskCap<=0||allocationCap<=0)return null;
+  const whole=Math.floor(Math.min(riskCap,allocationCap));
+  return Number.isSafeInteger(whole)&&whole>=1?whole:null;
+}
 const roundPrice=(value:number)=>Number(value.toFixed(value>=1?2:6));
 
 function regularSessionMinutes(now:number){
@@ -136,11 +140,11 @@ export function evaluateMomentumBreakoutCandidate(input:{
       const qtyByRisk=riskBudget/stopDistance;
       const allocationBudget=Math.min(ledger.equity*strategy.risk.maximumPositionAllocationPct/100,ledger.buyingPower);
       const qtyByAllocation=allocationBudget/ask;
-      plannedQuantity=floorQty(Math.min(qtyByRisk,qtyByAllocation));
-      plannedNotional=plannedQuantity*ask;
-      plannedRiskDollars=plannedQuantity*stopDistance;
-      plannedRiskPct=plannedRiskDollars/ledger.equity*100;
-      if(!(plannedQuantity>0))blockers.push("Calculated quantity is below the supported minimum.");
+      plannedQuantity=pulseBracketWholeShareQuantity(qtyByRisk,qtyByAllocation);
+      plannedNotional=plannedQuantity===null?null:plannedQuantity*ask;
+      plannedRiskDollars=plannedQuantity===null?null:plannedQuantity*stopDistance;
+      plannedRiskPct=plannedRiskDollars===null?null:plannedRiskDollars/ledger.equity*100;
+      if(plannedQuantity===null)blockers.push("Pulse protected bracket entry requires at least one whole share within its existing risk and allocation caps.");
       if(ledger.openRiskPct+(plannedRiskPct??0)>strategy.risk.maximumOpenRiskPct)blockers.push("Planned trade would exceed Pulse open-risk ceiling.");
     }
   }

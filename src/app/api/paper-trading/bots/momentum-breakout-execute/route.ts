@@ -65,6 +65,8 @@ export async function POST(request:Request){
     return reply({error:"Pulse execution preview is incomplete or stale."},409);
   }
   if(!(plan.protectiveStop<plan.ask&&plan.takeProfit>plan.ask))return reply({error:"Pulse bracket prices do not surround entry."},409);
+  // Fractional bracket orders are rejected by Alpaca PAPER: verify before claiming the order.
+  if(!Number.isSafeInteger(plan.plannedQuantity)||plan.plannedQuantity<1)return reply({error:"Pulse broker-hosted brackets require a whole-share quantity within existing risk caps."},409);
 
   const headers:Record<string,string>={apikey:supabaseSecret,"Content-Type":"application/json",Accept:"application/json"};
   if(supabaseSecret.startsWith("eyJ"))headers.Authorization=`Bearer ${supabaseSecret}`;
