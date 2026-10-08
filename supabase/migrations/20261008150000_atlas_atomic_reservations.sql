@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS public.paper_atlas_reservations (
   strategy_version integer NOT NULL CHECK (strategy_version = 1),
   pool text NOT NULL CHECK (pool IN ('day','multi-day','multi-week')),
   amount numeric(18,6) NOT NULL CHECK (amount > 0),
+  client_order_id text NULL REFERENCES public.paper_bot_orders(client_order_id),
   status text NOT NULL DEFAULT 'reserved' CHECK (status IN ('reserved','released','consumed')),
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now(),
@@ -18,7 +19,8 @@ CREATE INDEX IF NOT EXISTS paper_atlas_active_reservation_idx
   ON public.paper_atlas_reservations (bot_id,pool) WHERE status = 'reserved';
 ALTER TABLE public.paper_atlas_reservations ENABLE ROW LEVEL SECURITY;
 REVOKE ALL ON public.paper_atlas_reservations FROM PUBLIC,anon,authenticated;
-GRANT SELECT,INSERT,UPDATE ON public.paper_atlas_reservations TO service_role;
+GRANT SELECT ON public.paper_atlas_reservations TO service_role;
+-- Writes must go through the ledger-locked RPCs, not direct REST mutations.
 
 CREATE OR REPLACE FUNCTION public.paper_atlas_reserve(
   p_decision_id text,p_opportunity_id text,p_pool text,p_amount numeric,
@@ -81,7 +83,7 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
   FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,numeric,numeric)
+GRANT EXECUTE ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
   TO service_role;
 
 -- Release requires exact reservation ID and remains idempotent.
@@ -92,6 +94,8 @@ BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
+  -- Serialize release with claims, preventing interleaved cash reservations.
+  PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
   UPDATE public.paper_atlas_reservations SET status='released',updated_at=now()
    WHERE reservation_id=p_reservation_id AND bot_id='default-diverse' AND status='reserved';
   GET DIAGNOSTICS v_changed = ROW_COUNT;
@@ -99,3 +103,36 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.paper_atlas_release(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_release(uuid) TO service_role;
+
+-- A reservation may be consumed only after a matching Atlas order is observed.
+-- Do not mark ambiguous broker outcomes consumed or released automatically.
+CREATE OR REPLACE FUNCTION public.paper_atlas_consume(
+  p_reservation_id uuid,p_client_order_id text)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
+DECLARE v_changed integer;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Service role required';
+  END IF;
+  PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
+  IF NOT EXISTS (
+    SELECT 1 FROM public.paper_bot_orders o
+    JOIN public.paper_atlas_reservations r ON r.reservation_id=p_reservation_id
+    WHERE o.client_order_id=p_client_order_id
+      AND o.bot_id='default-diverse'
+      AND o.strategy_id='paper-medium-high-v1'
+      AND o.strategy_version=1
+      AND o.side='buy'
+      AND o.pool_id=r.pool
+      AND o.status IN ('filled','partially_filled')
+      AND coalesce(o.requested_notional,0)>0
+      AND o.requested_notional<=r.amount
+  ) THEN RETURN false; END IF;
+  UPDATE public.paper_atlas_reservations
+     SET status='consumed',client_order_id=p_client_order_id,updated_at=now()
+   WHERE reservation_id=p_reservation_id AND bot_id='default-diverse' AND status='reserved';
+  GET DIAGNOSTICS v_changed=ROW_COUNT;
+  RETURN v_changed=1;
+END $$;
+REVOKE ALL ON FUNCTION public.paper_atlas_consume(uuid,text) FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.paper_atlas_consume(uuid,text) TO service_role;
