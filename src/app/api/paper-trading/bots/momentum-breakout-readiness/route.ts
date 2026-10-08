@@ -166,7 +166,6 @@ export async function GET(request:Request){
         cache:"no-store",signal:AbortSignal.timeout(10_000),
       });
       if(!response.ok)throw new Error(`Pulse journal returned HTTP ${response.status}.`);
-    }se.ok)throw new Error(`Pulse journal returned HTTP ${response.status}.`);
     }
 
     return reply({
