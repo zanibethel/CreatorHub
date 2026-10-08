@@ -2,7 +2,7 @@ import Link from "next/link";
 import { PAPER_BOT_PROFILES } from "@/lib/paper-bot-profiles";
 import { BotMascot,BOT_COLORS } from "./BotMascot";
 import styles from "./TradingBotGallery.module.css";
-const roster=["penny-volatility-day-100","momentum-breakout-100","crypto-ignition-100","weekend-crypto-day-100","three-trade-weekly-swing-100"];
+const roster=["default-diverse","penny-volatility-day-100","momentum-breakout-100","crypto-ignition-100","weekend-crypto-day-100","three-trade-weekly-swing-100","crypto-swing-100","squeeze-breakout-100"];
 function EquityLine({points,color}:{points:Array<{time:string;equity:number}>;color:string}){
  const data=points.filter(p=>Number.isFinite(p.equity)).slice(-28);
  if(data.length<2)return <span className={styles.noChart}>Equity history pending</span>;
@@ -12,7 +12,7 @@ function EquityLine({points,color}:{points:Array<{time:string;equity:number}>;co
 }
 export default function TradingBotGallery({history}:{history?:Record<string,Array<{time:string;equity:number}>>}){
  return <section className={styles.gallerySection} aria-label="Trading bot mascot cards">
-   <div className={styles.header}><div><h2>Meet the trading bots</h2><p>Five specialists · one family · isolated $100 virtual portfolios</p></div><Link href="/paper-trading/movers" className={styles.midasLink}><BotMascot botId="midas" size="badge"/> Midas · Market Mover Intelligence →</Link></div>
+   <div className={styles.header}><div><h2>Meet the trading bots</h2><p>Eight specialists · one family · isolated $100 virtual portfolios</p></div><Link href="/paper-trading/movers" className={styles.midasLink}><BotMascot botId="midas" size="badge"/> Midas · Market Mover Intelligence →</Link></div>
    <div className={styles.grid}>{roster.map(id=>{
      const bot=PAPER_BOT_PROFILES.find(item=>item.id===id)!;
      const color=BOT_COLORS[id];

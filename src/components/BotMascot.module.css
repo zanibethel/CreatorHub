@@ -10,3 +10,10 @@
 .badgeLink:hover{border-color:#65daf0;background:#0b2632}
 .badgeLink:focus-visible{outline:2px solid #65daf0;outline-offset:2px}
 @media(max-width:650px){.profile{width:100%;max-width:300px;height:210px}.gallery{height:142px}}
+
+/* Individual portrait posters: show full composition in profiles, face closeups in tiny flags. */
+.portrait{background-color:#dae6f0;background-repeat:no-repeat;background-size:cover;background-position:center 44%}
+.portrait.badge,.portrait.switcher{background-size:315% auto;background-position:50% 31%}
+.portrait.gallery{background-size:cover;background-position:center 34%}
+.portrait.profile{height:clamp(225px,25vw,305px);background-size:cover;background-position:center center}
+@media(max-width:650px){.portrait.profile{height:270px;max-width:245px}}
