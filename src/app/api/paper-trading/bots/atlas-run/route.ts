@@ -478,7 +478,7 @@ export async function GET(request:Request){
 
     const liveQuote=await quote(position.symbol);
     const mark=num(liveQuote?.bid)??num(liveQuote?.ask);
-    if(!mark)return reply({error:"Atlas position quote unavailable.",503});
+    if(!mark)return reply({error:"Atlas position quote unavailable."},503);
 
     const quantity=floorQty(Math.min(num(position.quantity)??0,num(brokerPos.qty)??0));
     const average=num(position.average_entry);
