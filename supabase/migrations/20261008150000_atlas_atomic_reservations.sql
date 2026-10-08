@@ -47,6 +47,21 @@ BEGIN
     OR p_expected_bot <> 'default-diverse' THEN
     RETURN jsonb_build_object('reserved',false,'reason','invalid-request');
   END IF;
+  -- No caller can reserve a scanner-only discovery or an unapproved strategy decision.
+  -- Current read-only Atlas decisions retain blockers, so this intentionally
+  -- denies reservations until a separately reviewed executable decision exists.
+  IF NOT EXISTS (
+    SELECT 1 FROM public.paper_bot_journal j
+    WHERE j.bot_id='default-diverse' AND j.strategy_id='paper-medium-high-v1'
+      AND j.strategy_version=1 AND j.event_type='candidate'
+      AND j.metadata->>'decisionId'=p_decision_id
+      AND j.metadata#>>'{inputProvenance,scanner,opportunityId}'=p_opportunity_id
+      AND j.qualification='trade-ready'
+      AND j.blockers='[]'::jsonb
+      AND j.metadata->>'orderAuthorization'='true'
+  ) THEN
+    RETURN jsonb_build_object('reserved',false,'reason','decision-not-authorized');
+  END IF;
   -- A locked ledger row is the concurrency gate for all Atlas claims.
   SELECT cash,starting_cash INTO v_cash,v_starting_cash FROM public.paper_bot_ledgers
     WHERE bot_id='default-diverse' FOR UPDATE;
