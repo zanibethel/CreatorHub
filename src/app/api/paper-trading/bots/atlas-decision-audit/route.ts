@@ -41,8 +41,38 @@ export async function GET(request: Request) {
   if (ledgerError || !ledgers?.[0]) return response({error: "Atlas ledger risk context unavailable."},503);
   const ledger = ledgers[0] as Ledger;
 
-  const stocks = DEFAULT_PAPER_WATCHLIST.stocks.map(v => v.symbol);
-  const crypto = DEFAULT_PAPER_WATCHLIST.crypto.map(v => v.symbol);
+  // Scanner assignments are research inputs, not approved members of Atlas's funded watchlist.
+  // Evaluate them with the unchanged strategy; fail closed on tradability/pool permissions.
+  const {data: assignedRows, error: assignmentError} = await db.from("paper_prospects")
+    .select("asset_class,symbol,scanner_id,scanner_version,score,status,last_scanned_at,assigned_bot_ids,source_updated_at")
+    .contains("assigned_bot_ids", ["default-diverse"])
+    .order("last_scanned_at", {ascending:false}).limit(250);
+  if (assignmentError) return response({error:"Assigned scanner prospects unavailable."},503);
+  const savedStocks = new Set(DEFAULT_PAPER_WATCHLIST.stocks.map(v => v.symbol));
+  const savedCrypto = new Set(DEFAULT_PAPER_WATCHLIST.crypto.map(v => v.symbol));
+  const extraStocks: string[] = [];
+  const extraCrypto: string[] = [];
+  const seen = new Set<string>();
+  for (const p of (assignedRows ?? []) as Prospect[]) {
+    const symbol = p.asset_class === "crypto" ? p.symbol.replace("/", "-") : p.symbol;
+    const key = `${p.asset_class}:${symbol}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    if (p.asset_class === "stock" && /^[A-Z][A-Z0-9.]{0,9}$/.test(symbol)
+        && !savedStocks.has(symbol) && extraStocks.length < 20 - savedStocks.size) extraStocks.push(symbol);
+    if (p.asset_class === "crypto" && /^[A-Z0-9]{2,12}-USD$/.test(symbol)
+        && !savedCrypto.has(symbol) && extraCrypto.length < 10 - savedCrypto.size) extraCrypto.push(symbol);
+  }
+  const stocks = [...savedStocks, ...extraStocks];
+  const crypto = [...savedCrypto, ...extraCrypto];
+  const dynamicCandidates = [
+    ...extraStocks.map(symbol => ({symbol, label:symbol, role:"Scanner observation only",
+      pools:[] as ("day"|"multi-day"|"multi-week")[], rationale:"Not yet approved for funded trading.",
+      return1y:0,volatility:0,maxDrawdown:0,fractionable:false,tradable:false,tier:"reserve" as const})),
+    ...extraCrypto.map(symbol => ({symbol, label:symbol, role:"Scanner observation only",
+      pools:[] as ("day"|"multi-day"|"multi-week")[], rationale:"Not yet approved for funded trading.",
+      return1y:0,volatility:0,maxDrawdown:0,fractionable:false,tradable:false,tier:"reserve" as const})),
+  ];
   const marketUrl = new URL("/api/paper-trading/market-data", request.url);
   marketUrl.searchParams.set("stocks", stocks.join(","));
   marketUrl.searchParams.set("crypto", crypto.join(","));
@@ -65,7 +95,7 @@ export async function GET(request: Request) {
   const benchmarkCrypto = cryptoBySymbol.get("BTC-USD")?.candles ?? [];
   const auditRows = [];
 
-  for (const candidate of [...DEFAULT_PAPER_WATCHLIST.stocks, ...DEFAULT_PAPER_WATCHLIST.crypto]) {
+  for (const candidate of [...DEFAULT_PAPER_WATCHLIST.stocks, ...DEFAULT_PAPER_WATCHLIST.crypto, ...dynamicCandidates]) {
     const assetClass = stocks.includes(candidate.symbol) ? "stock" as const : "crypto" as const;
     const book = assetClass === "crypto" ? cryptoBySymbol.get(candidate.symbol) : null;
     const quote = assetClass === "stock" ? market.stocks?.[candidate.symbol] : {
@@ -85,7 +115,8 @@ export async function GET(request: Request) {
     auditRows.push(atlasJournalPayload({
       decision:result,ids,evaluatedAt,scanBucketUtc,
       inputProvenance:{
-        engine:"paper-medium-high-v1",candidateSource:"persisted-paper-watchlist",
+        engine:"paper-medium-high-v1",candidateSource: savedStocks.has(candidate.symbol) || savedCrypto.has(candidate.symbol)
+          ? "persisted-paper-watchlist" : "scanner-assigned-unapproved",
         marketSources:market.sources ?? {},marketErrors:market.errors ?? {},
         latestBarAt:candles.at(-1)?.time ?? null,
         latestBenchmarkBarAt:benchmarkCandles.at(-1)?.time ?? null,
@@ -108,5 +139,7 @@ export async function GET(request: Request) {
   if (errors) return response({ok:false,readOnly:true,evaluated:auditRows.length,written,duplicate,
     errors,scanBucketUtc,note:"Some candidate journal writes failed; retry is safe."},503);
   return response({ok:true,readOnly:true,ordersSubmitted:0,scanBucketUtc,evaluated:auditRows.length,
-    written,duplicate,watchlistOnly:true,unmatchedScannerProspectsNotStrategyEvaluated:true});
+    written,duplicate,watchlistOnly:false,dynamicEvaluated:dynamicCandidates.length,
+    dynamicDeferredByMarketBatchLimit:Math.max(0,seen.size - dynamicCandidates.length),
+    dynamicExecutionAuthorized:false});
 }

@@ -76,3 +76,16 @@ test("SQL ensures repeat scanner/retry event uniqueness without changing fills",
   assert.match(migration,/REVOKE ALL ON FUNCTION public\.paper_atlas_record_candidate\(jsonb\) FROM PUBLIC,anon,authenticated/);
   assert.doesNotMatch(migration,/UPDATE public\.paper_bot_ledgers|INSERT INTO public\.paper_bot_broker_fills|DELETE FROM public\.paper_bot_orders/i);
 });
+
+test("assigned scanner candidates are evaluated but never silently authorized for trading",()=>{
+  const route=text("../src/app/api/paper-trading/bots/atlas-decision-audit/route.ts");
+  assert.match(route,/contains\("assigned_bot_ids", \["default-diverse"\]\)/);
+  assert.match(route,/\.\.\.dynamicCandidates/);
+  assert.match(route,/scanner-assigned-unapproved/);
+  assert.match(route,/dynamicExecutionAuthorized:false/);
+  assert.match(route,/tradable:false/);
+  assert.match(route,/pools:\[\]/);
+  assert.match(route,/extraStocks\.length < 20 - savedStocks\.size/);
+  assert.match(route,/extraCrypto\.length < 10 - savedCrypto\.size/);
+  assert.doesNotMatch(route,/paper-api\.alpaca\.markets|submitOrder|placeOrder|createBrokerOrder/);
+});
