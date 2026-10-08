@@ -48,9 +48,9 @@ export const CRYPTO_IGNITION_STRATEGY_V1 = {
   },
   execution: {
     paperOnly: true,
-    executionEnabledByDefault: false,
+    executionEnabledByDefault: true,
     minimumOrderNotionalUsd: 1,
-    note: "Execution remains kill-switch controlled; dedicated Spark protection manager is required before arming.",
+    note: "Execution is kill-switch controlled and protected by Spark's dedicated stop/trim/trailing manager.",
   },
 } as const;
 
