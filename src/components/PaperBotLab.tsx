@@ -746,6 +746,12 @@ export default function PaperBotLab() {
   const totalPl = equity - profile.challengeStartingCash;
   const totalReturn = (equity / profile.challengeStartingCash - 1) * 100;
   const openOrderCount = liveBrokerOrders.length + stagedOrders.length;
+  const automationEnabled =
+    profile.id === "three-trade-weekly-swing-100" ? swingReadiness?.executionEnabled === true
+    : profile.id === "weekend-crypto-day-100" ? cryptoReadiness?.executionEnabled === true
+    : profile.id === "crypto-swing-100" ? cryptoSwingReadiness?.executionEnabled === true
+    : profile.id === "squeeze-breakout-100" ? squeezeReadiness?.executionEnabled === true
+    : false;
 
   const views: Array<{ id: PortfolioView; label: string }> = [
     { id: "portfolio", label: "Portfolio" },
@@ -843,6 +849,7 @@ export default function PaperBotLab() {
       <div className={styles.portfolioDashboardFull}>
         <PaperSignalPipeline
           botName={botShortName(profile)}
+          automationEnabled={automationEnabled}
           prospects={assignedProspects}
           stagedOrders={stagedOrders}
           brokerOrders={liveBrokerOrders}
@@ -871,6 +878,7 @@ export default function PaperBotLab() {
 
     {view === "pipeline" ? <PaperSignalPipeline
       botName={botShortName(profile)}
+      automationEnabled={automationEnabled}
       prospects={assignedProspects}
       stagedOrders={stagedOrders}
       brokerOrders={liveBrokerOrders}
