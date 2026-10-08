@@ -6,7 +6,7 @@ import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profil
 import PaperSignalPipeline from "./PaperSignalPipeline";
 import usePaperBotLedgers from "./usePaperBotLedgers";
 import usePaperProspects, { type PaperProspect } from "./usePaperProspects";
-import usePaperSignalDesk from "./usePaperSignalDesk";
+import usePaperSignalDesk, { type PaperSignalDeskEvent } from "./usePaperSignalDesk";
 import useMarketMonitor from "./useMarketMonitor";
 import useSwingReadiness from "./useSwingReadiness";
 import useCryptoSwingReadiness from "./useCryptoSwingReadiness";
@@ -100,7 +100,7 @@ export default function SignalDesk() {
       liveOrders += (ledgers?.brokerOrders?.[profile.id] ?? [])
         .filter(order => !TERMINAL_ORDER_STATUSES.has(order.status.toLowerCase())).length;
       holdings += ledgers?.positionPlans?.[profile.id]?.length ?? 0;
-      const latestBySymbol = new Map<string, (typeof signalDesk.events)[string][number]>();
+      const latestBySymbol = new Map<string, PaperSignalDeskEvent>();
       for (const event of signalDesk?.events?.[profile.id] ?? []) {
         if (!event.symbol || latestBySymbol.has(event.symbol)) continue;
         latestBySymbol.set(event.symbol, event);
