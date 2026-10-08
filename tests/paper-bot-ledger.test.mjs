@@ -22,6 +22,7 @@ function module(path, imports = {}, globals = {}) {
 }
 
 const ledger = module("../src/lib/paper-bot-ledger.ts", { zod: { z } });
+const journalCounts = module("../src/lib/paper-bot-journal-count.ts");
 const stamp = "2026-10-03T17:00:00.000Z";
 
 const ledgerRows = [
@@ -51,6 +52,7 @@ function api(fetcher, env = { SUPABASE_SECRET_KEY: "database-secret" }) {
     "next/server": { NextResponse: Response },
     "zod": { z },
     "@/lib/paper-bot-ledger": ledger,
+    "@/lib/paper-bot-journal-count": journalCounts,
   }, { process: { env }, fetch: fetcher });
 }
 
@@ -74,7 +76,7 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
       protect_winner_at_r:"1", trail_remainder:true, last_exit_manager_at:stamp,
       exit_manager_state:{version:"paper-exit-v1",mode:"staged-action",plannedAction:"hold",rMultiple:-0.1,markPrice:119.9,evaluatedAt:stamp,hasActiveStop:true,reason:"No exit-management threshold is active."}
     }]);
-    if (url.includes("paper_bot_journal")) return Response.json([]);
+    if (url.includes("paper_bot_journal")) return new Response(null, { status: 206, headers: { "content-range": url.includes("default-diverse") ? "0-0/42" : "*/0" } });
     if (url.includes("paper_bot_broker_orders")) return Response.json([{ bot_id:"default-diverse", broker_order_id:"private-order", symbol:"SOL/USD", asset_class:"crypto", side:"buy", order_type:"market", order_class:"simple", status:"filled", quantity:"0.16", filled_quantity:"0.16", average_fill_price:"120", submitted_at:stamp, filled_at:stamp, last_seen_at:stamp }]);
     if (url.includes("paper_bot_broker_fills")) return Response.json([{ bot_id:"default-diverse", fill_activity_id:"private-fill", symbol:"SOL/USD", side:"buy", quantity:"0.16", price:"120", transaction_time:stamp, ledger_applied_at:stamp }]);
     if (url.includes("paper_bot_orders")) return Response.json([{ bot_id: "default-diverse", strategy_id:"paper-medium-high-v1", strategy_version:"1", symbol: "QQQ", asset_class: "etf", status: "prepared", requested_notional: "10", requested_quantity: null, pool_id: "multi-day", entry_trigger: "750", max_entry_price: "755", protective_stop: "730", planned_risk_dollars: "1", expires_at: stamp, stage_reason: "fixture", take_profit_price: "790", take_profit_fraction: "0.5", take_profit_r: "2", protect_winner_at_r: "1", trail_remainder: true }]);
@@ -95,7 +97,8 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.bots[0].equity, 100);
   assert.equal(body.bots[0].buyingPower, 100);
   assert.equal(body.bots[0].positionCount, 1);
-  assert.equal(body.bots[0].journalCount, 0);
+  assert.equal(body.bots[0].journalCount, 42);
+  assert.equal(body.bots[1].journalCount, 0);
   assert.equal(body.bots[0].brokerOrderCount, 1);
   assert.equal(body.bots[0].brokerFillCount, 1);
   assert.equal(body.bots[0].lastBrokerFillAt, stamp);
@@ -110,7 +113,7 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   assert.equal(body.tradeMetrics["default-diverse"][0].mark_count, 4);
   assert.equal(body.counterfactuals["default-diverse"][0].first_outcome, "two-r-before-stop");
   assert.equal(body.counterfactuals["default-diverse"][0].mfe_r, 2.1);
-  assert.equal(requested.length, 10);
+  assert.equal(requested.length, 11);
   assert.doesNotMatch(JSON.stringify(body), /private-value|database-secret|metadata|private-order|private-fill/);
 });
 
