@@ -28,10 +28,50 @@ import useSwingReadiness from "./useSwingReadiness";
 import useCryptoSwingReadiness from "./useCryptoSwingReadiness";
 import useSqueezeBreakoutReadiness from "./useSqueezeBreakoutReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
+import useFastBotReadiness from "./useFastBotReadiness";
 import usePaperSignalDesk from "./usePaperSignalDesk";
 import PaperSignalPipeline from "./PaperSignalPipeline";
 import styles from "./PaperTradingLab.module.css";
 
+type FastTradeCandidate = {
+  symbol: string; state: string; selectedForSubmission: boolean;
+  bid: number | null; ask: number | null; trigger: number | null;
+  protectiveStop: number | null; takeProfit: number | null;
+  plannedQuantity: number | null; plannedNotional: number | null; plannedRiskDollars: number | null;
+  scannerScore?: number; sourceScore?: number;
+  blockers: string[]; waitingOn: string[];
+};
+type FastBotMetadata = { strategyId: string; strategyVersion: number; executionEnabled: boolean } | null;
+function fastBotTradePlans(botId: string, label: string, readiness: FastBotMetadata, candidates: FastTradeCandidate[]): PaperBotTradePlan[] {
+  return candidates.map(candidate => {
+    const entry = candidate.ask ?? candidate.trigger;
+    const amount = candidate.plannedNotional;
+    const profit = entry != null && candidate.takeProfit != null && candidate.plannedQuantity != null
+      ? (candidate.takeProfit - entry) * candidate.plannedQuantity : null;
+    const canSubmit = readiness?.executionEnabled === true && candidate.selectedForSubmission;
+    const hasReference = entry != null && candidate.protectiveStop != null && candidate.takeProfit != null;
+    return {
+      contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION,
+      botId, strategyId: readiness?.strategyId ?? null, strategyVersion: readiness?.strategyVersion ?? null,
+      symbol: candidate.symbol, label, assetClass: botId === "crypto-ignition-100" ? "crypto" as const : "stock" as const,
+      currentPrice: candidate.bid != null && candidate.ask != null ? (candidate.bid + candidate.ask) / 2 : candidate.ask ?? candidate.bid,
+      score: candidate.scannerScore ?? candidate.sourceScore ?? null,
+      state: canSubmit ? "SELECTED" : candidate.state.toUpperCase(),
+      detail: candidate.blockers[0] ?? candidate.waitingOn[0] ?? "All currently evaluated strategy gates pass.",
+      horizons: ["day" as const],
+      executionEligible: readiness?.executionEnabled === true && candidate.state === "ready",
+      selectedForSubmission: canSubmit,
+      blockers: candidate.blockers, warnings: candidate.waitingOn,
+      plan: {
+        phase: canSubmit ? "ready" as const : hasReference ? "reference" as const : "awaiting-data" as const,
+        entryPrice: entry, purchaseAmount: amount, stopPrice: candidate.protectiveStop,
+        maxLossDollars: candidate.plannedRiskDollars, exitPrice: candidate.takeProfit,
+        projectedProfitDollars: profit,
+        projectedProfitPct: profit != null && amount != null && amount > 0 ? profit / amount * 100 : null,
+      },
+    };
+  });
+}
 type PortfolioView = "portfolio" | "pipeline" | "holdings" | "watchlist" | "prospects" | "orders" | "trades" | "strategy";
 
 type WatchRow = {
@@ -403,6 +443,7 @@ export default function PaperBotLab() {
   const { report: cryptoSwingReadiness, error: cryptoSwingReadinessError } = useCryptoSwingReadiness();
   const { report: squeezeReadiness, error: squeezeReadinessError } = useSqueezeBreakoutReadiness();
   const { report: cryptoReadiness, error: cryptoReadinessError } = useWeekendCryptoReadiness();
+  const { pulse: pulseReadiness, spark: sparkReadiness, pulseError, sparkError } = useFastBotReadiness();
   const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
   const { report: prospectReport, error: prospectError } = usePaperProspects();
   const { report: signalDesk, error: signalDeskError, refresh: refreshSignalDesk } = usePaperSignalDesk();
@@ -694,8 +735,8 @@ export default function PaperBotLab() {
     "crypto-readiness": cryptoTradePlans,
     "crypto-swing-readiness": cryptoSwingReadiness?.plans ?? [],
     "squeeze-breakout-readiness": squeezeReadiness?.plans ?? [],
-    "momentum-breakout-readiness": [],
-    "crypto-ignition-readiness": [],
+    "momentum-breakout-readiness": fastBotTradePlans("momentum-breakout-100", "Pulse breakout", pulseReadiness, pulseReadiness?.plans ?? []),
+    "crypto-ignition-readiness": fastBotTradePlans("crypto-ignition-100", "Spark ignition", sparkReadiness, sparkReadiness?.candidates ?? []),
   } satisfies Record<Exclude<PaperBotProfile["tradePlan"]["source"], "not-configured">, PaperBotTradePlan[]>;
 
   const candidateTradePlans = profile.tradePlan.source === "not-configured"
@@ -835,9 +876,9 @@ export default function PaperBotLab() {
       {views.map(item => <button key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
     </nav>
 
-    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || squeezeReadinessError || cryptoReadinessError || strategyReviewError || prospectError || signalDeskError || watchlistError || marketError || prospectMarketError
+    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || squeezeReadinessError || cryptoReadinessError || pulseError || sparkError || strategyReviewError || prospectError || signalDeskError || watchlistError || marketError || prospectMarketError
       ? <div className={styles.portfolioWarnings}>
-          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, squeezeReadinessError, cryptoReadinessError, strategyReviewError, prospectError, signalDeskError, watchlistError, marketError, prospectMarketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
+          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, squeezeReadinessError, cryptoReadinessError, pulseError, sparkError, strategyReviewError, prospectError, signalDeskError, watchlistError, marketError, prospectMarketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
         </div>
       : null}
 
