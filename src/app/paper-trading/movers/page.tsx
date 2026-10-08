@@ -93,7 +93,18 @@ export default function MarketMoverIntelligencePage() {
       {latest.map(row => {
         const buy = row.direction === "buy-side-depth";
         const sell = row.direction === "sell-side-depth";
-        const highlight = buy ? "#57d7b0" : sell ? "#ff8c8c" : "#b6c9da";
+        const quality = row.asset_class === "crypto"
+          ? String(row.evidence.quality_status ?? "legacy")
+          : "unattributed-print";
+        const confirmed = quality === "confirmed";
+        const highlight = confirmed ? (buy ? "#57d7b0" : sell ? "#ff8c8c" : "#b6c9da") : "#b6c9da";
+        const statusLabel = quality === "confirmed" ? "Repeated quality checks passed"
+          : quality === "watching" ? "Watching · needs another separate scan"
+          : quality === "rejected" ? "Excluded · unreliable displayed depth"
+          : quality === "legacy" ? "Historical · predates quality checks"
+          : "Unattributed trade print";
+        const reason = String(row.evidence.quality_reason ?? "").split(",").filter(Boolean)
+          .map(value => value.replaceAll("-", " ")).join(" · ");
         return <article key={`${row.asset_class}:${row.symbol}:${row.signal_kind}`} style={{
           background: "#131b25", border: "1px solid #263444", borderRadius: 12, padding: 18,
         }}>
@@ -102,11 +113,17 @@ export default function MarketMoverIntelligencePage() {
             <span style={{ color: "#aabaca", fontSize: 12 }}>{row.asset_class.toUpperCase()}</span>
           </div>
           <p style={{ color: highlight, margin: "10px 0" }}>
+            {statusLabel}
+          </p>
+          <p style={{ color: "#aabaca", fontSize: 13, margin: "6px 0" }}>
             {buy ? "More displayed bid-side depth" : sell ? "More displayed ask-side depth" :
               row.direction === "balanced-depth" ? "Relatively balanced displayed depth" : "Unattributed large print"}
           </p>
+          {reason && !confirmed ? <p style={{ color: "#b9a9a5", fontSize: 12 }}>
+            Quality check: {reason}
+          </p> : null}
           <div style={{ display: "flex", gap: 20, margin: "14px 0" }}>
-            <div><strong style={{ fontSize: 28 }}>{Number(row.score).toFixed(0)}</strong><div style={{ color: "#aabaca", fontSize: 12 }}>Research score / 100</div></div>
+            <div><strong style={{ fontSize: 28 }}>{Number(row.score).toFixed(0)}</strong><div style={{ color: "#aabaca", fontSize: 12 }}>Eligible research score / 100</div></div>
             <div><strong style={{ fontSize: 28 }}>{Number(row.confidence).toFixed(0)}</strong><div style={{ color: "#aabaca", fontSize: 12 }}>Evidence confidence / 100</div></div>
           </div>
           {row.signal_kind === "crypto-book-depth"
@@ -132,6 +149,10 @@ export default function MarketMoverIntelligencePage() {
       A large displayed order can disappear without trading. SEC institutional/insider filings and
       verified on-chain wallet behavior are planned separate research sources, not yet ingested here.
       Historical comparison must use each record&apos;s availability time to prevent look-ahead bias.
+      Crypto scores are held at zero unless the two-sided liquidity, spread, level concentration,
+      and separate-scan checks pass. Confirmed describes repeated displayed depth only — not
+      confirmed purchases or predictive success. Old ungated scores remain visible as historical
+      raw evidence, but no longer count as eligible.
     </footer>
   </main>;
 }
