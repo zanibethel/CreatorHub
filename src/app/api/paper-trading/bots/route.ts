@@ -170,7 +170,7 @@ export async function GET() {
   try {
     const [capitalPlanRaw, ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw, tradeMetricRaw, counterfactualRaw] = await Promise.all([
       read("paper_capital_plan?plan_id=eq.main&select=plan_id,total_capital,bot_pool_capital,reserved_bot_pools,allocated_capital,unallocated_reserve,currency&limit=1"),
-      read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source,pool_usage&order=bot_id.asc"),
+      read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source,metadata,pool_usage&order=bot_id.asc"),
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
       read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,initial_protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,last_exit_manager_at,exit_manager_state&limit=5000"),
       read("paper_bot_journal?select=id,bot_id&limit=10000"),
@@ -221,9 +221,9 @@ export async function GET() {
       accountingModel: {
         challengeStartingCash: capitalPlan?.bot_pool_capital ?? 100,
         programStartingCapital: capitalPlan?.total_capital ?? 1000,
-        reservedBotPools: capitalPlan?.reserved_bot_pools ?? 6,
-        allocatedBotCapital: capitalPlan?.allocated_capital ?? 600,
-        unallocatedReserve: capitalPlan?.unallocated_reserve ?? 400,
+        reservedBotPools: capitalPlan?.reserved_bot_pools ?? 8,
+        allocatedBotCapital: capitalPlan?.allocated_capital ?? 800,
+        unallocatedReserve: capitalPlan?.unallocated_reserve ?? 200,
         currency: capitalPlan?.currency ?? "USD",
         virtualLedgerIsAuthority: true,
         executionVenueBalanceIsNotProgramCapital: true,
