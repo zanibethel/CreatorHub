@@ -395,10 +395,14 @@ export async function GET(request:Request){
     if(!currentProtection){
       const protectedNow=await createProtection({symbol,qty,stop:currentStop,entry,
         reason:"Atlas fractional DAY protective stop."});
-      if(!protectedNow){
+      if(!protectedNow.established){
+        if(protectedNow.ambiguous){
+          return reply({error:"Atlas protective-stop outcome is ambiguous; no second sell is submitted until reconciliation.",
+            paperOnly:true,critical:true,symbol},502);
+        }
         const emergency=await submitExit({symbol,qty,purpose:"emergency-flatten",
-          reason:"Atlas emergency flatten after protective-stop failure.",entry});
-        return reply({error:"Atlas protection could not be established; emergency flatten attempted.",
+          reason:"Atlas emergency flatten after definite protective-stop failure.",entry});
+        return reply({error:"Atlas protection was definitively rejected; emergency flatten attempted.",
           paperOnly:true,critical:true,symbol,emergencySubmitted:Boolean(emergency.order),ambiguous:emergency.ambiguous},502);
       }
       await patchOrder(entry.client_order_id,{metadata:{...entryMetadata,currentProtectiveStop:roundPrice(currentStop),
@@ -423,7 +427,8 @@ export async function GET(request:Request){
       if(!(partialQty>0)){
         const restored=await createProtection({symbol,qty:available,stop:currentStop,entry,
           reason:"Restore Atlas protection after unavailable partial quantity."});
-        return reply({ok:restored,paperOnly:true,action:"partial-skipped",symbol,protectionRestored:restored},restored?200:502);
+        return reply({ok:restored.established,paperOnly:true,action:"partial-skipped",symbol,
+          protectionRestored:restored.established,protectionAmbiguous:restored.ambiguous},restored.established?200:502);
       }
       const partial=await submitExit({symbol,qty:partialQty,purpose:"take-profit-partial",
         reason:"Atlas +1.75R partial profit.",entry});
@@ -435,9 +440,12 @@ export async function GET(request:Request){
       if(!(filled>0)){
         const still=await findBrokerPosition(symbol);
         const restoreQty=floorQty(numeric(still?.qty_available)??numeric(still?.qty)??0);
-        const restored=restoreQty>0&&await createProtection({symbol,qty:restoreQty,stop:currentStop,entry,
-          reason:"Restore Atlas protection after unfilled partial profit."});
-        return reply({ok:true,paperOnly:true,action:"partial-no-fill",symbol,protectionRestored:Boolean(restored)});
+        const restored=restoreQty>0
+          ?await createProtection({symbol,qty:restoreQty,stop:currentStop,entry,
+            reason:"Restore Atlas protection after unfilled partial profit."})
+          :{established:false,ambiguous:false,rejected:true};
+        return reply({ok:restored.established,paperOnly:true,action:"partial-no-fill",symbol,
+          protectionRestored:restored.established,protectionAmbiguous:restored.ambiguous},restored.established?200:502);
       }
       const after=await findBrokerPosition(symbol);
       const remaining=floorQty(numeric(after?.qty_available)??numeric(after?.qty)??0);
@@ -445,10 +453,14 @@ export async function GET(request:Request){
       if(remaining>0){
         const restored=await createProtection({symbol,qty:remaining,stop:nextStop,entry,
           reason:"Atlas protects remainder at break-even after +1.75R trim."});
-        if(!restored){
+        if(!restored.established){
+          if(restored.ambiguous){
+            return reply({error:"Atlas remainder-stop outcome is ambiguous after partial profit; no second sell is submitted.",
+              paperOnly:true,critical:true,symbol},502);
+          }
           const emergency=await submitExit({symbol,qty:remaining,purpose:"emergency-flatten",
-            reason:"Atlas emergency flatten after partial-profit protection failure.",entry});
-          return reply({error:"Atlas partial filled but remainder protection failed; emergency flatten attempted.",
+            reason:"Atlas emergency flatten after definite remainder-protection rejection.",entry});
+          return reply({error:"Atlas partial filled but remainder protection was rejected; emergency flatten attempted.",
             paperOnly:true,critical:true,symbol,emergencySubmitted:Boolean(emergency.order),ambiguous:emergency.ambiguous},502);
         }
       }
@@ -476,10 +488,14 @@ export async function GET(request:Request){
     if(!(available>0))return reply({ok:true,paperOnly:true,action:"none",reason:"position-closed-during-stop-update",symbol});
     const replaced=await createProtection({symbol,qty:available,stop:desired,entry,
       reason:action.action==="trail"?"Atlas trails remainder one initial R behind mark.":"Atlas protects winner at break-even."});
-    if(!replaced){
+    if(!replaced.established){
+      if(replaced.ambiguous){
+        return reply({error:"Atlas replacement-stop outcome is ambiguous; no second sell is submitted until reconciliation.",
+          paperOnly:true,critical:true,symbol},502);
+      }
       const emergency=await submitExit({symbol,qty:available,purpose:"emergency-flatten",
-        reason:"Atlas emergency flatten after stop replacement failure.",entry});
-      return reply({error:"Atlas protective-stop replacement failed; emergency flatten attempted.",
+        reason:"Atlas emergency flatten after definite stop-replacement rejection.",entry});
+      return reply({error:"Atlas protective-stop replacement was rejected; emergency flatten attempted.",
         paperOnly:true,critical:true,symbol,emergencySubmitted:Boolean(emergency.order),ambiguous:emergency.ambiguous},502);
     }
     await patchOrder(entry.client_order_id,{metadata:{...entryMetadata,currentProtectiveStop:roundPrice(desired),
@@ -579,10 +595,13 @@ export async function GET(request:Request){
       if(!(available>0&&stop&&stop>0))return {ok:false,state:"filled-position-not-confirmed-for-protection"};
       const protectedNow=await createProtection({symbol:order.symbol,qty:available,stop,entry:{...order,status:localStatus,metadata:nextMetadata},
         reason:"Atlas fractional DAY protective stop after entry fill."});
-      if(!protectedNow){
+      if(!protectedNow.established){
+        if(protectedNow.ambiguous){
+          return {ok:false,state:"protection-outcome-ambiguous",critical:true};
+        }
         const emergency=await submitExit({symbol:order.symbol,qty:available,purpose:"emergency-flatten",
-          reason:"Atlas emergency flatten after entry protection failure.",entry:{...order,status:localStatus,metadata:nextMetadata}});
-        return {ok:false,state:"protection-failed-emergency-flatten",emergencySubmitted:Boolean(emergency.order),ambiguous:emergency.ambiguous};
+          reason:"Atlas emergency flatten after definite entry-protection rejection.",entry:{...order,status:localStatus,metadata:nextMetadata}});
+        return {ok:false,state:"protection-rejected-emergency-flatten",emergencySubmitted:Boolean(emergency.order),ambiguous:emergency.ambiguous};
       }
       await patchOrder(order.client_order_id,{metadata:{...nextMetadata,protectionEstablishedAt:new Date().toISOString(),
         currentProtectiveStop:roundPrice(stop)}});
