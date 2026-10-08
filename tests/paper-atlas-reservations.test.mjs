@@ -46,3 +46,9 @@ test("release requires broker-confirmed terminal no-fill state",()=>{
   assert.match(sql,/o\.last_reconciled_at IS NOT NULL/);
   assert.doesNotMatch(sql,/o\.status IN \('canceled','rejected','expired','error'\)/);
 });
+
+
+test("migration has no malformed single-dollar PL/pgSQL delimiters",()=>{
+  assert.doesNotMatch(sql,/AS \$\nDECLARE/);
+  assert.doesNotMatch(sql,/END \$;/);
+});
