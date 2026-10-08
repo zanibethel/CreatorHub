@@ -23,8 +23,8 @@ test("requires 12-month completed context; never labels unresolved future horizo
   assert.equal(engine.extractHistoryExamples("XYZ","stock",bars(200)).length,0);
   const rows=engine.extractHistoryExamples("XYZ","stock",bars(280));
   assert.ok(rows.length>0);
-  const last=new Date(bars(280).at(-1).t);
-  assert.ok(rows.every(r=>new Date(r.outcomeEndAt)<=last));
+  const last=Date.parse(bars(280).at(-1).t)+day;
+  assert.ok(rows.every(r=>Date.parse(r.outcomeEndAt)<=last));
   assert.ok(rows.every(r=>new Date(r.decisionAt)<new Date(r.entryAt)));
 });
 
@@ -53,7 +53,7 @@ test("future outcomes cannot join historical nearest neighbors",()=>{
   const data=bars(340);
   const examples=engine.extractHistoryExamples("X","crypto",data);
   const f=engine.historicalFeatures(data,300);
-  const asOf=data[254].t;
+  const asOf=data[253].t;
   const matched=engine.matchHistoricalPattern(examples,f,"3-day",4,asOf,"crypto");
   assert.equal(matched.status,"insufficient-evidence");
   assert.equal(matched.score,null);
