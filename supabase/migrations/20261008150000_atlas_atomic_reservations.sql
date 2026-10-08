@@ -110,18 +110,7 @@ BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
-  -- Fail closed: only an unlinked reservation can be released, and only if no
-  -- unresolved Atlas order exists. A broker timeout requires manual reconciliation.
-  PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
-  IF EXISTS (SELECT 1 FROM public.paper_bot_orders WHERE bot_id='default-diverse'
-    AND status IN ('prepared','submitted','accepted','partially_filled','pending_new')) THEN
-    RETURN false;
-  END IF;
-  UPDATE public.paper_atlas_reservations SET status='released',updated_at=now()
-   WHERE reservation_id=p_reservation_id AND bot_id='default-diverse' AND status='reserved'
-     AND client_order_id IS NULL;
-  GET DIAGNOSTICS v_changed = ROW_COUNT;
-  RETURN v_changed=1;
+  RETURN false;
 END $$;
 REVOKE ALL ON FUNCTION public.paper_atlas_release(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_release(uuid) TO service_role;
