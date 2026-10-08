@@ -48,7 +48,9 @@ const central = (value: string | null | undefined) =>
 const profileName = (id: string) => PAPER_BOT_PROFILES.find(p => p.id === id)?.codename ?? id;
 const signal = (row: AuditRow, fuse: FuseObservation[]) => {
   if (row.bot_id === "momentum-breakout-100" && number(row.current_assigned) === 0 &&
-    number(row.system_checks_7d) > 0) return {label:"Scanner handoff needs review",detail:"Scheduled checks exist, but the current prospect snapshot assigns Pulse no eligible symbols."};
+    number(row.current_suggested) > 0) return {label:"Pulse assignment mismatch",detail:"Current scanner suggestions include Pulse, but no matching assignments are stored. Investigate scanner-to-bot routing."};
+  if (row.bot_id === "momentum-breakout-100" && number(row.current_assigned) === 0 &&
+    number(row.system_checks_7d) > 0) return {label:"No currently assigned Pulse setup",detail:"Automated Pulse checks are running. No current scanner record assigns a qualifying stock; inspect Pulse's timestamped handoff diagnostics before treating this as a defect."};
   if (row.bot_id === "default-diverse" && number(row.filled_buy_orders) > 0 &&
     number(row.candidate_checks_7d) === 0) return {label:"Decision history incomplete",detail:"Atlas has a recorded fill but no candidate-decision journal entries in the seven-day window."};
   if (row.bot_id === "penny-volatility-day-100" && fuse.length > 0) return {
