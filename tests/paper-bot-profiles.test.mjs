@@ -27,6 +27,7 @@ const squeezeStrategy = module("../src/lib/paper-squeeze-breakout-strategy-confi
 const momentumStrategy = module("../src/lib/paper-momentum-breakout-strategy-config.ts");
 const ignitionStrategy = module("../src/lib/paper-crypto-ignition-strategy-config.ts");
 const tradePlan = module("../src/lib/paper-bot-trade-plan.ts");
+const fuseStrategy = module("../src/lib/paper-fuse-strategy-config.ts");
 const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-strategy-config": strategy,
   "./paper-swing-strategy-config": swingStrategy,
@@ -36,6 +37,7 @@ const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-momentum-breakout-strategy-config": momentumStrategy,
   "./paper-crypto-ignition-strategy-config": ignitionStrategy,
   "./paper-bot-trade-plan": tradePlan,
+  "./paper-fuse-strategy-config": fuseStrategy,
 });
 
 test("Default Diverse remains the default active profile", () => {
@@ -84,19 +86,22 @@ test("active $100 comparison bots stay isolated", () => {
   }
 });
 
-test("penny experiment remains planned and disabled", () => {
+test("Fuse has a versioned research strategy and remains simulation-disabled", () => {
   const penny = profiles.PENNY_VOLATILITY_DAY_BOT;
-  assert.equal(penny.status, "planned");
+  assert.equal(penny.status, "active");
+  assert.equal(penny.executionState, "research");
+  assert.equal(penny.tradePlan.source, "fuse-readiness");
   assert.equal(penny.challengeStartingCash, 100);
   assert.equal(penny.universe.maximumPriceUsd, 5);
   assert.equal(penny.cadence.intradayOnly, true);
-  assert.equal(penny.strategyId, null);
+  assert.equal(penny.strategyId, fuseStrategy.FUSE_PENNY_STRATEGY_V1.id);
+  assert.equal(fuseStrategy.FUSE_PENNY_STRATEGY_V1.execution.submissionsImplemented, false);
 });
 
-test("registry includes seven active challenges and one planned experiment", () => {
+test("registry includes eight separate $100 research or active challenges", () => {
   assert.equal(profiles.PAPER_BOT_PROFILES.length, 8);
-  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length, 7);
-  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "planned").length, 1);
+  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length, 8);
+  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "planned").length, 0);
   assert.ok(profiles.PAPER_BOT_PROFILES.every(profile => profile.challengeStartingCash === 100));
   assert.equal(profiles.MOMENTUM_BREAKOUT_BOT.strategyId, momentumStrategy.MOMENTUM_BREAKOUT_STRATEGY_V1.id);
   assert.equal(profiles.CRYPTO_IGNITION_BOT.strategyId, ignitionStrategy.CRYPTO_IGNITION_STRATEGY_V1.id);
