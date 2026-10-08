@@ -102,6 +102,51 @@ REVOKE ALL ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
 GRANT EXECUTE ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
   TO service_role;
 
+-- Bind a reservation to its exact prepared order before broker submission.
+-- The prepared order must carry reservation + decision lineage in metadata.
+CREATE OR REPLACE FUNCTION public.paper_atlas_bind_order(
+  p_reservation_id uuid,p_client_order_id text)
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
+DECLARE v_changed integer;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Service role required';
+  END IF;
+  PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.paper_bot_orders o
+    JOIN public.paper_atlas_reservations r ON r.reservation_id=p_reservation_id
+    WHERE r.bot_id='default-diverse'
+      AND r.status='reserved'
+      AND r.client_order_id IS NULL
+      AND o.client_order_id=p_client_order_id
+      AND o.bot_id='default-diverse'
+      AND o.strategy_id='paper-medium-high-v1'
+      AND o.strategy_version=1
+      AND o.side='buy'
+      AND o.pool_id=r.pool
+      AND o.status='prepared'
+      AND coalesce(o.requested_notional,0)>0
+      AND o.requested_notional<=r.amount
+      AND o.metadata->>'atlasReservationId'=r.reservation_id::text
+      AND o.metadata->>'decisionId'=r.decision_id
+      AND o.metadata->>'opportunityId'=r.opportunity_id
+  ) THEN RETURN false; END IF;
+  UPDATE public.paper_atlas_reservations
+     SET client_order_id=p_client_order_id,updated_at=now()
+   WHERE reservation_id=p_reservation_id
+     AND bot_id='default-diverse'
+     AND status='reserved'
+     AND client_order_id IS NULL;
+  GET DIAGNOSTICS v_changed=ROW_COUNT;
+  RETURN v_changed=1;
+END $;
+REVOKE ALL ON FUNCTION public.paper_atlas_bind_order(uuid,text)
+  FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.paper_atlas_bind_order(uuid,text)
+  TO service_role;
+
 -- Release requires exact reservation ID and remains idempotent.
 CREATE OR REPLACE FUNCTION public.paper_atlas_release(p_reservation_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
@@ -110,7 +155,34 @@ BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
-  RETURN false;
+  PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
+  IF NOT EXISTS (
+    SELECT 1
+    FROM public.paper_bot_orders o
+    JOIN public.paper_atlas_reservations r
+      ON r.reservation_id=p_reservation_id
+     AND r.client_order_id=o.client_order_id
+    WHERE r.bot_id='default-diverse'
+      AND r.status='reserved'
+      AND o.bot_id='default-diverse'
+      AND o.strategy_id='paper-medium-high-v1'
+      AND o.strategy_version=1
+      AND o.side='buy'
+      AND o.pool_id=r.pool
+      AND o.status IN ('canceled','rejected','expired')
+      AND o.last_reconciled_at IS NOT NULL
+      AND o.metadata->>'atlasReservationId'=r.reservation_id::text
+      AND o.metadata->>'decisionId'=r.decision_id
+      AND o.metadata->>'opportunityId'=r.opportunity_id
+  ) THEN RETURN false; END IF;
+  UPDATE public.paper_atlas_reservations
+     SET status='released',updated_at=now()
+   WHERE reservation_id=p_reservation_id
+     AND bot_id='default-diverse'
+     AND status='reserved'
+     AND client_order_id IS NOT NULL;
+  GET DIAGNOSTICS v_changed=ROW_COUNT;
+  RETURN v_changed=1;
 END $$;
 REVOKE ALL ON FUNCTION public.paper_atlas_release(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_release(uuid) TO service_role;
@@ -136,7 +208,12 @@ BEGIN
       AND o.strategy_version=1
       AND o.side='buy'
       AND o.pool_id=r.pool
-      AND (r.client_order_id IS NULL OR r.client_order_id=p_client_order_id)
+      AND r.client_order_id=p_client_order_id
+      AND o.broker_order_id IS NOT NULL
+      AND o.last_reconciled_at IS NOT NULL
+      AND o.metadata->>'atlasReservationId'=r.reservation_id::text
+      AND o.metadata->>'decisionId'=r.decision_id
+      AND o.metadata->>'opportunityId'=r.opportunity_id
       AND o.status = 'filled'
       AND coalesce(o.requested_notional,0)>0
       AND o.requested_notional<=r.amount
