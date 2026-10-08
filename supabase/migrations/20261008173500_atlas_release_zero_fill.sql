@@ -23,6 +23,7 @@ BEGIN
       AND o.status IN ('canceled','rejected','expired')
       AND o.broker_order_id IS NOT NULL
       AND o.last_reconciled_at IS NOT NULL
+      AND coalesce(nullif(o.metadata->>'filledQuantityObserved','')::numeric,-1)=0
       AND o.metadata->>'atlasReservationId'=r.reservation_id::text
       AND o.metadata->>'decisionId'=r.decision_id
       AND o.metadata->>'opportunityId'=r.opportunity_id
