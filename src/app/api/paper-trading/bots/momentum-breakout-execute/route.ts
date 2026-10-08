@@ -146,5 +146,14 @@ export async function POST(request:Request){
     }),cache:"no-store",signal:AbortSignal.timeout(10_000),
   });
 
-  return reply({ok:true,symbol:parsed.symbol,status:brokerStatus(order.status),paperOnly:true,bracketAccepted:order.order_class==="bracket",takeProfitLegObserved:takeObserved,stopLossLegObserved:stopObserved});
+  // An accepted entry is not proof that its protective exits exist. Fail closed and
+  // surface an explicit reconciliation requirement rather than reporting success.
+  const protectionVerified=nested.order_class==="bracket"&&takeObserved&&stopObserved;
+  if(!protectionVerified){
+    return reply({ok:false,symbol:parsed.symbol,paperOnly:true,action:"protection-unverified",
+      brokerOrderId:order.id,bracketAccepted:nested.order_class==="bracket",
+      takeProfitLegObserved:takeObserved,stopLossLegObserved:stopObserved,
+      warning:"Broker entry may exist. Reconcile and cancel or flatten safely before any new entry; do not resubmit."},503);
+  }
+  return reply({ok:true,symbol:parsed.symbol,status:brokerStatus(order.status),paperOnly:true,bracketAccepted:true,takeProfitLegObserved:true,stopLossLegObserved:true});
 }
