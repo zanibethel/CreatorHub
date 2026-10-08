@@ -731,3 +731,61 @@
 .qr {
   background:#f7fbfd;
 }
+
+
+/* Automated Signal Desk — one visual surface over the real simulated execution engine */
+.portfolioDashboardFull { grid-column:1 / -1; min-width:0; }
+.signalDesk { display:grid; gap:14px; min-width:0; border:1px solid #23333a; border-radius:16px; padding:15px; background:linear-gradient(160deg,#0b0e10,#060809); }
+.signalDeskHeader { display:flex; align-items:flex-start; justify-content:space-between; gap:18px; min-width:0; }
+.signalDeskHeader > div:first-child { display:grid; gap:5px; min-width:0; }
+.signalDeskHeader h2 { margin:0; font-size:20px; color:var(--trade-white); }
+.signalDeskHeader p { margin:0; max-width:760px; color:var(--trade-blue); font-size:11px; line-height:1.5; }
+.signalAutoBadge { width:max-content; border:1px solid #177444; border-radius:999px; padding:4px 8px; background:#07150f; color:var(--trade-green-soft); font-size:9px; font-weight:900; letter-spacing:.08em; }
+.signalEngineStatus { flex:0 0 auto; min-width:170px; display:grid; gap:2px; text-align:right; }
+.signalEngineStatus span,.signalEngineStatus small { color:var(--trade-blue); font-size:9px; }
+.signalEngineStatus strong { color:var(--trade-green-soft); font-size:14px; text-transform:uppercase; letter-spacing:.06em; }
+.signalFlowRail { display:flex; align-items:center; justify-content:center; gap:7px; flex-wrap:wrap; padding:8px 10px; border-top:1px solid #18272d; border-bottom:1px solid #18272d; color:#8fbfcb; font-size:8px; font-weight:900; letter-spacing:.08em; }
+.signalFlowRail span { border:1px solid #26383f; border-radius:999px; padding:4px 8px; background:#080b0c; color:var(--trade-white); }
+.signalFlowRail i { color:var(--trade-green); font-style:normal; }
+.signalLanes { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; min-width:0; }
+.signalLane { min-width:0; display:grid; align-content:start; gap:8px; padding:10px; border:1px solid #1d2d33; border-radius:12px; background:#060809; }
+.signalLaneHeader { display:grid; gap:5px; padding-bottom:8px; border-bottom:1px solid #18272d; }
+.signalLaneHeader > div { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.signalLaneHeader span { color:var(--trade-white); font-size:11px; font-weight:850; text-transform:uppercase; letter-spacing:.055em; }
+.signalLaneHeader strong { display:grid; place-items:center; min-width:24px; height:24px; padding:0 6px; border:1px solid #29434b; border-radius:999px; color:var(--trade-white); font-size:10px; }
+.signalLaneHeader small { min-height:28px; color:var(--trade-blue); font-size:8px; line-height:1.35; }
+.signalCard { min-width:0; display:grid; gap:8px; padding:10px; border:1px solid #23333a; border-radius:10px; background:#090c0e; }
+.signalCardTop { display:flex; align-items:flex-start; justify-content:space-between; gap:10px; min-width:0; }
+.signalCardTop > div { min-width:0; display:grid; gap:2px; }
+.signalCardTop strong { color:var(--trade-white); font-size:14px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.signalCardTop small { color:var(--trade-blue); font-size:8px; text-transform:uppercase; letter-spacing:.045em; }
+.signalScore { flex:0 0 auto; text-align:right; }
+.signalScore span { color:var(--trade-blue); font-size:7px; text-transform:uppercase; }
+.signalScore strong { color:var(--trade-white); font-size:18px; font-variant-numeric:tabular-nums; }
+.signalPriceRow { display:flex; align-items:center; justify-content:space-between; gap:8px; flex-wrap:wrap; color:var(--trade-blue); font-size:8px; }
+.signalPriceRow strong { color:var(--trade-white); font-size:10px; font-variant-numeric:tabular-nums; }
+.signalMiniMetrics,.signalPlanGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:6px; }
+.signalMiniMetrics > span,.signalPlanGrid > span { min-width:0; display:grid; gap:2px; padding:6px; border:1px solid #18272d; border-radius:7px; background:#060809; }
+.signalMiniMetrics small,.signalPlanGrid small { color:var(--trade-blue); font-size:7px; text-transform:uppercase; letter-spacing:.035em; }
+.signalMiniMetrics strong,.signalPlanGrid strong { color:var(--trade-white); font-size:10px; font-variant-numeric:tabular-nums; overflow-wrap:anywhere; text-transform:none; }
+.signalCard p { margin:0; color:var(--trade-blue); font-size:9px; line-height:1.4; overflow-wrap:anywhere; }
+.signalCard footer { color:#719aa5; font-size:7px; line-height:1.35; }
+.signalStatePositive,.signalStateNegative,.signalStateNeutral { flex:0 0 auto; border-radius:999px; padding:4px 6px; font-size:7px; font-weight:900; letter-spacing:.04em; }
+.signalStatePositive { color:var(--trade-green-soft); border:1px solid #177444; background:#07150f; }
+.signalStateNegative { color:#ffb1ba; border:1px solid #712a34; background:#1f0a0e; }
+.signalStateNeutral { color:var(--trade-blue); border:1px solid #29434b; background:#0a1012; }
+.signalEmpty { display:grid; place-items:center; min-height:90px; padding:12px; border:1px dashed #29434b; border-radius:9px; color:var(--trade-blue); text-align:center; font-size:9px; line-height:1.45; }
+.signalDeskCompact .signalLane article:nth-of-type(n+3) { display:none; }
+
+@media(max-width:1150px) {
+  .signalLanes { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
+@media(max-width:650px) {
+  .signalDesk { padding:11px; border-radius:13px; }
+  .signalDeskHeader { flex-direction:column; gap:9px; }
+  .signalEngineStatus { min-width:0; text-align:left; }
+  .signalFlowRail { justify-content:flex-start; }
+  .signalLanes { grid-template-columns:1fr; }
+  .signalLaneHeader small { min-height:0; }
+  .signalMiniMetrics,.signalPlanGrid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+}
