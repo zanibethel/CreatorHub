@@ -133,6 +133,8 @@ BEGIN
      AND metadata->>'orderAuthorization'='true'
      AND qualification='trade-ready'
      AND blockers='[]'::jsonb
+     AND occurred_at>=now()-interval '90 seconds'
+     AND abs(coalesce(nullif(metadata->>'proposedNotional','')::numeric,-1)-p_amount)<0.01
    ORDER BY occurred_at DESC
    LIMIT 1;
   IF v_symbol IS NULL THEN
