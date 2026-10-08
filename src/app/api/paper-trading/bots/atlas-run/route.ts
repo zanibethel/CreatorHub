@@ -544,10 +544,10 @@ export async function GET(request:Request){
       if(!(partialQty>0))return reply({error:"Atlas has no sellable quantity for partial profit.",critical:true},503);
       const partial=await submitSell({
         symbol:position.symbol,quantity:partialQty,purpose:"take-profit-partial",parentClientOrderId:parent.client_order_id,
-        type:"market",stageReason:"Atlas v2 first reference-target partial profit.",
+        pool,type:"market",stageReason:"Atlas v3 first reference-target partial profit.",
       });
       if(!partial.ok){
-        const restored=await ensureProtection(position.symbol,currentStop,parent.client_order_id);
+        const restored=await ensureProtection(position.symbol,currentStop,parent.client_order_id,pool,true);
         return reply({error:"Atlas partial profit was not confirmed; stop restoration attempted.",
           paperOnly:true,critical:!restored.ok,restored},502);
       }
@@ -563,7 +563,7 @@ export async function GET(request:Request){
       const filled=num(observed?.filled_qty)??0;
       if(!(filled>0)){
         if(observed?.id)await broker(`orders/${encodeURIComponent(observed.id)}`,{method:"DELETE"});
-        const restored=await ensureProtection(position.symbol,currentStop,parent.client_order_id);
+        const restored=await ensureProtection(position.symbol,currentStop,parent.client_order_id,pool,true);
         return reply({ok:true,paperOnly:true,action:"partial-no-fill",symbol:position.symbol,protectionRestored:restored.ok});
       }
 
@@ -582,7 +582,7 @@ export async function GET(request:Request){
       if(remaining>0){
         const breakEven=average;
         const nextStop=Math.max(currentStop,breakEven);
-        const restored=await ensureProtection(position.symbol,nextStop,parent.client_order_id);
+        const restored=await ensureProtection(position.symbol,nextStop,parent.client_order_id,pool,true);
         return reply({ok:restored.ok,paperOnly:true,action:"partial-profit",symbol:position.symbol,
           filledQuantity:filled,remainingProtected:restored.ok,newStop:roundPrice(nextStop)},restored.ok?200:503);
       }
@@ -599,9 +599,9 @@ export async function GET(request:Request){
     if(desiredStop>=currentStop+minimumStep){
       const canceled=await cancelProtection(position.symbol);
       if(!canceled)return reply({error:"Atlas current stop could not be canceled for tightening.",critical:true},503);
-      const protectedResult=await ensureProtection(position.symbol,desiredStop,parent.client_order_id);
+      const protectedResult=await ensureProtection(position.symbol,desiredStop,parent.client_order_id,pool,true);
       if(!protectedResult.ok){
-        const flattened=await emergencyFlatten(position.symbol,parent.client_order_id,
+        const flattened=await emergencyFlatten(position.symbol,parent.client_order_id,pool,
           "Atlas tightened stop could not be installed; emergency PAPER flatten.");
         return reply({error:"Atlas stop tightening failed.",critical:true,emergencyFlatten:flattened},502);
       }
@@ -614,7 +614,7 @@ export async function GET(request:Request){
       return reply({ok:true,paperOnly:true,action:"tighten-stop",symbol:position.symbol,newStop:roundPrice(desiredStop)});
     }
 
-    const protection=await ensureProtection(position.symbol,currentStop,parent.client_order_id);
+    const protection=await ensureProtection(position.symbol,currentStop,parent.client_order_id,pool,true);
     return reply({ok:protection.ok,paperOnly:true,action:"hold",symbol:position.symbol,
       rMultiple:Number(rMultiple.toFixed(4)),protection},protection.ok?200:503);
   }
