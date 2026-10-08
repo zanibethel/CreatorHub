@@ -137,9 +137,9 @@ export function parseSecForm4(
     const amounts = segment(body, "transactionAmounts");
     const date = dt && field(dt, "value");
     const code = coding && field(coding, "transactionCode");
-    const shares = amounts && number(field(segment(amounts, "transactionShares") ?? "", "value"));
-    const price = amounts && number(field(segment(amounts, "transactionPricePerShare") ?? "", "value"));
-    const side = amounts && field(segment(amounts, "transactionAcquiredDisposedCode") ?? "", "value");
+    const shares = number(field(segment(amounts ?? "", "transactionShares") ?? "", "value"));
+    const price = number(field(segment(amounts ?? "", "transactionPricePerShare") ?? "", "value"));
+    const side = field(segment(amounts ?? "", "transactionAcquiredDisposedCode") ?? "", "value");
     const securityTitle = field(segment(body, "securityTitle") ?? "", "value") || "Unspecified";
     const form = field(segment(body, "ownershipNature") ?? "", "directOrIndirectOwnership");
     if (!date || !isDate(date) || !code || !/^[A-Z]$/.test(code) || shares === null || shares <= 0
