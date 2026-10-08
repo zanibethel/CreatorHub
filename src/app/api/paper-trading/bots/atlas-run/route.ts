@@ -142,15 +142,20 @@ export async function GET(request:Request){
     }
     if(!observed?.id)return {done:false,state:"broker-unconfirmed"};
 
-    const current=await broker(`orders/${encodeURIComponent(observed.id)}?nested=true`);
-    if(current.response.ok)observed=current.body as BrokerOrder;
+    let brokerOrderId=observed.id;
+    const current=await broker(`orders/${encodeURIComponent(brokerOrderId)}?nested=true`);
+    if(current.response.ok){
+      const refreshed=current.body as BrokerOrder;
+      if(refreshed?.id)observed=refreshed;
+    }
+    brokerOrderId=observed.id??brokerOrderId;
     let status=mappedStatus(observed.status);
     let filledQty=numeric(observed.filled_qty)??0;
 
     if(order.expires_at&&Date.now()>Date.parse(order.expires_at)
        &&["submitted","partially_filled"].includes(status)){
-      await broker(`orders/${encodeURIComponent(observed.id)}`,{method:"DELETE"});
-      const after=await broker(`orders/${encodeURIComponent(observed.id)}?nested=true`);
+      await broker(`orders/${encodeURIComponent(brokerOrderId)}`,{method:"DELETE"});
+      const after=await broker(`orders/${encodeURIComponent(brokerOrderId)}?nested=true`);
       if(after.response.ok){
         observed=after.body as BrokerOrder;
         status=mappedStatus(observed.status);
@@ -160,7 +165,7 @@ export async function GET(request:Request){
 
     const protection=protectionSummary(observed);
     const now=new Date().toISOString();
-    const metadata={
+    const metadata:Record<string,unknown>={
       ...(order.metadata??{}),brokerObservedStatus:observed.status??status,
       filledQuantityObserved:filledQty,filledAveragePriceObserved:numeric(observed.filled_avg_price),
       bracketAccepted:protection.bracketAccepted,takeProfitLegObserved:protection.takeProfitObserved,
@@ -168,7 +173,7 @@ export async function GET(request:Request){
       protectionValidatedAt:now,
     };
     const {error:updateError}=await db.from("paper_bot_orders").update({
-      broker_order_id:observed.id,status,last_reconciled_at:now,metadata,updated_at:now,
+      broker_order_id:brokerOrderId,status,last_reconciled_at:now,metadata,updated_at:now,
     }).eq("client_order_id",order.client_order_id).eq("bot_id",BOT_ID);
     if(updateError)throw new Error("Atlas broker reconciliation could not be persisted.");
 
