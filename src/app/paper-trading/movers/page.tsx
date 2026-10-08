@@ -69,6 +69,7 @@ export default function MarketMoverIntelligencePage() {
     <nav style={{ marginBottom: 24, display: "flex", gap: 22, flexWrap: "wrap" }}>
       <a href="/paper-trading" style={{ color: "#93d8ff" }}>← Bot Lab</a>
       <a href="/paper-trading/signals" style={{ color: "#93d8ff" }}>Signal Desk</a>
+      <a href="/paper-trading/movers/insiders" style={{ color: "#93d8ff" }}>SEC Insider History</a>
     </nav>
     <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 20 }}><BotMascot botId="midas" size="profile"/><div><h1 style={{ fontSize: "clamp(25px, 4vw, 38px)", marginBottom: 8 }}>Midas · Market Mover Intelligence</h1><p style={{color:"#5ddfdf"}}>Institutional & whale intelligence · research-only mascot</p></div></div>
     <p style={{ maxWidth: 820, color: "#b5c2d0", lineHeight: 1.65 }}>

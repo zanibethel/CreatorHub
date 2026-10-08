@@ -31,6 +31,24 @@ The original BAT/USD snapshot displayed about $7 on one side of the book yet rec
 ## Score interpretation
 This is a directional **research strength** signal, **not** win probability. Displayed depth and isolated trade prints are low-confidence proxies. A strong displayed bid imbalance can mean short-lived liquidity, not verified accumulation. Stock print direction is always `unknown` in v1. Research scores from buy-side and sell-side snapshots must never be pooled as if both predict upside.
 
+## SEC Form 4 identity research pilot (Phase 1)
+
+Implementation: `src/lib/midas-sec-insider.ts`,
+`/api/paper-trading/market-movers/insiders/scan`,
+`/api/paper-trading/market-movers/insiders`,
+`/paper-trading/movers/insiders`.
+Data tables: `paper_midas_sec_insider_transactions`, `paper_midas_sec_scan_runs` (RLS, service role only).
+
+**Activation requirement:** set `SEC_USER_AGENT` in Vercel production to an identifying research app name **with a legitimate contact email** (e.g. `MidasResearch research-contact@your-domain.example`, replace the placeholder with a real contact). Do not invent a contact or misidentify the caller. SEC's Fair Access policy requires identifiable automated access. Without this setting, the guarded collector returns 503 (not-configured); no private SEC credentials are needed.
+
+A bounded pilot every six hours selects at most two recent stock prospects plus MSFT/NVDA for source calibration, maps the issuer using SEC's public company-ticker table, and queries up to two newest **original Form 4** XMLs per issuer. The cadence, symbol count, and XML size caps constrain SEC traffic and Vercel spend. Use `CRON_SECRET` and existing Supabase server-only secrets.
+
+Parsing includes reported owner and role, CIK, issuer, transaction date, disclosure filing date and raw EDGAR acceptance field, transaction code P/S/A/M/F/etc., shares, per-share price if available, reported notional, direct/indirect owner flag and plan flag. P means an **open-market OR private purchase**, not necessarily exchange buying. S likewise is a reported sale; A, M, F and gifts are **never counted as buys**. Only non-derivative Table I in single-owner, original Form 4 XML is collected; amendments and joint filings require separate attribution/reconciliation logic. Missing or unparseable results are logged rather than fabricated.
+
+**Timing**: `observed_at` is when our system first saw the actual disclosure. Older SEC trades cannot become historical early signals just because they were executed months ago. Persist original accepted-at text for subsequent provenance checking; do not treat that as proof of the exact time our system could have known it.
+
+**Status**: ready for CI/source-connectivity testing, not a validated live feed until SEC access and journaled rows are confirmed. SEC access may block cloud egress; log HTTP status and switch to an explicitly approved licensed endpoint if necessary. The pilot does **not** claim to track every company insider, known institution, or crypto whale; 13F and crypto on-chain identity are later independent research pipelines. It cannot change scanners, bot readiness, orders, or risk settings.
+
 ## Next independent evidence sources
 1. **Insider Form 4**: parse transaction code, direct/indirect, price, quantity, insider identity/role, transaction date, **SEC accepted/published timestamp**. Distinguish open-market `P` buys from awards or exercises. No alert before disclosure.
 2. **Institutional 13F**: filing manager CIK, report as-of quarter-end, report publication timestamp, amendment chain, adjusted CUSIP-to-ticker map, and positions/changes between reports. Never pretend the filing specifies an intraday buy date. Short exposures are not fully visible.
