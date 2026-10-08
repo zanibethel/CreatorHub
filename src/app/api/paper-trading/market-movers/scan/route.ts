@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { analyzeCryptoBook, analyzeStockPrints, type MoverObservation } from "@/lib/paper-market-mover-intelligence";
+import { analyzeCryptoBook, analyzeStockPrints, type CryptoPriorObservation, type MoverObservation } from "@/lib/paper-market-mover-intelligence";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -76,13 +76,24 @@ export async function GET(request: Request) {
   };
 
   if (crypto.length) {
+    // Fail closed if point-in-time confirmation evidence cannot be read.
+    // This is a single bounded query; previous 15-minute buckets are immutable.
+    const historyCutoff = new Date(nowMs - 60 * 60_000).toISOString();
+    const historyResponse = await fetch(
+      `${DATABASE_URL}/rest/v1/paper_market_mover_observations?select=symbol,signal_kind,observed_bucket,observed_at,available_at,direction,source_name,evidence&asset_class=eq.crypto&signal_kind=eq.crypto-book-depth&observed_at=gte.${encodeURIComponent(historyCutoff)}&order=observed_at.desc&limit=300`,
+      { headers: dbHeaders, cache: "no-store", signal: AbortSignal.timeout(10_000) },
+    ).catch(() => null);
+    if (!historyResponse?.ok) {
+      return reply({ error: "Midas quality history could not be checked; no signals published." }, 503);
+    }
+    const prior = await historyResponse.json() as CryptoPriorObservation[];
     try {
       const result = await marketJson(
         `${DATA_URL}/v1beta3/crypto/us/latest/orderbooks?symbols=${encodeURIComponent(crypto.join(","))}`,
       );
       const books = object(result.orderbooks);
       for (const symbol of crypto) {
-        const finding = analyzeCryptoBook(symbol, object(books[symbol]), nowMs);
+        const finding = analyzeCryptoBook(symbol, object(books[symbol]), nowMs, prior);
         if (finding) observations.push(finding);
       }
     } catch (error) {
@@ -134,6 +145,11 @@ export async function GET(request: Request) {
     collectedAt: now,
     candidatesChecked: { crypto: crypto.length, stock: stocks.length },
     observationsSavedOrDeduplicated: observations.length,
+    cryptoQuality: {
+      confirmed: observations.filter(row => row.asset_class === "crypto" && row.evidence.quality_status === "confirmed").length,
+      watching: observations.filter(row => row.asset_class === "crypto" && row.evidence.quality_status === "watching").length,
+      rejected: observations.filter(row => row.asset_class === "crypto" && row.evidence.quality_status === "rejected").length,
+    },
     upstreamFailures: failures,
     tradeAuthority: false,
   });
