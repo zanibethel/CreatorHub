@@ -1,6 +1,6 @@
 # Historical Pattern Intelligence v1 — CreatorHub
 
-Status: **Research implementation on feature branch; promote only after CI and Supabase migration verified.**
+Status: **v1 release candidate: research-only, pending CI and Supabase schema verification.**
 Owner approval: 2026-10-08. Supports the shared automated signal product; never changes current strategy/execution gates.
 Implementation: src/lib/historical-pattern-intelligence.ts; /api/paper-trading/historical-patterns/run (CRON_SECRET); /api/paper-trading/historical-patterns; /paper-trading/historical-patterns.
 
@@ -20,7 +20,7 @@ Research must consider both winners and nonwinners, conditions present *before* 
 - Each start-point is labeled against 4–20% target with a **hypothetical 3% stop**; target vs stop within one OHLC candle is **ambiguous, not a win**. These labels are not executable order simulations: no bid/ask, market-hours nuance, fees, intrabar event order, slippage, news timing or fills modeled.
 - Walk-forward holdout reserves the final 25% of events for prospective comparison; nearest neighbors exclude events whose outcomes were not already completed at the decision time. Ambiguous samples are excluded from success-rate matching but counted in evidence.
 - Historical similarity score is an **independent advisory research index**; not a probability, projected return or entry authorization. Minimum evidence (70 historical eligible examples, 25 matches) is required or the score is null.
-- One selected asset per authenticated runner invocation. Initially default set rotates among AAPL, MSFT, NVDA, QQQ, BTC/USD, ETH/USD, SOL/USD, ADA/USD. Other valid symbols can be requested explicitly. Run remains CRON_SECRET gated.
+- One selected asset per authenticated runner invocation. A bounded daily Vercel cron at 08:15 UTC rotates among AAPL, MSFT, NVDA, QQQ, BTC/USD, ETH/USD, SOL/USD, ADA/USD. Other valid symbols can be requested explicitly. Run remains CRON_SECRET gated.
 - Persist each symbol/run summary and 15 horizon×target shadow scores, plus up to 12 recent examples per horizon/target/outcome class. This is a **bounded evidence sample**, not an exhaustive event archive. The full cohort sizes/successes/stops/timeouts/ambiguous counts are stored in summary.
 - Database tables are server-only RLS-enabled, with no anon/authenticated access. The public read-only endpoint/page shows aggregated non-sensitive research scores.
 - No live money, strategy rules, scoring weights, risk limits, bot routing or simulated order submission is changed by this feature.
@@ -47,8 +47,8 @@ Dashboard: /paper-trading/historical-patterns
 1. GitHub CI: npm run test:paper, TypeScript, lint and build on the PR. Fix all failures.
 2. Compare migration against current Supabase schema and apply once. Verify all three tables, constraints, RLS and service-role grants.
 3. Trigger one authenticated run on a liquid stock, then one crypto pair; verify provider paging, sufficient complete history, persisted run/scores/examples and API/dashboard render. Compare counts against local output. Avoid exposing CRON_SECRET.
-4. First production traffic: shadow study only, **no cron** until individual runs have passed and provider cost/rate allowance is reviewed.
-5. After validation, enable a bounded daily rotation or incremental catch-up batch. Monitor failures, data age, costs and storage.
+4. One daily Vercel cron is configured as a bounded research pilot (08:15 UTC), not execution. Verify its first completed run, provider rate allowance and storage.
+5. Monitor failures, data age and costs. Do not increase the one-symbol/day limit until several runs are reviewed.
 6. Review threshold/score value only after cross-symbol holdout and counterfactual comparisons. Approval required before routing shadow scores into automated bot entry gates.
 
 ## Phase 2
