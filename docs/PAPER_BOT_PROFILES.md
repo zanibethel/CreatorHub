@@ -1,6 +1,15 @@
 # Paper bot profiles and challenge comparisons
 
-The PAPER program uses a persisted $1,000 virtual fund. Six $100 bot pools are reserved now so different trading styles can be measured without mixing their capital, positions, or risk budgets. The remaining $400 stays unallocated for future bots.
+The PAPER program uses a persisted $1,000 virtual fund. Eight $100 bot pools are reserved so different trading styles can be measured without mixing capital, positions, or risk budgets. The remaining $200 stays unallocated for future bots.
+
+## Verified roster and runtime audit — 2026-10-08
+
+- Eight profile IDs exist in `src/lib/paper-bot-profiles.ts`; matching eight RLS-protected `paper_bot_ledgers` rows and distinct broker attribution tags exist in production. Each has $100 starting virtual capital.
+- Production `GET /api/paper-trading/bots` returned HTTP 200 with eight bots and $1,000 total program capital ($800 reserved, $200 unallocated).
+- Production readiness endpoints returned HTTP 200 for Pulse, Spark, Flash, Harbor, Orbit, and Coil. Pulse and Spark report `paperOnly: true`, `executionEnabled: true`, `submissionReady: false` at the audit time. Armed does not mean a trade was submitted or filled.
+- Atlas has reconciled simulated SOL/USD fills. Pulse and Spark do not yet have journal events, broker fills, or counterfactual rows. Their first qualifying setups and scheduled-run evidence need follow-up verification.
+- Fuse has a profile and ledger but `strategy_id: null`, `not-configured` trade-plan source and simulated execution disabled. It is not built as a functioning strategy. Define and validate its independent research/readiness route and risk model before separately authorizing simulated orders.
+- No bot has real-money permission. The official challenge counter remains unstarted pending the owner's separate approval after carousel completion.
 
 ## Default profile
 
@@ -64,16 +73,16 @@ Persisted challenge intent:
 - Maximum of three new entries per calendar week.
 - Protective exits and other risk-reducing actions do not count against the three-entry limit.
 - Unused trade slots never force a trade.
-- Status: planned/disabled.
+- Status: active for automated simulated staging, gated by weekly-entry limits, fresh readiness, liquidity checks, and protective bracket orders.
 
-Exact holding-period, score, sizing, and exit parameters remain to be designed and versioned separately.
+The implemented `three-trade-weekly-swing-v1` configuration remains separate from other bot strategies.
 
 ## Capital plan
 
 - Persisted PAPER program starting capital: **$1,000**.
-- Reserved bot pools: **6 × $100 = $600**.
-- Current reserved pools: Default Diverse, Penny Volatility, Weekly Swing, Crypto Swing, Squeeze Breakout, and Daily Crypto.
-- Unallocated reserve: **$400** for future bots.
+- Reserved bot pools: **8 × $100 = $800**.
+- Current reserved pools: Default Diverse, Penny Volatility, Weekly Swing, Crypto Swing, Squeeze Breakout, Daily Crypto, Pulse, and Spark.
+- Unallocated reserve: **$200** for future bots.
 - A planned bot may keep its $100 pool reserved without being allowed to submit orders.
 - The external PAPER execution account is infrastructure only and never defines program buying power.
 
@@ -164,13 +173,15 @@ The main Paper Trading Lab and CreatorHub dashboard both link to Bot Lab.
 
 The code registry lives in `src/lib/paper-bot-profiles.ts`.
 
-Current six reserved $100 pools:
+Current eight reserved $100 pools:
 1. `default-diverse` — active.
 2. `penny-volatility-day-100` — planned/disabled, but its $100 pool is reserved.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
 4. `crypto-swing-100` — active research-only under `crypto-swing-v1`; dynamic scanner-fed 1–7 day crypto swing plans with execution disabled.
 5. `squeeze-breakout-100` — active research-only under `squeeze-breakout-v1`; dedicated compressed-base / volume-ignition stock scanner with PAPER execution disabled during initial validation.
 6. `weekend-crypto-day-100` — stable challenge ID retained for history; active under `daily-crypto-day-v5` with continuous 24/7 PAPER execution armed and live money disabled.
+7. `momentum-breakout-100` (Pulse) — active `stock-momentum-breakout-v1`; intraday stock acceleration and breakout, automatic simulation gated by fresh readiness and risk checks.
+8. `crypto-ignition-100` (Spark) — active `crypto-ignition-v1`; early crypto momentum tier, automatic simulation gated by confirmation, fees, spread and risk.
 
 No additional bot receives capital automatically. Future bots must be explicitly assigned from the remaining $400 reserve.
 
@@ -210,6 +221,8 @@ The dashboard no longer owns strategy-specific lifecycle rules. Strategy adapter
 After normalization, the shared lifecycle engine derives `WATCHING → PREPARED → READY → ORDERED → HOLDING → EXITED` from the plan plus attributed broker orders, positions and closed trades. A future bot therefore does not implement its own portfolio-card lifecycle.
 
 Current adapters:
+- `momentum-breakout-readiness` — Pulse intraday stock breakouts.
+- `crypto-ignition-readiness` — Spark early crypto momentum.
 - `decision-engine` — Default Diverse.
 - `swing-readiness` — Three-Trade Weekly Swing.
 - `crypto-readiness` — Daily Crypto Day.
