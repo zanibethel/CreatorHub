@@ -804,3 +804,28 @@
 @media(max-width:650px) {
   .signalStrategyHeader { align-items:flex-start; flex-direction:column; gap:7px; }
 }
+
+
+/* Bot profile pages */
+.botProfileHero { display:grid; grid-template-columns:minmax(0,1fr) auto; gap:18px; align-items:start; padding:18px; border:1px solid #23333a; border-radius:16px; background:linear-gradient(155deg,#0b0e10,#060809); }
+.botProfileIdentity { display:grid; gap:8px; min-width:0; }
+.botProfileIdentity h2 { margin:0; color:var(--trade-white); font-size:24px; }
+.botProfileIdentity p { margin:0; max-width:780px; color:var(--trade-blue); font-size:11px; line-height:1.55; }
+.botProfileTags { display:flex; gap:7px; flex-wrap:wrap; }
+.botProfileTags span { border:1px solid #29434b; border-radius:999px; padding:5px 8px; background:#080b0c; color:#b5d4dc; font-size:8px; font-weight:800; letter-spacing:.035em; }
+.botProfileBalance { min-width:190px; display:grid; gap:3px; text-align:right; }
+.botProfileBalance span,.botProfileBalance small { color:var(--trade-blue); font-size:9px; }
+.botProfileBalance strong { color:var(--trade-white); font-size:26px; font-variant-numeric:tabular-nums; }
+.botProfileGrid { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:10px; }
+.botProfileList { min-width:0; padding:13px; border:1px solid #1f3036; border-radius:12px; background:#070a0b; }
+.botProfileList h3 { margin:0 0 9px; color:var(--trade-white); font-size:11px; text-transform:uppercase; letter-spacing:.055em; }
+.botProfileList ul { margin:0; padding-left:17px; display:grid; gap:7px; }
+.botProfileList li { color:var(--trade-blue); font-size:9px; line-height:1.45; }
+
+@media(max-width:850px) {
+  .botProfileGrid { grid-template-columns:1fr; }
+}
+@media(max-width:650px) {
+  .botProfileHero { grid-template-columns:1fr; padding:13px; }
+  .botProfileBalance { min-width:0; text-align:left; }
+}
