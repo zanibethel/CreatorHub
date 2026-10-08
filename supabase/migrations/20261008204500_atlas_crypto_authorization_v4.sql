@@ -101,7 +101,7 @@ RETURNS jsonb
 LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path=''
-AS $
+AS $atlas_reserve$
 DECLARE
   v_cash numeric; v_starting_cash numeric; v_pool_limit numeric;
   v_pool_committed numeric; v_pending numeric; v_reserved numeric;
@@ -201,7 +201,7 @@ BEGIN
   RETURNING reservation_id INTO v_id;
 
   RETURN jsonb_build_object('reserved',true,'reservationId',v_id,'symbol',v_symbol);
-END $;
+END $atlas_reserve$;
 
 REVOKE ALL ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
 FROM PUBLIC,anon,authenticated;
