@@ -77,5 +77,12 @@ export function buildAtlasStockExecutionPlan(input:AtlasStockExecutionInput){
 }
 
 export function atlasExecutionPool(approvedPools:readonly string[]){
-  return approvedPools.includes("day") ? "day" as const : null;
+  if(approvedPools.includes("day")) return "day" as const;
+  if(approvedPools.includes("multi-day")) return "multi-day" as const;
+  if(approvedPools.includes("multi-week")) return "multi-week" as const;
+  return null;
+}
+
+export function atlasPoolCapFraction(pool:"day"|"multi-day"|"multi-week"){
+  return pool==="day" ? 0.20 : 0.40;
 }
