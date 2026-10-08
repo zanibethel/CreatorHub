@@ -65,11 +65,7 @@ export default function SignalDesk() {
     : ACTIVE_PROFILES.filter(profile => profile.id === selectedBotId);
 
   const automationEnabled = (profile: PaperBotProfile) =>
-    profile.id === "three-trade-weekly-swing-100" ? swing?.executionEnabled === true
-    : profile.id === "weekend-crypto-day-100" ? dailyCrypto?.executionEnabled === true
-    : profile.id === "crypto-swing-100" ? cryptoSwing?.executionEnabled === true
-    : profile.id === "squeeze-breakout-100" ? squeeze?.executionEnabled === true
-    : false;
+    ledgers?.bots.find(bot => bot.botId === profile.id)?.executionEnabled === true;
 
   const currentPriceFor = (row: PaperProspect) => {
     if (row.asset_class === "stock") {
@@ -113,7 +109,7 @@ export default function SignalDesk() {
     }
 
     return { assignedProspects, prepared, liveOrders, holdings, terminalDecisions, automaticBots };
-  }, [visibleProfiles, ledgers, signalDesk, prospects, swing?.executionEnabled, dailyCrypto?.executionEnabled, cryptoSwing?.executionEnabled, squeeze?.executionEnabled]);
+  }, [visibleProfiles, ledgers, signalDesk, prospects]);
 
   const errors = [ledgerError, prospectError, signalError, swingError, cryptoSwingError, squeezeError, dailyCryptoError, marketError].filter(Boolean);
 
