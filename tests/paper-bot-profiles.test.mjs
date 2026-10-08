@@ -24,6 +24,8 @@ const swingStrategy = module("../src/lib/paper-swing-strategy-config.ts");
 const weekendStrategy = module("../src/lib/paper-weekend-crypto-strategy-config.ts");
 const cryptoSwingStrategy = module("../src/lib/paper-crypto-swing-strategy-config.ts");
 const squeezeStrategy = module("../src/lib/paper-squeeze-breakout-strategy-config.ts");
+const momentumStrategy = module("../src/lib/paper-momentum-breakout-strategy-config.ts");
+const ignitionStrategy = module("../src/lib/paper-crypto-ignition-strategy-config.ts");
 const tradePlan = module("../src/lib/paper-bot-trade-plan.ts");
 const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-strategy-config": strategy,
@@ -31,6 +33,8 @@ const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-weekend-crypto-strategy-config": weekendStrategy,
   "./paper-crypto-swing-strategy-config": cryptoSwingStrategy,
   "./paper-squeeze-breakout-strategy-config": squeezeStrategy,
+  "./paper-momentum-breakout-strategy-config": momentumStrategy,
+  "./paper-crypto-ignition-strategy-config": ignitionStrategy,
   "./paper-bot-trade-plan": tradePlan,
 });
 
@@ -89,7 +93,13 @@ test("penny experiment remains planned and disabled", () => {
   assert.equal(penny.strategyId, null);
 });
 
-test("registry includes five active challenges and one planned experiment", () => {
-  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length, 5);
+test("registry includes seven active challenges and one planned experiment", () => {
+  assert.equal(profiles.PAPER_BOT_PROFILES.length, 8);
+  assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "active").length, 7);
   assert.equal(profiles.PAPER_BOT_PROFILES.filter(profile => profile.status === "planned").length, 1);
+  assert.ok(profiles.PAPER_BOT_PROFILES.every(profile => profile.challengeStartingCash === 100));
+  assert.equal(profiles.MOMENTUM_BREAKOUT_BOT.strategyId, momentumStrategy.MOMENTUM_BREAKOUT_STRATEGY_V1.id);
+  assert.equal(profiles.CRYPTO_IGNITION_BOT.strategyId, ignitionStrategy.CRYPTO_IGNITION_STRATEGY_V1.id);
+  assert.equal(profiles.MOMENTUM_BREAKOUT_BOT.tradePlan.source, "momentum-breakout-readiness");
+  assert.equal(profiles.CRYPTO_IGNITION_BOT.tradePlan.source, "crypto-ignition-readiness");
 });
