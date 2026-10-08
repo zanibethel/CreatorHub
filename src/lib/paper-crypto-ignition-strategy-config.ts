@@ -6,6 +6,7 @@ export const CRYPTO_IGNITION_STRATEGY_V1 = {
   mode: "paper-research",
   timezone: "America/Chicago",
   universe: ["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"],
+  executionUniverse: ["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"],
   cadence: {
     maximumNewEntriesPerDay: 3,
     maximumOpenPositions: 1,
@@ -42,10 +43,14 @@ export const CRYPTO_IGNITION_STRATEGY_V1 = {
     protectWinnerAtR: 1.00,
     trailRemainder: true,
   },
+  fees: {
+    estimatedTakerFeeBpsPerSide: 25,
+  },
   execution: {
     paperOnly: true,
     executionEnabledByDefault: false,
-    note: "Evidence-first until the dedicated crypto position manager is wired and validated.",
+    minimumOrderNotionalUsd: 1,
+    note: "Execution remains kill-switch controlled; dedicated Spark protection manager is required before arming.",
   },
 } as const;
 
