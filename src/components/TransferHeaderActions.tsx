@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { secondaryButton } from "@/lib/ui";
 
 export default function TransferHeaderActions({ fullAccess }: { fullAccess: boolean }) {
@@ -10,11 +11,11 @@ export default function TransferHeaderActions({ fullAccess }: { fullAccess: bool
 
   return (
     <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-      <a href="/upload" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>Upload</a>
-      <a href="/download" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>Downloads</a>
-      <a href="/password" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>Password</a>
+      <Link href="/upload" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>Upload</Link>
+      <Link href="/download" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>Downloads</Link>
+      <Link href="/password" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>Password</Link>
       {fullAccess ? (
-        <a href="/" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>CreatorHub</a>
+        <Link href="/" style={{ ...secondaryButton, display: "inline-flex", textDecoration: "none" }}>CreatorHub</Link>
       ) : null}
       <button type="button" style={secondaryButton} onClick={() => void signOut()}>Sign out</button>
     </div>
