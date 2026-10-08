@@ -50,7 +50,7 @@ export function analyzeCryptoBook(symbol: string, book: Book, nowMs: number): Mo
   const bookTime = timestamp(book.t);
   if (!bids.length || !asks.length || bookTime === null) return null;
   const age = (nowMs - bookTime) / 1000;
-  if (age < -30 || age > 120 || bids[0].price >= asks[0].price) return null;
+  if (age < 0 || age > 120 || bids[0].price >= asks[0].price) return null;
   const midpoint = (bids[0].price + asks[0].price) / 2;
   const bidUsd = bids.filter(level => level.price >= midpoint * 0.98)
     .reduce((sum, level) => sum + level.price * level.size, 0);
@@ -98,7 +98,7 @@ export function analyzeStockPrints(symbol: string, input: unknown, nowMs: number
     const at = timestamp(trade?.t);
     const price = number(trade?.p);
     const size = number(trade?.s);
-    if (at === null || at > nowMs + 30_000 || at < nowMs - 20 * 60_000
+    if (at === null || at > nowMs || at < nowMs - 20 * 60_000
       || price === null || price <= 0 || size === null || size <= 0) return [];
     return [{ at, notional: price * size }];
   });
