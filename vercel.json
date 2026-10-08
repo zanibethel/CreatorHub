@@ -24,6 +24,14 @@
     {
       "path": "/api/paper-trading/bots/squeeze-breakout-readiness",
       "schedule": "*/5 * * * 1-5"
+    },
+    {
+      "path": "/api/paper-trading/bots/momentum-breakout-run",
+      "schedule": "*/5 * * * 1-5"
+    },
+    {
+      "path": "/api/paper-trading/bots/crypto-ignition-readiness",
+      "schedule": "*/5 * * * *"
     }
   ]
 }
