@@ -54,7 +54,7 @@
       "schedule": "25 */6 * * *"
     },
     {
-      "path": "/api/paper-trading/bots/atlas-decision-audit",
+      "path": "/api/paper-trading/bots/atlas-run",
       "schedule": "*/5 * * * *"
     }
   ]
