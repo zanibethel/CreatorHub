@@ -42,7 +42,7 @@ const ledgerRows = [
     buying_power: "100", peak_equity: "100", current_drawdown_pct: "0",
     open_planned_risk_pct: "0", correlated_risk_pct: "0",
     daily_realized_loss_pct: "0", weekly_drawdown_pct: "0",
-    last_synced_at: null, source: "virtual-ledger", pool_usage: { day: 0, "multi-day": 0, "multi-week": 0 },
+    last_synced_at: null, source: "virtual-ledger", pool_usage: { day: 0, "multi-day": 0, "multi-week": 0 }, metadata: {},
   },
 ];
 
@@ -59,8 +59,8 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   const route = api(url => {
     requested.push(url);
     if (url.includes("paper_capital_plan")) return Response.json([{
-      plan_id:"main", total_capital:"1000", bot_pool_capital:"100", reserved_bot_pools:"6",
-      allocated_capital:"600", unallocated_reserve:"400", currency:"USD"
+      plan_id:"main", total_capital:"1000", bot_pool_capital:"100", reserved_bot_pools:"8",
+      allocated_capital:"800", unallocated_reserve:"200", currency:"USD"
     }]);
     if (url.includes("paper_bot_ledgers")) return Response.json(ledgerRows);
     if (url.includes("paper_bot_equity_history")) return Response.json([
@@ -87,9 +87,9 @@ test("paper bot ledger projection keeps $100 challenge equity separate from brok
   const body = await response.json();
   assert.equal(body.accountingModel.challengeStartingCash, 100);
   assert.equal(body.accountingModel.programStartingCapital, 1000);
-  assert.equal(body.accountingModel.reservedBotPools, 6);
-  assert.equal(body.accountingModel.allocatedBotCapital, 600);
-  assert.equal(body.accountingModel.unallocatedReserve, 400);
+  assert.equal(body.accountingModel.reservedBotPools, 8);
+  assert.equal(body.accountingModel.allocatedBotCapital, 800);
+  assert.equal(body.accountingModel.unallocatedReserve, 200);
   assert.equal(body.accountingModel.virtualLedgerIsAuthority, true);
   assert.equal(body.accountingModel.executionVenueBalanceIsNotProgramCapital, true);
   assert.equal(body.bots[0].equity, 100);
