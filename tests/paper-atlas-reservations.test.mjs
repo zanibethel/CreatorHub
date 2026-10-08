@@ -15,7 +15,8 @@ test("pool caps are computed inside SQL and service role only RPCs",()=>{
 });
 test("ambiguous orders block reservation and only confirmed fills may consume",()=>{
   assert.match(sql,/status IN \('prepared','submitted','accepted','partially_filled','pending_new'\)/);
-  assert.match(sql,/o\.status IN \('filled','partially_filled'\)/);
+  assert.match(sql,/o\.status = 'filled'/);
+  assert.doesNotMatch(sql,/o\.status IN \('filled','partially_filled'\)/);
   assert.match(sql,/o\.bot_id='default-diverse'/);
   assert.match(sql,/o\.pool_id=r\.pool/);
 });
