@@ -39,6 +39,9 @@ type TradeExample = { bot_id: string; symbol: string; opened_at: string; closed_
   status: string; realized_pl: number | string | null; r_multiple: number | string | null; exit_reason: string | null;
 };
 type FuseObservation = {readiness: string; evaluated_at: string};
+type AtlasJournal = {id:number;symbol:string|null;event_type:string;occurred_at:string;score:number|string|null;
+  qualification:string|null;component_scores:Record<string,unknown>;blockers:string[];
+  market_snapshot:Record<string,unknown>;risk_plan:Record<string,unknown>;metadata:Record<string,unknown>};
 const number = (value: number | string | null | undefined) => Number.isFinite(Number(value)) ? Number(value) : 0;
 const count = (value: number | string | null | undefined) => number(value).toLocaleString("en-US");
 const dollars = (value: number | string | null | undefined) =>
@@ -79,11 +82,13 @@ export default async function BotPerformanceAuditPage() {
   let trades: TradeExample[] = [];
   let shadows: ShadowExample[] = [];
   let fuse: FuseObservation[] = [];
+  let atlasEvaluations: AtlasJournal[] = [];
+  let atlasScannerEvents: AtlasJournal[] = [];
   const errors: string[] = [];
   try {
     const db = createAdminSupabaseClient();
     const lookback = new Date(Date.now() - 7 * 86400_000).toISOString();
-    const [auditResult, tradeResult, shadowResult, fuseResult] = await Promise.all([
+    const [auditResult, tradeResult, shadowResult, fuseResult, atlasResult, atlasScannerResult] = await Promise.all([
       db.from("paper_bot_performance_audit_v1").select("*").order("bot_id"),
       db.from("paper_bot_trade_metrics").select("bot_id,symbol,opened_at,closed_at,status,realized_pl,r_multiple,exit_reason")
         .order("opened_at",{ascending:false}).limit(18),
@@ -92,6 +97,11 @@ export default async function BotPerformanceAuditPage() {
         .order("decision_at",{ascending:false}).limit(18),
       db.from("paper_fuse_observations").select("readiness,evaluated_at").gte("evaluated_at",lookback)
         .order("evaluated_at",{ascending:false}).limit(500),
+      db.from("paper_bot_journal").select("id,symbol,event_type,occurred_at,score,qualification,component_scores,blockers,market_snapshot,risk_plan,metadata")
+        .eq("bot_id","default-diverse").eq("event_type","candidate").order("occurred_at",{ascending:false}).limit(30),
+      db.from("paper_bot_journal").select("id,symbol,event_type,occurred_at,score,qualification,component_scores,blockers,market_snapshot,risk_plan,metadata")
+        .eq("bot_id","default-diverse").in("event_type",["scanner_observed","scanner_assigned"]).order("occurred_at",{ascending:false}).limit(40),
+
     ]);
     if (auditResult.error) errors.push("Performance summary unavailable.");
     else rows = auditResult.data as AuditRow[] ?? [];
@@ -101,6 +111,11 @@ export default async function BotPerformanceAuditPage() {
     else shadows = shadowResult.data as ShadowExample[] ?? [];
     if (fuseResult.error) errors.push("Fuse research detail temporarily unavailable.");
     else fuse = fuseResult.data as FuseObservation[] ?? [];
+    if (atlasResult.error) errors.push("Atlas strategy evidence temporarily unavailable.");
+    else atlasEvaluations = atlasResult.data as AtlasJournal[] ?? [];
+    if (atlasScannerResult.error) errors.push("Atlas scanner attribution temporarily unavailable.");
+    else atlasScannerEvents = atlasScannerResult.data as AtlasJournal[] ?? [];
+
   } catch {
     errors.push("Audit storage is temporarily unavailable.");
   }
@@ -125,6 +140,24 @@ export default async function BotPerformanceAuditPage() {
         <Link href="/paper-trading/movers">Midas research →</Link>
       </div>
     </header>
+    <section id="atlas-decisions" className={styles.section}>
+      <div className={styles.sectionHeader}><h2>Atlas · decision evidence trail</h2><span>Read-only evaluation · never order authorization</span></div>
+      <p className={styles.explanation}>Scanner observations and suggestions are source evidence, NOT Atlas strategy approval. Atlas&apos;s scheduled engine evaluations below use persisted watchlist candidates only, and do not submit orders. A symbol/day key groups repeated checks; it does not identify separate executable trade opportunities.</p>
+      <div className={styles.metrics}>
+        <article><span>Recent strategy evaluations</span><strong>{count(atlasEvaluations.length)}</strong><small>Newest 30 decisions · five-minute deduplication</small></article>
+        <article><span>Blocked / not eligible</span><strong>{count(atlasEvaluations.filter(e=>e.blockers?.length).length)}</strong><small>Includes pool-capacity authorization veto</small></article>
+        <article><span>Recent scanner observations</span><strong>{count(atlasScannerEvents.filter(e=>e.event_type==="scanner_observed").length)}</strong><small>Newest 40 scanner journal events</small></article>
+        <article><span>Scanner suggestions</span><strong>{count(atlasScannerEvents.filter(e=>e.event_type==="scanner_assigned").length)}</strong><small>Not orders or strategy approvals</small></article>
+      </div>
+      <div className={styles.tableWrap}><table><thead><tr><th>Recorded (CT)</th><th>Symbol</th><th>Atlas score</th><th>Qualification</th><th>Blockers</th><th>Full trace</th></tr></thead><tbody>
+      {atlasEvaluations.slice(0,16).map(e=><tr key={e.id}><td>{central(e.occurred_at)}</td><td>{e.symbol}</td>
+        <td>{e.score==null?"—":Number(e.score).toFixed(1)}</td><td>{e.qualification??"Unavailable"}</td>
+        <td>{e.blockers?.length??0}</td><td><details><summary>Evidence</summary><pre style={{whiteSpace:"pre-wrap",maxWidth:440,overflowWrap:"anywhere"}}>{JSON.stringify({id:e.metadata?.decisionId,correlationId:e.metadata?.correlationId,source:e.metadata?.source,components:e.component_scores,blockers:e.blockers,market:e.market_snapshot,risk:e.risk_plan,provenance:e.metadata?.inputProvenance},null,2)}</pre></details></td>
+      </tr>)}
+      {!atlasEvaluations.length?<tr><td colSpan={6}>No Atlas engine evaluation recorded yet. Scanner events alone cannot establish strategy decisions.</td></tr>:null}
+      </tbody></table></div>
+      <p className={styles.explanation}>Historical SOL/USD execution has a broker-attributed fill and exit, but no recoverable originating candidate decision. No historical evaluation has been invented or backdated.</p>
+    </section>
     {errors.map(error=><p className={styles.error} key={error} role="alert">{error}</p>)}
     {!rows.length?<section className={styles.empty}><h2>No audit summary available</h2><p>The read-only audit view has not returned any portfolios. No trading settings were changed.</p></section>:<>
       <div className={styles.metrics}>
