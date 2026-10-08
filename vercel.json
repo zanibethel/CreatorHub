@@ -38,6 +38,10 @@
       "schedule": "15 8 * * *"
     },
     {
+      "path": "/api/paper-trading/market-movers/scan",
+      "schedule": "*/15 * * * *"
+    },
+    {
       "path": "/api/paper-trading/bots/fuse-readiness",
       "schedule": "*/5 * * * 1-5"
     }
