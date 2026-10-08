@@ -6,6 +6,12 @@
 
 The PAPER program starts with a persisted $1,000 virtual fund. Six $100 bot pools are reserved now and $400 remains unallocated. Each strategy sizes risk from its own virtual ledger; external PAPER execution-account balances are infrastructure only and are not strategy capital. Bot-attributed fills will be reconciled into the appropriate virtual ledger; untagged broker activity must never silently change challenge performance. The public report deliberately excludes credentials, account identifiers, client order identifiers and personal details.
 
+## Planned public challenge and streaming carousel (not implemented yet)
+
+The owner's approved direction is documented in [PAPER_PUBLIC_CHALLENGE_AND_STREAM.md](PAPER_PUBLIC_CHALLENGE_AND_STREAM.md). Build two matching experiences from the same public data: a slowly rotating presentation with a QR code and readable deep link on **every slide**, and a fully clickable, manually scrollable, independently navigable website that opens the exact scanned bot/journal/order/detail. The existing 12-second five-view rotation is current behavior, **not** the finished broadcast experience.
+
+The owner will explicitly authorize the official challenge counter **only after** the carousel is complete and reviewed. The potential 30-day preseason is for gathering evidence, not an automatic launch date. Daily "what did we do today?" journal summaries are prepared **on demand as private drafts**, with owner review/edits and explicit approval before public publication; do not create a recurring task or publish automatically.
+
 ## Five report views
 
 1. **Portfolio**: the $1,000 PAPER program fund, reserved bot capital, unallocated reserve, and bot-attributed strategy performance. Execution-feed history remains available on the trade/order/position views without being treated as program capital.
