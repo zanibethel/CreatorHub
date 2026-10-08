@@ -98,7 +98,12 @@ export default function PaperSignalPipeline({
     if (!latestDecisionBySymbol.has(event.symbol)) latestDecisionBySymbol.set(event.symbol, event);
   }
   const passed = [...latestDecisionBySymbol.values()]
-    .filter(event => !["staged","eligible"].includes((event.qualification ?? "").toLowerCase()))
+    .filter(event => {
+      if (event.event_type === "prospect-intake") {
+        return !["staged","eligible"].includes((event.qualification ?? "").toLowerCase());
+      }
+      return ["strategy-rejected","broker-rejected","canceled","expired","execution-error"].includes(event.event_type);
+    })
     .slice(0, compact ? 3 : 8);
 
   return <section className={[styles.signalDesk, compact ? styles.signalDeskCompact : ""].filter(Boolean).join(" ")}>
@@ -212,11 +217,13 @@ export default function PaperSignalPipeline({
         {passed.length ? passed.map((event,index) => {
           const price = numeric(event.market_snapshot,"price") ?? numeric(event.market_snapshot,"ask");
           const move = numeric(event.market_snapshot,"percentChange");
-          const qualification = event.qualification ?? "blocked";
+          const qualification = event.event_type === "prospect-intake"
+            ? event.qualification ?? "blocked"
+            : event.event_type;
           return <article className={styles.signalCard} key={`decision-${event.symbol}-${event.occurred_at}-${index}`}>
             <div className={styles.signalCardTop}>
-              <div><strong>{event.symbol ?? "Unknown"}</strong><small>BOT INTAKE DECISION</small></div>
-              <span className={statusClass(qualification)}>{qualification.replaceAll("_"," ").toUpperCase()}</span>
+              <div><strong>{event.symbol ?? "Unknown"}</strong><small>{event.event_type === "prospect-intake" ? "BOT INTAKE DECISION" : "AUTOMATED SYSTEM DECISION"}</small></div>
+              <span className={statusClass(qualification)}>{qualification.replaceAll("_"," ").replaceAll("-"," ").toUpperCase()}</span>
             </div>
             <div className={styles.signalPriceRow}>
               <span>Decision price <strong>{money(price)}</strong></span>
