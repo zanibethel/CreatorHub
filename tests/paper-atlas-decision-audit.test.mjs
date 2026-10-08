@@ -89,3 +89,27 @@ test("assigned scanner candidates are evaluated but never silently authorized fo
   assert.match(route,/extraCrypto\.length < 10 - savedCrypto\.size/);
   assert.doesNotMatch(route,/paper-api\.alpaca\.markets|submitOrder|placeOrder|createBrokerOrder/);
 });
+
+const preflight=transpile("../src/lib/paper-atlas-execution-preflight.ts",{"./paper-strategy-config":config});
+test("Atlas execution preflight refuses read-only strategy decisions",()=>{
+  const result=preflight.atlasExecutionPreflight({
+    decision,brokerAsset:{symbol:"AAPL",asset_class:"us_equity",tradable:true,fractionable:true,status:"active"},
+    approvedPools:["day"],pool:"day",poolLimitDollars:20,poolCommittedDollars:0,
+    ledgerCashDollars:99.755227,positionNotionalDollars:9,
+    fractionalRequested:true,marketOpen:true,
+  });
+  assert.equal(result.preflightPassed,false);
+  assert.equal(result.executionAuthorized,false);
+  assert.equal(result.requiresAtomicReservation,true);
+  assert.ok(result.blockers.some(x=>x.includes("pool allocation capacity")));
+});
+test("Atlas preflight fails closed on missing broker verification and capacity",()=>{
+  const result=preflight.atlasExecutionPreflight({
+    decision,brokerAsset:null,approvedPools:[],pool:null,poolLimitDollars:null,
+    poolCommittedDollars:null,ledgerCashDollars:null,positionNotionalDollars:9,
+    fractionalRequested:true,marketOpen:null,
+  });
+  assert.equal(result.preflightPassed,false);
+  assert.ok(result.blockers.some(x=>x.includes("broker asset")));
+  assert.ok(result.blockers.some(x=>x.includes("pool capacity")));
+});
