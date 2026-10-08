@@ -206,3 +206,10 @@ The first observability UI is now implemented:
 - Customer-facing labels avoid legacy internal simulation terminology where practical.
 
 Next UI work should deepen timestamps, immutable signal-version provenance, outcome history, and drill-down detail without inventing a parallel workflow.
+
+
+## Named strategy roster
+
+Bot identities and strategy ownership are maintained in [BOT_ROSTER.md](./BOT_ROSTER.md).
+
+The key routing principle is that a refusal is strategy-specific rather than globally negative. Specialized bots may independently evaluate the same discovery at different horizons, while all execution permissions, ledgers, and evidence remain isolated.
