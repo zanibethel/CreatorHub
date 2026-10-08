@@ -128,6 +128,7 @@ export default function SignalDesk() {
       </div>
       <div className={styles.botLabActions}>
         <Link href="/paper-trading/bots">Bot Portfolios</Link>
+        <Link href="/paper-trading/movers">Market Movers</Link>
         <button type="button" onClick={refresh}>Refresh</button>
       </div>
     </header>
