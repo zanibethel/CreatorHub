@@ -36,6 +36,10 @@
     {
       "path": "/api/paper-trading/historical-patterns/run",
       "schedule": "15 8 * * *"
+    },
+    {
+      "path": "/api/paper-trading/bots/fuse-readiness",
+      "schedule": "*/5 * * * 1-5"
     }
   ]
 }
