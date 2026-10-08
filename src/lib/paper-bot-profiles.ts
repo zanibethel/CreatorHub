@@ -3,10 +3,12 @@ import { THREE_TRADE_SWING_STRATEGY_V1 } from "./paper-swing-strategy-config";
 import { ACTIVE_DAILY_CRYPTO_DAY_STRATEGY } from "./paper-weekend-crypto-strategy-config";
 import { CRYPTO_SWING_STRATEGY_V1 } from "./paper-crypto-swing-strategy-config";
 import { SQUEEZE_BREAKOUT_STRATEGY_V1 } from "./paper-squeeze-breakout-strategy-config";
+import { MOMENTUM_BREAKOUT_STRATEGY_V1 } from "./paper-momentum-breakout-strategy-config";
+import { CRYPTO_IGNITION_STRATEGY_V1 } from "./paper-crypto-ignition-strategy-config";
 import { PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION } from "./paper-bot-trade-plan";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
-export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "crypto-swing-readiness" | "squeeze-breakout-readiness" | "not-configured";
+export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "crypto-swing-readiness" | "squeeze-breakout-readiness" | "momentum-breakout-readiness" | "crypto-ignition-readiness" | "not-configured";
 
 export type PaperBotProfile = {
   id: string;
@@ -20,6 +22,13 @@ export type PaperBotProfile = {
     source: PaperBotPlanSource;
   };
   style: string;
+  codename?: string;
+  role?: string;
+  holdingPeriod?: string;
+  mission?: string;
+  entrySignals?: string[];
+  refusesWhen?: string[];
+  executionState?: "automatic" | "research" | "planned";
   universe: {
     assetClasses: Array<"stock" | "etf" | "crypto">;
     description: string;
@@ -42,6 +51,13 @@ export type PaperBotProfile = {
 export const DEFAULT_DIVERSE_BOT: PaperBotProfile = {
   id: "default-diverse",
   name: "Default Diverse Bot",
+  codename: "Atlas",
+  role: "Diversified Generalist",
+  holdingPeriod: "Intraday to multi-week",
+  mission: "Route a broad mix of opportunities through the original diversified decision engine.",
+  entrySignals: ["Cross-asset opportunity score", "Portfolio/risk fit", "Strategy-specific decision-engine approval"],
+  refusesWhen: ["Risk veto fires", "Position or pool limits are reached", "Signal is not trade-ready"],
+  executionState: "automatic",
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "div",
@@ -70,6 +86,13 @@ export const DEFAULT_DIVERSE_BOT: PaperBotProfile = {
 export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
   id: "penny-volatility-day-100",
   name: "$100 Penny Volatility Day Bot",
+  codename: "Fuse",
+  role: "Penny-Stock Volatility",
+  holdingPeriod: "Intraday only",
+  mission: "Handle sub-$5 momentum separately so penny-stock behavior does not distort larger-stock rules.",
+  entrySignals: ["Low-price liquidity", "Volume ignition", "Tight enough spread for the price tier"],
+  refusesWhen: ["Spread/liquidity is unsafe", "Volatility cannot support a defined stop", "Dedicated strategy is not yet armed"],
+  executionState: "planned",
   status: "planned",
   challengeStartingCash: 100,
   brokerTag: "pny",
@@ -100,6 +123,13 @@ export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
 export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
   id: "three-trade-weekly-swing-100",
   name: "$100 Three-Trade Weekly Swing Bot",
+  codename: "Harbor",
+  role: "Selective Trend Swing",
+  holdingPeriod: "Multi-day",
+  mission: "Take only higher-quality trend continuation and breakout setups with low weekly trade frequency.",
+  entrySignals: ["Price above 10/20-day trend", "Positive multi-day momentum", "Fresh same-session revalidation"],
+  refusesWhen: ["Daily trend is not aligned", "Spread/quote/chase gates fail", "Weekly or risk limits are full"],
+  executionState: "automatic",
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "sw3",
@@ -131,6 +161,13 @@ export const THREE_TRADE_SWING_BOT: PaperBotProfile = {
 export const CRYPTO_SWING_BOT: PaperBotProfile = {
   id: "crypto-swing-100",
   name: "$100 Crypto Swing Bot",
+  codename: "Orbit",
+  role: "Multi-Day Crypto Swing",
+  holdingPeriod: "1–7 days",
+  mission: "Convert scanner-qualified crypto ideas into selective multi-hour/multi-day trend trades.",
+  entrySignals: ["Scanner promotion", "Multi-hour trend/momentum", "Structure, spread and risk confirmation"],
+  refusesWhen: ["Trend or structure is weak", "Risk budget is occupied", "Evidence has not reached the strategy ladder"],
+  executionState: "research",
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "csw",
@@ -161,6 +198,13 @@ export const CRYPTO_SWING_BOT: PaperBotProfile = {
 export const SQUEEZE_BREAKOUT_BOT: PaperBotProfile = {
   id: "squeeze-breakout-100",
   name: "$100 Squeeze Breakout Bot",
+  codename: "Coil",
+  role: "Compression / Squeeze Breakout",
+  holdingPeriod: "Intraday to several sessions",
+  mission: "Find compressed bases where renewed volume may create asymmetric upside.",
+  entrySignals: ["Extended price compression", "Volume re-expansion", "Breakout proximity and tradable spread"],
+  refusesWhen: ["Base is too loose", "Volume ignition is missing", "Move is already too extended"],
+  executionState: "research",
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "sqz",
@@ -191,6 +235,13 @@ export const SQUEEZE_BREAKOUT_BOT: PaperBotProfile = {
 export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   id: "weekend-crypto-day-100",
   name: "$100 Daily Crypto Day Bot",
+  codename: "Flash",
+  role: "Confirmed Crypto Momentum",
+  holdingPeriod: "Short horizon / 24×7",
+  mission: "Trade higher-confidence crypto momentum after both fast and slower confirmation align.",
+  entrySignals: ["80+ readiness score", "5m + 15m trend/momentum", "Breakout, spread, volatility and fee coverage"],
+  refusesWhen: ["Slow confirmation is missing", "Score is below 80", "Spread/chase/risk gates fail"],
+  executionState: "automatic",
   status: "active",
   challengeStartingCash: 100,
   brokerTag: "wkd",
@@ -218,12 +269,105 @@ export const DAILY_CRYPTO_DAY_BOT: PaperBotProfile = {
   ],
 };
 
+export const MOMENTUM_BREAKOUT_BOT: PaperBotProfile = {
+  id: "momentum-breakout-100",
+  name: "Pulse — $100 Stock Momentum Breakout Bot",
+  codename: "Pulse",
+  role: "Intraday Stock Momentum Breakout",
+  status: "active",
+  challengeStartingCash: 100,
+  brokerTag: "pls",
+  strategyId: MOMENTUM_BREAKOUT_STRATEGY_V1.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "momentum-breakout-readiness" },
+  style: "Fast intraday continuation/reversal breakout strategy for scanner-qualified stocks that do not need multi-day trend alignment",
+  holdingPeriod: "Intraday only",
+  mission: "Own SNXX/MUU-type opportunities: strong live acceleration and breakout behavior that Weekly Swing correctly rejects for lacking a multi-day trend.",
+  entrySignals: [
+    "Prospect Scanner v3 score 80+",
+    "Acceleration 15+ with a fresh prospect",
+    "Tight live spread and fresh quote",
+    "5-minute breakout + momentum + relative-volume ignition",
+  ],
+  refusesWhen: [
+    "Price is below $5 and belongs in Fuse",
+    "Spread is above 0.35%",
+    "Acceleration fades or the prospect becomes stale",
+    "Entry is beyond the ATR-based chase limit",
+  ],
+  executionState: "automatic",
+  universe: {
+    assetClasses: ["stock"],
+    description: "Scanner-qualified US stocks above $5 with short-horizon acceleration, executable spreads, and live breakout confirmation.",
+  },
+  cadence: {
+    description: "Intraday only; up to three new entries per day and two open positions.",
+    intradayOnly: true,
+  },
+  isolation: {
+    separateVirtualLedger: true,
+    sharePositionsWithOtherBots: false,
+    shareRiskBudgetWithOtherBots: false,
+  },
+  notes: [
+    "Pulse intentionally does not require positive 10/20-day trend alignment; that remains Harbor's job.",
+    "Risk is smaller than Weekly Swing: 0.5% planned equity loss per trade and 25% maximum allocation.",
+    "Orders use simulated broker-hosted bracket protection once all same-session gates pass.",
+  ],
+};
+
+export const CRYPTO_IGNITION_BOT: PaperBotProfile = {
+  id: "crypto-ignition-100",
+  name: "Spark — $100 Crypto Ignition Bot",
+  codename: "Spark",
+  role: "Early Crypto Momentum",
+  status: "active",
+  challengeStartingCash: 100,
+  brokerTag: "spk",
+  strategyId: CRYPTO_IGNITION_STRATEGY_V1.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "crypto-ignition-readiness" },
+  style: "Evidence-first early crypto momentum strategy for strong fast signals that have not yet earned Flash's slower confirmation",
+  holdingPeriod: "Short horizon / 24×7",
+  mission: "Study and eventually trade the 60–79 readiness tier when fast momentum, breakout, relative volume, spread and risk all agree before 15-minute confirmation catches up.",
+  entrySignals: [
+    "Flash source score 60–79",
+    "Fresh quote and tight spread",
+    "5-minute momentum + breakout",
+    "Fast relative-volume ignition",
+  ],
+  refusesWhen: [
+    "Score is below 60",
+    "Score reaches 80+ and graduates to Flash",
+    "Spread/chase/volatility gates fail",
+    "Dedicated Spark position manager is not yet validated",
+  ],
+  executionState: "research",
+  universe: {
+    assetClasses: ["crypto"],
+    description: "BTC, ETH, SOL, LINK and DOT versus USD, evaluated specifically before slower 15-minute confirmation.",
+  },
+  cadence: {
+    description: "24/7 evidence collection; maximum three entries per accounting day and one open position once automated execution is armed.",
+  },
+  isolation: {
+    separateVirtualLedger: true,
+    sharePositionsWithOtherBots: false,
+    shareRiskBudgetWithOtherBots: false,
+  },
+  notes: [
+    "Spark is deliberately separate from Flash so we can compare early entry evidence against the confirmed 80+ strategy without changing Flash.",
+    "Execution remains disabled until the dedicated crypto manager is wired and validated.",
+    "Spark uses a smaller 0.35% planned risk budget and 20% allocation cap.",
+  ],
+};
+
 export const PAPER_BOT_PROFILES = [
   DEFAULT_DIVERSE_BOT,
   PENNY_VOLATILITY_DAY_BOT,
   THREE_TRADE_SWING_BOT,
   CRYPTO_SWING_BOT,
   SQUEEZE_BREAKOUT_BOT,
+  MOMENTUM_BREAKOUT_BOT,
+  CRYPTO_IGNITION_BOT,
   DAILY_CRYPTO_DAY_BOT,
 ] as const;
 
