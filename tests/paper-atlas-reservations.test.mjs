@@ -49,6 +49,6 @@ test("release requires broker-confirmed terminal no-fill state",()=>{
 
 
 test("migration has no malformed single-dollar PL/pgSQL delimiters",()=>{
-  assert.doesNotMatch(sql,/AS \\$\nDECLARE/);
-  assert.doesNotMatch(sql,/END \\$;/);
+  assert.doesNotMatch(sql,/AS \$\nDECLARE/);
+  assert.doesNotMatch(sql,/END \$;/);
 });
