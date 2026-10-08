@@ -36,6 +36,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
   if(!profile)return <main className={styles.botLab}><div className={styles.portfolioWarnings}><span>Unknown bot profile.</span></div></main>;
 
   const ledger=ledgers?.bots.find(bot=>bot.botId===botId);
+  const automationEnabled=ledger?.executionEnabled===true;
   const staged=ledgers?.stagedOrders?.[botId]??[];
   const brokerOrders=(ledgers?.brokerOrders?.[botId]??[]).filter(order=>!TERMINAL_ORDER_STATUSES.has(order.status.toLowerCase()));
   const positions=ledgers?.positionPlans?.[botId]??[];
@@ -72,8 +73,8 @@ export default function BotProfilePageClient({botId}:{botId:string}){
 
     <section className={styles.botProfileHero}>
       <div className={styles.botProfileIdentity}>
-        <span className={profile.executionState==="automatic"?styles.botStatusActive:styles.portfolioBadge}>
-          {profile.executionState==="automatic"?"AUTOMATIC SIMULATION":profile.executionState==="research"?"RESEARCH / EVIDENCE":"PLANNED"}
+        <span className={automationEnabled?styles.botStatusActive:styles.portfolioBadge}>
+          {automationEnabled?"AUTOMATIC SIMULATION":profile.executionState==="planned"?"PLANNED":"RESEARCH / EVIDENCE"}
         </span>
         <h2>{profile.name}</h2>
         <p>{profile.mission??profile.style}</p>
@@ -113,7 +114,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
 
     <PaperSignalPipeline
       botName={profile.codename??profile.name}
-      automationEnabled={profile.executionState==="automatic"}
+      automationEnabled={automationEnabled}
       prospects={assigned}
       stagedOrders={staged}
       brokerOrders={brokerOrders}
