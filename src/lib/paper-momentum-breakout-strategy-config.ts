@@ -1,0 +1,63 @@
+export const MOMENTUM_BREAKOUT_STRATEGY_V1 = {
+  id: "stock-momentum-breakout-v1",
+  botProfileId: "momentum-breakout-100",
+  displayName: "Pulse — $100 Stock Momentum Breakout Bot",
+  version: 1,
+  mode: "paper-only",
+  cadence: {
+    maximumNewEntriesPerDay: 3,
+    maximumOpenPositions: 2,
+    intradayOnly: true,
+  },
+  intake: {
+    minimumScannerVersion: 3,
+    minimumScannerScore: 80,
+    maximumProspectAgeMinutes: 20,
+    minimumAccelerationScore: 15,
+    maximumChasePenalty: 8,
+    minimumPriceUsd: 5,
+  },
+  marketData: {
+    maximumQuoteAgeSeconds: 30,
+    maximumSpreadPct: 0.35,
+    minimumCompleted5mBars: 24,
+    atrPeriod: 14,
+  },
+  setup: {
+    momentumLookbackBars: 3,
+    minimumMomentumPct: 0.35,
+    breakoutLookbackBars: 6,
+    breakoutBufferPct: 0.05,
+    minimumRelativeVolume: 1.25,
+    volumeLookbackBars: 12,
+    minimumAtrPct: 0.15,
+    maximumAtrPct: 3.50,
+    maximumChaseAtr: 0.60,
+  },
+  session: {
+    timezone: "America/New_York",
+    minimumMinutesAfterOpen: 5,
+    stopNewEntriesMinutesBeforeClose: 30,
+  },
+  risk: {
+    riskPerTradePct: 0.50,
+    maximumPositionAllocationPct: 25,
+    maximumOpenRiskPct: 1.00,
+    dailyRealizedLossLimitPct: 1.50,
+    minimumStopPct: 0.80,
+    maximumStopPct: 3.00,
+    atrStopMultiplier: 1.50,
+    firstTakeProfitR: 2.00,
+    firstTakeProfitFraction: 0.50,
+    protectWinnerAtR: 1.00,
+    trailRemainder: true,
+  },
+  execution: {
+    paperOnly: true,
+    executionEnabledByDefault: true,
+    orderClass: "bracket",
+    timeInForce: "day",
+  },
+} as const;
+
+export type MomentumBreakoutStrategyConfig = typeof MOMENTUM_BREAKOUT_STRATEGY_V1;
