@@ -778,7 +778,7 @@ export default function PaperBotLab() {
         <h1>Bot Portfolios</h1>
         <p>A $1,000 virtual trading fund keeps each strategy in its own $100 bot pool. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot, with unused capital reserved for future strategies.</p>
       </div>
-      <div className={styles.botLabActions}><Link href={`/paper-trading/bots/${profile.id}`}>Bot Profile</Link><Link href="/paper-trading/signals">Signal Desk</Link><button onClick={refreshAll}>Refresh</button></div>
+      <div className={styles.botLabActions}><Link href={`/paper-trading/bots/${profile.id}`}>Bot Profile</Link><Link href="/paper-trading/signals">Signal Desk</Link><Link href="/paper-trading/historical-patterns">Historical Patterns</Link><button onClick={refreshAll}>Refresh</button></div>
     </header>
 
     <nav className={styles.botSwitcher} aria-label="Bot portfolios">
