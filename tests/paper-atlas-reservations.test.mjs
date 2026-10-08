@@ -28,3 +28,21 @@ test("scanner-only and read-only Atlas decisions cannot reserve cash",()=>{
   assert.match(sql,/j\.blockers='\[\]'::jsonb/);
   assert.match(sql,/decision-not-authorized/);
 });
+
+
+test("binds reservations to exact prepared orders before settlement",()=>{
+  assert.match(sql,/paper_atlas_bind_order/);
+  assert.match(sql,/o\.status='prepared'/);
+  assert.match(sql,/o\.metadata->>'atlasReservationId'=r\.reservation_id::text/);
+  assert.match(sql,/o\.metadata->>'decisionId'=r\.decision_id/);
+  assert.match(sql,/o\.metadata->>'opportunityId'=r\.opportunity_id/);
+  assert.match(sql,/r\.client_order_id=p_client_order_id/);
+  assert.match(sql,/o\.broker_order_id IS NOT NULL/);
+  assert.match(sql,/o\.last_reconciled_at IS NOT NULL/);
+});
+
+test("release requires broker-confirmed terminal no-fill state",()=>{
+  assert.match(sql,/o\.status IN \('canceled','rejected','expired'\)/);
+  assert.match(sql,/o\.last_reconciled_at IS NOT NULL/);
+  assert.doesNotMatch(sql,/o\.status IN \('canceled','rejected','expired','error'\)/);
+});
