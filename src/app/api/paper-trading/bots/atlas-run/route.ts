@@ -1,7 +1,7 @@
 import {NextResponse} from "next/server";
 import {createAdminSupabaseClient} from "@/lib/supabase-admin";
 import {createPaperClientOrderId} from "@/lib/paper-order-attribution";
-import {buildAtlasStockExecutionPlan,atlasExecutionPool,type AtlasExecutionReferencePlan} from "@/lib/paper-atlas-execution-plan";
+import {buildAtlasStockExecutionPlan,atlasExecutionPool,atlasPoolCapFraction,type AtlasExecutionReferencePlan} from "@/lib/paper-atlas-execution-plan";
 import {GET as readOnlyMarketSnapshot} from "@/app/api/paper-trading/market-data/route";
 
 export const dynamic="force-dynamic";
@@ -208,7 +208,7 @@ export async function GET(request:Request){
       }
       await patchOrder(stop.client_order_id,{
         status:"canceled",last_reconciled_at:new Date().toISOString(),
-        metadata:{...object(stop.metadata),cancelRequestedAt:new Date().toISOString(),cancelReason:"atlas-day-manager"},
+        metadata:{...object(stop.metadata),cancelRequestedAt:new Date().toISOString(),cancelReason:"atlas-stock-manager-v3"},
       });
     }
     if(stops.some(stop=>stop.broker_order_id))await sleep(250);
@@ -227,17 +227,18 @@ export async function GET(request:Request){
 
   const submitSell=async(input:{
     symbol:string;quantity:number;purpose:string;parentClientOrderId:string;
+    pool:"day"|"multi-day"|"multi-week";
     type:"market"|"stop";stopPrice?:number;stageReason:string;
   })=>{
     const clientOrderId=createPaperClientOrderId(BOT_ID,STRATEGY_VERSION,crypto.randomUUID());
     const metadata:JsonMap={
       paperOnly:true,purpose:input.purpose,parentClientOrderId:input.parentClientOrderId,
-      executionMode:"atlas-fractional-day-v2",
+      executionMode:"atlas-fractional-stock-v3",holdingPool:input.pool,
     };
     const {error:insertError}=await db.from("paper_bot_orders").insert({
       client_order_id:clientOrderId,bot_id:BOT_ID,strategy_id:STRATEGY_ID,strategy_version:STRATEGY_VERSION,
       symbol:input.symbol,asset_class:"stock",side:"sell",status:"prepared",
-      requested_quantity:input.quantity,pool_id:"day",
+      requested_quantity:input.quantity,pool_id:input.pool,
       protective_stop:input.stopPrice??null,planned_risk_dollars:0,stage_reason:input.stageReason,
       metadata,
     });
@@ -267,19 +268,24 @@ export async function GET(request:Request){
     return {ok:true,ambiguous:false,clientOrderId,order:observed};
   };
 
-  const emergencyFlatten=async(symbol:string,parentClientOrderId:string,reason:string)=>{
+  const emergencyFlatten=async(
+    symbol:string,parentClientOrderId:string,pool:"day"|"multi-day"|"multi-week",reason:string
+  )=>{
     const canceled=await cancelProtection(symbol);
     if(!canceled)return {ok:false,reason:"protective-cancel-failed"};
     const quantity=await sellableQty(symbol);
     if(!(quantity>0))return {ok:false,reason:"no-sellable-quantity"};
     const result=await submitSell({
-      symbol,quantity,purpose:"emergency-flatten",parentClientOrderId,type:"market",
+      symbol,quantity,purpose:"emergency-flatten",parentClientOrderId,pool,type:"market",
       stageReason:reason,
     });
     return {ok:result.ok,reason:result.ok?"submitted":result.ambiguous?"broker-ambiguous":"broker-rejected"};
   };
 
-  const ensureProtection=async(symbol:string,stopPrice:number,parentClientOrderId:string)=>{
+  const ensureProtection=async(
+    symbol:string,stopPrice:number,parentClientOrderId:string,
+    pool:"day"|"multi-day"|"multi-week",marketOpen:boolean
+  )=>{
     const current=await activeSellOrders(symbol);
     const protective=current.find(row=>object(row.metadata).purpose==="protective-stop");
     if(protective){
@@ -306,34 +312,46 @@ export async function GET(request:Request){
       }
     }
 
-    const liveQuote=await quote(symbol);
-    const mark=num(liveQuote?.bid)??num(liveQuote?.ask);
-    if(mark!==null&&mark<=stopPrice){
-      const flattened=await emergencyFlatten(symbol,parentClientOrderId,"Atlas stop was already breached before protection could be installed.");
-      return {ok:flattened.ok,state:flattened.ok?"flattening-stop-breach":flattened.reason};
+    if(marketOpen){
+      const liveQuote=await quote(symbol);
+      const mark=num(liveQuote?.bid)??num(liveQuote?.ask);
+      if(mark!==null&&mark<=stopPrice){
+        const flattened=await emergencyFlatten(
+          symbol,parentClientOrderId,pool,
+          "Atlas stop was already breached before protection could be installed."
+        );
+        return {ok:flattened.ok,state:flattened.ok?"flattening-stop-breach":flattened.reason};
+      }
     }
 
     const quantity=await sellableQty(symbol);
     if(!(quantity>0))return {ok:false,state:"no-sellable-quantity"};
     const submitted=await submitSell({
-      symbol,quantity,purpose:"protective-stop",parentClientOrderId,type:"stop",stopPrice,
-      stageReason:"Atlas v2 broker-hosted fractional DAY protective stop.",
+      symbol,quantity,purpose:"protective-stop",parentClientOrderId,pool,type:"stop",stopPrice,
+      stageReason:"Atlas v3 broker-hosted rolling fractional DAY protective stop.",
     });
     if(!submitted.ok&&!submitted.ambiguous){
-      const flattened=await emergencyFlatten(symbol,parentClientOrderId,"Atlas protective stop was rejected; emergency PAPER flatten.");
+      if(!marketOpen)return {ok:false,state:"protection-rejected-market-closed"};
+      const flattened=await emergencyFlatten(
+        symbol,parentClientOrderId,pool,
+        "Atlas protective stop was rejected; emergency PAPER flatten."
+      );
       return {ok:flattened.ok,state:flattened.ok?"emergency-flatten":"protection-failed"};
     }
     return {ok:submitted.ok,state:submitted.ok?"protected":"protection-ambiguous",clientOrderId:submitted.clientOrderId};
   };
 
-  const submitManagedExit=async(symbol:string,quantity:number,purpose:string,parentClientOrderId:string,reason:string)=>{
+  const submitManagedExit=async(
+    symbol:string,quantity:number,purpose:string,parentClientOrderId:string,
+    pool:"day"|"multi-day"|"multi-week",reason:string
+  )=>{
     const canceled=await cancelProtection(symbol);
     if(!canceled)return {ok:false,state:"protective-cancel-failed"};
     const available=await sellableQty(symbol);
     const exitQty=floorQty(Math.min(quantity,available));
     if(!(exitQty>0))return {ok:false,state:"no-sellable-quantity"};
     const result=await submitSell({
-      symbol,quantity:exitQty,purpose,parentClientOrderId,type:"market",stageReason:reason,
+      symbol,quantity:exitQty,purpose,parentClientOrderId,pool,type:"market",stageReason:reason,
     });
     return {ok:result.ok,state:result.ok?"exit-submitted":result.ambiguous?"exit-ambiguous":"exit-rejected",
       clientOrderId:result.clientOrderId};
