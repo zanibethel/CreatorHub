@@ -84,6 +84,16 @@ export async function GET(request: Request) {
     .in("symbol", [...new Set([...stocks, ...crypto.map(s => s.replace("-", "/"))])]);
   if (prospectError) return response({error:"Scanner attribution unavailable; no incomplete candidate records written."},503);
   const bySymbol = new Map((prospectRows as Prospect[] ?? []).map(p => [`${p.asset_class}:${p.symbol}`,p]));
+  const opportunityBySymbol = new Map<string, string>();
+  const {data: originRows, error: originError} = await db.from("paper_prospects")
+    .select("asset_class,symbol,first_seen_at,scanner_id")
+    .in("symbol", [...new Set([...stocks, ...crypto.map(s => s.replace("-", "/"))])]);
+  if (originError) return response({error:"Scanner opportunity lineage unavailable; no incomplete candidate records written."},503);
+  for (const row of originRows ?? []) {
+    if (!row.first_seen_at || !row.scanner_id) continue;
+    opportunityBySymbol.set(`${row.asset_class}:${row.symbol}`,
+      `scanner:${row.scanner_id}:${row.asset_class}:${row.symbol}:${row.first_seen_at}`);
+  }
   const cryptoBySymbol = new Map((market.crypto ?? []).map(book => [book.product, book]));
   const risk = {accountEquity:numeric(ledger.equity),openRiskPct:numeric(ledger.open_planned_risk_pct),
     correlatedRiskPct:numeric(ledger.correlated_risk_pct),dailyRealizedLossPct:numeric(ledger.daily_realized_loss_pct),
@@ -124,6 +134,7 @@ export async function GET(request: Request) {
         ledgerRiskSnapshotAt:ledger.last_synced_at,
         scanner:prospect ? {scannerId:prospect.scanner_id,scannerVersion:prospect.scanner_version,
           symbol:prospect.symbol,score:prospect.score,scannedAt:prospect.last_scanned_at,
+          opportunityId:opportunityBySymbol.get(`${assetClass}:${scannerSymbol}`) ?? null,
           sourceUpdatedAt:prospect.source_updated_at,assignedToAtlas:scanIsAssigned,
           note:"A scanner score/assignment is not an Atlas strategy decision."}:null,
       },
