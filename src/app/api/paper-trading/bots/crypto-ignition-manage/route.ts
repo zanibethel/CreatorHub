@@ -176,10 +176,11 @@ export async function POST(request:Request){
       if(!restored)await emergencyFlatten(available);
       return reply({error:"Spark partial-profit submission failed; protection restore attempted.",critical:!restored},502);
     }
-    if(order?.id){
+    const submittedOrderId=order?.id;
+    if(submittedOrderId){
       for(let i=0;i<10;i++){
-        if(["filled","canceled","rejected","expired"].includes(order.status??""))break;
-        await sleep(200);try{order=await alpaca(`orders/${encodeURIComponent(order.id)}`) as BrokerOrder;}catch{break;}
+        if(["filled","canceled","rejected","expired"].includes(order?.status??""))break;
+        await sleep(200);try{order=await alpaca(`orders/${encodeURIComponent(submittedOrderId)}`) as BrokerOrder;}catch{break;}
       }
     }
     const filled=num(order?.filled_qty)??0;
