@@ -3,7 +3,7 @@ import { z } from "zod";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import { evaluateMomentumBreakoutCandidate, type MomentumBar } from "@/lib/paper-momentum-breakout-readiness";
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-breakout-strategy-config";
-import { classifyPulseJournalPlan } from "@/lib/paper-pulse-journal-contract";
+import { classifyPulseJournalPlan, pulseProspectIntakePath, summarizePulseHandoff } from "@/lib/paper-pulse-journal-contract";
 
 export const dynamic="force-dynamic";
 
@@ -23,6 +23,11 @@ const prospectSchema=z.object({
   reasons:z.array(z.string()).default([]),
   last_seen_at:z.string(),
   assigned_bot_ids:z.array(z.string()).default([]),
+});
+const handoffSchema=z.object({
+  symbol:z.string(),score:z.coerce.number().finite(),price:z.coerce.number().finite().nullable(),
+  status:z.string(),bot_review_eligible:z.boolean(),suggested_bot_ids:z.array(z.string()).default([]),
+  assigned_bot_ids:z.array(z.string()).default([]),last_seen_at:z.string(),reasons:z.array(z.string()).default([]),
 });
 const ledgerSchema=z.object({
   status:z.enum(["active","planned","paused"]),
@@ -63,16 +68,26 @@ export async function GET(request:Request){
   try{
     const now=Date.now();
     const orderCutoff=encodeURIComponent(new Date(now-36*60*60*1000).toISOString());
-    const [prospectRaw,ledgerRaw,positionsRaw,ordersRaw]=await Promise.all([
-      db("paper_prospects?asset_class=eq.stock&status=eq.review-ready&bot_review_eligible=eq.true&select=symbol,scanner_version,score,percent_change,score_components,reasons,last_seen_at,assigned_bot_ids&order=score.desc,last_seen_at.desc&limit=30"),
+    const [prospectRaw,ledgerRaw,positionsRaw,ordersRaw,handoffRaw]=await Promise.all([
+      db(pulseProspectIntakePath(strategy.botProfileId)),
       db(`paper_bot_ledgers?bot_id=eq.${strategy.botProfileId}&select=status,equity,buying_power,open_planned_risk_pct,daily_realized_loss_pct,metadata&limit=1`),
       db("paper_bot_positions?select=bot_id,symbol,quantity&quantity=gt.0"),
       db(`paper_bot_orders?bot_id=eq.${strategy.botProfileId}&side=eq.buy&created_at=gte.${orderCutoff}&select=status,created_at&order=created_at.desc&limit=100`),
+      db("paper_prospects?asset_class=eq.stock&score=gte.65&select=symbol,score,price,status,bot_review_eligible,suggested_bot_ids,assigned_bot_ids,last_seen_at,reasons&order=score.desc,last_seen_at.desc&limit=80"),
     ]);
     const ledger=z.array(ledgerSchema).parse(ledgerRaw)[0];
     if(!ledger)return reply({error:"Pulse virtual ledger is not configured."},503);
     const prospects=z.array(prospectSchema).parse(prospectRaw)
       .filter(row=>row.assigned_bot_ids.includes(strategy.botProfileId));
+    const handoff=summarizePulseHandoff(
+      z.array(handoffSchema).parse(handoffRaw).map(row=>({
+        symbol:row.symbol,score:row.score,price:row.price,status:row.status,
+        botReviewEligible:row.bot_review_eligible,suggestedBotIds:row.suggested_bot_ids,
+        assignedBotIds:row.assigned_bot_ids,lastSeenAt:row.last_seen_at,reasons:row.reasons,
+      })),
+      now,strategy.botProfileId,strategy.intake.minimumScannerScore,strategy.intake.minimumPriceUsd,
+      strategy.intake.maximumProspectAgeMinutes,
+    );
     const positions=z.array(positionSchema).parse(positionsRaw);
     const recentOrders=z.array(orderSchema).parse(ordersRaw);
 
@@ -138,9 +153,10 @@ export async function GET(request:Request){
           bot_id:strategy.botProfileId,strategy_id:strategy.id,strategy_version:strategy.version,
           event_type:"system",asset_class:"stock",occurred_at:new Date(now).toISOString(),
           qualification:null,regime:"unknown",component_scores:{},market_snapshot:{},risk_plan:{},
-          blockers:[],warnings:["No scanner-qualified stocks currently assigned to Pulse."],
+          blockers:[],warnings:["No scanner-qualified stocks currently assigned to Pulse.", 
+            `Pulse handoff sample: ${handoff.counts.assigned} assigned, ${handoff.counts.belowScannerThreshold} below threshold, ${handoff.counts.scannerRejected} not scanner-approved, ${handoff.counts.stale} stale, ${handoff.counts.scannerRoutingMismatch} routing mismatch, ${handoff.counts.assignmentMismatch} assignment mismatch.`],
           metadata:{source:"pulse-5m-readiness",executionEnabled,paperOnly:true,noCandidates:true,
-            scannerScope:"review-ready stock prospects assigned to Pulse"},
+            scannerScope:"review-ready stock prospects assigned to Pulse",handoff},
         }]
         : plans.map(plan=>{
           const classification=classifyPulseJournalPlan({
@@ -176,6 +192,7 @@ export async function GET(request:Request){
       executionEnabled,submissionReady:Boolean(executionEnabled&&ready[0]?.selectedForSubmission),
       selectedSymbol:ready[0]?.symbol??null,
       marketData:{source:quoteBatch.source,fallback:quoteBatch.fallback,providerError:quoteBatch.providerError},
+      handoff,
       dailyEntriesRemaining:Math.max(0,strategy.cadence.maximumNewEntriesPerDay-dailyNewEntries),
       openPositionSlotsRemaining:Math.max(0,strategy.cadence.maximumOpenPositions-ownPositions.length),
       plans,
