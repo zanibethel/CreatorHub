@@ -52,3 +52,13 @@ test("Fuse rejects invalid session timestamps and retains day-scoped keys",()=>{
   const [seed]=buildFuseShadowSeeds([plan()],now,"2026-10-09");
   assert.match(seed.setup_key,/2026-10-09/);
 });
+
+test("Fuse readiness only mutates shadow rows in authenticated scheduler path",()=>{
+  const source=readFileSync(new URL("../src/app/api/paper-trading/bots/fuse-readiness/route.ts",import.meta.url),"utf8");
+  assert.match(source,/if\(isCron\)\{/);
+  assert.match(source,/buildFuseShadowSeeds\(plans,/);
+  assert.match(source,/activeShadow\.map\(row=>row\.symbol\)/);
+  assert.match(source,/advancePaperCounterfactual/);
+  assert.match(source,/shadowTracking/);
+  assert.match(source,/researchOnly:true,executionEnabled:false,submissionReady:false/);
+});
