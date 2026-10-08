@@ -19,3 +19,11 @@ test("ambiguous orders block reservation and only confirmed fills may consume",(
   assert.match(sql,/o\.bot_id='default-diverse'/);
   assert.match(sql,/o\.pool_id=r\.pool/);
 });
+
+test("scanner-only and read-only Atlas decisions cannot reserve cash",()=>{
+  assert.match(sql,/j\.event_type='candidate'/);
+  assert.match(sql,/j\.metadata->>'decisionId'=p_decision_id/);
+  assert.match(sql,/j\.metadata->>'orderAuthorization'='true'/);
+  assert.match(sql,/j\.blockers='\[\]'::jsonb/);
+  assert.match(sql,/decision-not-authorized/);
+});
