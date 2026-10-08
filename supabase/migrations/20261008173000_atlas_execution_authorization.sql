@@ -202,3 +202,45 @@ REVOKE ALL ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
 FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
 TO service_role;
+
+
+-- Safe recovery for an application failure before any order is linked or submitted.
+CREATE OR REPLACE FUNCTION public.paper_atlas_abandon_unbound(p_reservation_id uuid)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=''
+AS $$
+DECLARE v_changed integer;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Service role required';
+  END IF;
+  PERFORM 1 FROM public.paper_bot_ledgers
+   WHERE bot_id='default-diverse' FOR UPDATE;
+  IF NOT EXISTS(
+    SELECT 1 FROM public.paper_atlas_reservations r
+     WHERE r.reservation_id=p_reservation_id
+       AND r.bot_id='default-diverse'
+       AND r.status='reserved'
+       AND r.client_order_id IS NULL
+       AND NOT EXISTS(
+         SELECT 1 FROM public.paper_bot_orders o
+          WHERE o.bot_id='default-diverse'
+            AND o.metadata->>'atlasReservationId'=r.reservation_id::text
+       )
+  ) THEN RETURN false; END IF;
+  UPDATE public.paper_atlas_reservations
+     SET status='released',updated_at=now()
+   WHERE reservation_id=p_reservation_id
+     AND bot_id='default-diverse'
+     AND status='reserved'
+     AND client_order_id IS NULL;
+  GET DIAGNOSTICS v_changed=ROW_COUNT;
+  RETURN v_changed=1;
+END $$;
+
+REVOKE ALL ON FUNCTION public.paper_atlas_abandon_unbound(uuid)
+FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.paper_atlas_abandon_unbound(uuid)
+TO service_role;
