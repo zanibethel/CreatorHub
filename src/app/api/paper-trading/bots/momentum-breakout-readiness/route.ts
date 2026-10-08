@@ -143,7 +143,10 @@ export async function GET(request:Request){
             scannerScope:"review-ready stock prospects assigned to Pulse"},
         }]
         : plans.map(plan=>{
-          const classification=classifyPulseJournalPlan(plan);
+          const classification=classifyPulseJournalPlan({
+            state:plan.state==="ready"?"ready":plan.state==="blocked"?"blocked":"waiting",
+            selectedForSubmission:plan.selectedForSubmission,
+          });
           return {
             bot_id:strategy.botProfileId,strategy_id:strategy.id,strategy_version:strategy.version,
             event_type:classification.eventType,symbol:plan.symbol,asset_class:"stock",occurred_at:new Date(now).toISOString(),
