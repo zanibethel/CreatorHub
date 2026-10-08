@@ -130,7 +130,7 @@ export default function MarketMoverIntelligencePage() {
       of executed purchases. Stock prints are sampled from IEX and do not identify the trade initiator.
       A large displayed order can disappear without trading. SEC institutional/insider filings and
       verified on-chain wallet behavior are planned separate research sources, not yet ingested here.
-      Historical comparison must use each record's availability time to prevent look-ahead bias.
+      Historical comparison must use each record&apos;s availability time to prevent look-ahead bias.
     </footer>
   </main>;
 }
