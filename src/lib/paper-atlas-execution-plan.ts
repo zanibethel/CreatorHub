@@ -77,5 +77,5 @@ export function buildAtlasStockExecutionPlan(input:AtlasStockExecutionInput){
 }
 
 export function atlasExecutionPool(approvedPools:readonly string[]){
-  return approvedPools.includes("multi-day") ? "multi-day" as const : null;
+  return approvedPools.includes("day") ? "day" as const : null;
 }
