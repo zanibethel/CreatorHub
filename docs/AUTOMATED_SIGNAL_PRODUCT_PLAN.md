@@ -198,4 +198,11 @@ The current Weekly Swing proof of concept already follows this direction:
 - The Swing ledger remains isolated at $100 virtual equity.
 - Live-money execution remains disabled.
 
-Next UI work should expose these existing states instead of inventing a parallel workflow.
+The first observability UI is now implemented:
+- Per-bot Live Trade Pipeline in Bot Lab.
+- Cross-bot Signal Desk at `/paper-trading/signals`.
+- The same shared pipeline component renders both views.
+- Signal Desk is read-only and does not authorize trades.
+- Customer-facing labels avoid legacy internal simulation terminology where practical.
+
+Next UI work should deepen timestamps, immutable signal-version provenance, outcome history, and drill-down detail without inventing a parallel workflow.
