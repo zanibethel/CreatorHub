@@ -192,3 +192,65 @@ REVOKE ALL ON FUNCTION public.paper_atlas_consume(uuid,text)
 FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_consume(uuid,text)
 TO service_role;
+
+
+CREATE OR REPLACE FUNCTION public.paper_atlas_release_unsubmitted(
+  p_reservation_id uuid,p_client_order_id text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=''
+AS $$
+DECLARE
+  v_changed integer;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Service role required';
+  END IF;
+
+  PERFORM 1 FROM public.paper_bot_ledgers
+   WHERE bot_id='default-diverse'
+   FOR UPDATE;
+
+  IF NOT EXISTS (
+    SELECT 1
+      FROM public.paper_atlas_reservations r
+      JOIN public.paper_bot_orders o
+        ON o.client_order_id=r.client_order_id
+     WHERE r.reservation_id=p_reservation_id
+       AND r.bot_id='default-diverse'
+       AND r.status='reserved'
+       AND r.client_order_id=p_client_order_id
+       AND o.bot_id='default-diverse'
+       AND o.strategy_id='paper-medium-high-v1'
+       AND o.strategy_version=1
+       AND o.side='buy'
+       AND o.status IN ('rejected','error')
+       AND o.broker_order_id IS NULL
+       AND coalesce(o.metadata->>'brokerLookupPending','false')='false'
+       AND nullif(o.metadata->>'executionError','') IS NOT NULL
+       AND NOT EXISTS (
+         SELECT 1
+           FROM public.paper_bot_broker_orders b
+          WHERE b.bot_id='default-diverse'
+            AND b.client_order_id=p_client_order_id
+       )
+  ) THEN
+    RETURN false;
+  END IF;
+
+  UPDATE public.paper_atlas_reservations
+     SET status='released',updated_at=now()
+   WHERE reservation_id=p_reservation_id
+     AND bot_id='default-diverse'
+     AND status='reserved'
+     AND client_order_id=p_client_order_id;
+
+  GET DIAGNOSTICS v_changed=ROW_COUNT;
+  RETURN v_changed=1;
+END $$;
+
+REVOKE ALL ON FUNCTION public.paper_atlas_release_unsubmitted(uuid,text)
+FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.paper_atlas_release_unsubmitted(uuid,text)
+TO service_role;
