@@ -23,7 +23,8 @@ export const HISTORY_TARGETS = [4,6,10,15,20] as const;
 export const HISTORY_VERSION = 1;
 export const HISTORY_STOP_PCT = 3;
 const DAY_MS = 86_400_000;
-const minContext = 252;
+const stockContext = 252;
+const cryptoContext = 365;
 
 function validBar(b:HistoryBar) {
   return Number.isFinite(Date.parse(b.t)) && [b.o,b.h,b.l,b.c].every(n => Number.isFinite(n) && n > 0)
@@ -42,8 +43,9 @@ export function normalizeHistoryBars(rows:HistoryBar[]):HistoryBar[] {
 function closeAt(bars:HistoryBar[],i:number,days:number) { return bars[i-days].c; }
 
 /** Feature window ends at i; the first hypothetical entry is NEXT bar open. */
-export function historicalFeatures(bars:HistoryBar[],i:number):HistoryFeatures|null {
-  if(i<minContext || i>=bars.length) return null;
+export function historicalFeatures(bars:HistoryBar[],i:number,assetClass:HistoryAssetClass="stock"):HistoryFeatures|null {
+  const minimum=assetClass==="crypto"?cryptoContext:stockContext;
+  if(i<minimum || i>=bars.length) return null;
   const last=bars[i], recent=bars.slice(i-19,i+1), old=bars.slice(i-39,i-19);
   const meanVolume=avg(recent.map(b=>b.v));
   const previousVolume=avg(old.map(b=>b.v));
@@ -55,9 +57,9 @@ export function historicalFeatures(bars:HistoryBar[],i:number):HistoryFeatures|n
     prior24hPct:round(pct(last.c,closeAt(bars,i,1))),
     prior5dPct:round(pct(last.c,closeAt(bars,i,5))),
     prior20dPct:round(pct(last.c,closeAt(bars,i,20))),
-    prior3mPct:round(pct(last.c,closeAt(bars,i,63))),
-    prior6mPct:round(pct(last.c,closeAt(bars,i,126))),
-    prior1yPct:round(pct(last.c,closeAt(bars,i,252))),
+    prior3mPct:round(pct(last.c,closeAt(bars,i,assetClass==="crypto"?90:63))),
+    prior6mPct:round(pct(last.c,closeAt(bars,i,assetClass==="crypto"?180:126))),
+    prior1yPct:round(pct(last.c,closeAt(bars,i,minimum))),
     volumeRatio20:round(previousVolume>0?meanVolume/previousVolume:0),
     range20Pct:round((high-low)/last.c*100),
     highDistance20Pct:round((high-last.c)/high*100),
@@ -101,8 +103,8 @@ export function extractHistoryExamples(symbol:string,assetClass:HistoryAssetClas
   const bars=normalizeHistoryBars(raw);
   const examples:HistoryExample[]=[];
   const windows:HistoryHorizon[]=["same-day","3-day","2-week"];
-  for(let i=minContext;i<bars.length-1;i++) {
-    const features=historicalFeatures(bars,i);
+  for(let i=assetClass==="crypto"?cryptoContext:stockContext;i<bars.length-1;i++) {
+    const features=historicalFeatures(bars,i,assetClass);
     if(!features) continue;
     for(const horizon of windows) {
       const duration=daysFor(assetClass,horizon), entryIndex=i+1;
@@ -208,7 +210,7 @@ export function evaluateHistoryHoldout(examples:HistoryExample[],assetClass:Hist
 export function researchSummary(symbol:string,assetClass:HistoryAssetClass,raw:HistoryBar[]) {
   const bars=normalizeHistoryBars(raw);
   const examples=extractHistoryExamples(symbol,assetClass,bars);
-  const latest=bars.length?historicalFeatures(bars,bars.length-1):null;
+  const latest=bars.length?historicalFeatures(bars,bars.length-1,assetClass):null;
   if(!latest||!examples.length) throw new Error("Insufficient completed history for 12-month context and resolved outcomes.");
   const asOf=new Date(Date.parse(bars[bars.length-1].t)+DAY_MS).toISOString();
   const rows=(["same-day","3-day","2-week"] as HistoryHorizon[]).flatMap(horizon=>
