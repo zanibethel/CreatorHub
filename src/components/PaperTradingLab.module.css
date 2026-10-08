@@ -829,3 +829,16 @@
   .botProfileHero { grid-template-columns:1fr; padding:13px; }
   .botProfileBalance { min-width:0; text-align:left; }
 }
+
+/* CreatorHub user-approved mascot family; visual-only changes, no order logic. */
+.mascotSwitcherLabel{display:flex!important;align-items:center;gap:9px!important;min-width:0}
+.mascotAssociation{display:flex;gap:7px;align-items:center;flex-wrap:wrap}
+.mascotHeroArtwork{width:150px!important;height:150px!important}
+.mascotProfileAssociation{display:flex;align-items:center;gap:12px;font-size:10px;color:var(--trade-blue);text-transform:uppercase;letter-spacing:.05em}
+.botProfileHero{grid-template-columns:minmax(160px,245px) minmax(0,1fr) auto;align-items:center;background:radial-gradient(circle at 12% 30%,rgba(20,190,234,.15),transparent 38%),linear-gradient(150deg,#091523,#050b12)}
+.botSwitcher button{border-radius:13px}
+.prospectCard{background:linear-gradient(160deg,#081622,#060d14)!important;border:1px solid #24465b!important;box-shadow:inset 0 0 22px rgba(23,152,204,.035)}
+.prospectCard:hover{border-color:#2e89ab!important}
+.prospectBots{border-color:#205569;background:#081c28}
+@media(max-width:830px){.botProfileHero{grid-template-columns:1fr 1fr}.botProfileBalance{text-align:left}.portfolioHeroTitle{flex-wrap:wrap}.mascotHeroArtwork{width:120px!important;height:120px!important}}
+@media(max-width:650px){.botProfileHero{grid-template-columns:1fr}.botProfileHero>span:first-child{justify-self:center}.mascotHeroArtwork{display:none}}

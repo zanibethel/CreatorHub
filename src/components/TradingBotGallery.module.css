@@ -1,0 +1,17 @@
+.gallerySection{display:grid;gap:12px;min-width:0}
+.header{display:flex;align-items:center;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.header h2{margin:0 0 4px;font-size:19px;letter-spacing:-.02em;color:#f2fbff}
+.header p{margin:0;font-size:11px;color:#a3c9d7}
+.midasLink{display:inline-flex;align-items:center;gap:8px;text-decoration:none!important;font-weight:750;font-size:12px;color:#8cebe5!important}
+.grid{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:10px}
+.card{min-width:0;overflow:hidden;display:flex;flex-direction:column;border:1px solid color-mix(in srgb,var(--bot-accent) 45%,#142c40);border-radius:15px;background:linear-gradient(155deg,color-mix(in srgb,var(--bot-accent) 9%,#0b1320),#06101c);color:#f3faff!important;text-decoration:none!important;transition:transform .15s,border-color .15s}
+.card:hover{transform:translateY(-3px);border-color:var(--bot-accent)}
+.info{display:grid;gap:5px;padding:10px 12px 12px;flex:1}
+.info strong{font-size:20px;color:var(--bot-accent)}
+.info>span{font-size:10px;text-transform:uppercase;letter-spacing:.04em;color:#c5dfeb}
+.info p{font-size:10px;line-height:1.4;color:#a6c9d5;max-height:43px;overflow:hidden;margin:2px 0 0}
+.info small{font-size:9px;color:#bcdde6}
+.sparkline{display:block;width:100%;height:34px;margin-top:auto;filter:drop-shadow(0 0 5px var(--bot-accent))}
+.noChart{display:block;padding:8px 0;font-size:10px;color:#7496a6}
+@media(max-width:1060px){.grid{grid-template-columns:repeat(3,minmax(0,1fr))}}
+@media(max-width:650px){.grid{grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}.info{padding:9px}.info strong{font-size:17px}.info p{font-size:9px}.header h2{font-size:17px}}

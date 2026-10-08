@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { BotMascot } from "@/components/BotMascot";
 
 type Evidence = {
   asset_class: "stock" | "crypto";
@@ -69,7 +70,7 @@ export default function MarketMoverIntelligencePage() {
       <a href="/paper-trading" style={{ color: "#93d8ff" }}>← Bot Lab</a>
       <a href="/paper-trading/signals" style={{ color: "#93d8ff" }}>Signal Desk</a>
     </nav>
-    <h1 style={{ fontSize: "clamp(25px, 4vw, 38px)", marginBottom: 8 }}>Market Mover Intelligence</h1>
+    <div style={{ display: "flex", alignItems: "center", gap: 20, flexWrap: "wrap", marginBottom: 20 }}><BotMascot botId="midas" size="profile"/><div><h1 style={{ fontSize: "clamp(25px, 4vw, 38px)", marginBottom: 8 }}>Midas · Market Mover Intelligence</h1><p style={{color:"#5ddfdf"}}>Institutional & whale intelligence · research-only mascot</p></div></div>
     <p style={{ maxWidth: 820, color: "#b5c2d0", lineHeight: 1.65 }}>
       Research-only evidence of unusual market activity. Current inputs sample displayed crypto
       order-book depth and individual stock prints from a limited exchange feed.

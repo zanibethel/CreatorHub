@@ -3,6 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
+import { BotMascot, BotBadge } from "./BotMascot";
+import TradingBotGallery from "./TradingBotGallery";
 import type { PaperBotSummary } from "@/lib/paper-bot-ledger";
 import {
   PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION,
@@ -425,7 +427,7 @@ function ProspectRows({ rows, currentPriceFor, compact = false }: {
         {(row.assigned_bot_ids.length || row.suggested_bot_ids.length)
           ? <div className={styles.prospectBots}>
               <small>{row.assigned_bot_ids.length ? "Assigned for bot review" : "Suggested next review"}</small>
-              <strong>{(row.assigned_bot_ids.length ? row.assigned_bot_ids : row.suggested_bot_ids).map(prospectBotLabel).join(" · ")}</strong>
+              <div className={styles.mascotAssociation}>{(row.assigned_bot_ids.length ? row.assigned_bot_ids : row.suggested_bot_ids).map(id => <BotBadge key={id} botId={id}/>)}</div>
             </div>
           : null}
         <small className={styles.prospectReason}>{row.reasons.slice(0, 4).join(" · ")}</small>
@@ -823,6 +825,8 @@ export default function PaperBotLab() {
       <div className={styles.botLabActions}><Link href={`/paper-trading/bots/${profile.id}`}>Bot Profile</Link><Link href="/paper-trading/signals">Signal Desk</Link><Link href="/paper-trading/historical-patterns">Historical Patterns</Link><button onClick={refreshAll}>Refresh</button></div>
     </header>
 
+    <TradingBotGallery history={ledgerReport?.history}/>
+
     <nav className={styles.botSwitcher} aria-label="Bot portfolios">
       {PAPER_BOT_PROFILES.map(item => {
         const itemLedger = ledgerReport?.bots.find(bot => bot.botId === item.id);
@@ -834,7 +838,7 @@ export default function PaperBotLab() {
           onClick={() => { if (active) { setSelectedBotId(item.id); setView("portfolio"); } }}
           title={active ? item.style : "Reserved $100 pool · strategy setup pending"}
         >
-          <span>{botShortName(item)}</span>
+          <span className={styles.mascotSwitcherLabel}><BotMascot botId={item.id} size="switcher"/>{botShortName(item)}</span>
           <strong>{money(itemLedger?.equity ?? item.challengeStartingCash)}</strong>
           <small>{active ? signedMoney((itemLedger?.equity ?? item.challengeStartingCash) - item.challengeStartingCash) : "Reserved · planned"}</small>
         </button>;
@@ -852,6 +856,7 @@ export default function PaperBotLab() {
           <h2>{profile.name}</h2>
           <p>{profile.style}</p>
         </div>
+        <BotMascot botId={profile.id} size="profile" className={styles.mascotHeroArtwork}/>
         <div className={styles.portfolioHeroValue}>
           <span>Portfolio value</span>
           <strong>{money(equity)}</strong>

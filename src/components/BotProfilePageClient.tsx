@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { PAPER_BOT_PROFILES } from "@/lib/paper-bot-profiles";
+import { BotMascot, BotBadge } from "./BotMascot";
 import PaperSignalPipeline from "./PaperSignalPipeline";
 import FuseResearchPanel from "./FuseResearchPanel";
 import usePaperBotLedgers from "./usePaperBotLedgers";
@@ -77,6 +78,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
     </header>
 
     <section className={styles.botProfileHero}>
+      <BotMascot botId={botId} size="profile"/>
       <div className={styles.botProfileIdentity}>
         <span className={automationEnabled?styles.botStatusActive:styles.portfolioBadge}>
           {executionBadge}
@@ -95,6 +97,8 @@ export default function BotProfilePageClient({botId}:{botId:string}){
         <small>{signedMoney(ledger?.realizedPl??0)} realized · {positions.length} open</small>
       </div>
     </section>
+
+    <div className={styles.mascotProfileAssociation}><span>Strategy identity</span><BotBadge botId={botId}/></div>
 
     <section className={styles.portfolioStats}>
       <div className={styles.portfolioStat}><span>Strategy</span><strong>{profile.strategyId??"Not armed"}</strong><small>{profile.tradePlan.source.replaceAll("-"," ")}</small></div>
