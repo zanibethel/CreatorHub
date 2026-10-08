@@ -42,7 +42,7 @@ export async function GET() {
 
   try {
     const response = await fetch(
-      `${SUPABASE_URL}/rest/v1/paper_bot_journal?select=bot_id,strategy_id,strategy_version,event_type,symbol,occurred_at,score,qualification,component_scores,market_snapshot,risk_plan,blockers,warnings,client_order_id,metadata&event_type=in.(prospect-intake,strategy-rejected,broker-rejected,canceled,expired,execution-error)&order=occurred_at.desc&limit=500`,
+      `${SUPABASE_URL}/rest/v1/paper_bot_journal?select=bot_id,strategy_id,strategy_version,event_type,symbol,occurred_at,score,qualification,component_scores,market_snapshot,risk_plan,blockers,warnings,client_order_id,metadata&event_type=in.(prospect-intake,rejected,canceled,expired,replaced,execution_error)&order=occurred_at.desc&limit=500`,
       {
         headers,
         cache: "no-store",
