@@ -6,9 +6,9 @@ import ts from "typescript";
 
 const src=readFileSync(new URL("../src/lib/historical-pattern-intelligence.ts",import.meta.url),"utf8");
 const code=ts.transpileModule(src,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
-const module={exports:{}};
-vm.runInNewContext(code,{exports:module.exports,Math,Number,Date,Map,Set,Object,Error});
-const engine=module.exports;
+const loaded={exports:{}};
+vm.runInNewContext(code,{exports:loaded.exports,Math,Number,Date,Map,Set,Object,Error});
+const engine=loaded.exports;
 
 const day=86_400_000;
 function bars(n=320){
