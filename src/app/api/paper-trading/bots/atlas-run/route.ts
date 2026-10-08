@@ -636,7 +636,6 @@ export async function GET(request:Request){
     .gte("occurred_at",candidateSince).order("score",{ascending:false}).order("occurred_at",{ascending:false}).limit(30);
   if(candidateError)return reply({error:"Atlas executable-candidate lookup failed."},503);
 
-  const poolRemaining=startingCash*.20;
   const sharedPositions=await brokerPositions();
   const openOrdersResult=await broker("orders?status=open&limit=500&nested=true&direction=desc");
   if(!openOrdersResult.response.ok)return reply({error:"Atlas broker open-order preflight failed."},503);
@@ -654,6 +653,7 @@ export async function GET(request:Request){
     const opportunityId=typeof provenance.opportunityId==="string"?provenance.opportunityId:"";
     const decisionId=typeof candidate.metadata?.decisionId==="string"?candidate.metadata.decisionId:"";
     if(!pool||!opportunityId||!decisionId)continue;
+    const poolRemaining=startingCash*atlasPoolCapFraction(pool);
 
     const compact=normalize(candidate.symbol);
     if(sharedPositions.some(p=>normalize(p.symbol)===compact&&Math.abs(num(p.qty)??0)>0))continue;
@@ -680,7 +680,7 @@ export async function GET(request:Request){
       symbol:candidate.symbol,assetClass:"stock",brokerAssetVerified:true,marketSessionOpen:true,
       quoteFresh:true,sharedSymbolClear:true,triggerReached:true,noChase:true,
       quoteAt:liveQuote?.timestamp??null,brokerAssetId:asset.id??null,brokerClass:asset.class??null,
-      protectionMode:"fractional-day-simple-stop",
+      protectionMode:"fractional-rolling-day-stop",holdingPool:pool,
     };
     const {data:authorized,error:authorizeError}=await db.rpc("paper_atlas_authorize_candidate",{
       p_decision_id:decisionId,p_opportunity_id:opportunityId,p_pool:pool,
@@ -701,15 +701,15 @@ export async function GET(request:Request){
     const metadata:JsonMap={
       paperOnly:true,purpose:"entry",atlasReservationId:reservationId,decisionId,opportunityId,
       authorizationPreflight:preflight,quoteAt:liveQuote?.timestamp??null,
-      executionMode:"atlas-fractional-day-v2",
+      executionMode:"atlas-fractional-stock-v3",holdingPool:pool,
     };
     const {error:insertError}=await db.from("paper_bot_orders").insert({
       client_order_id:clientOrderId,bot_id:BOT_ID,strategy_id:STRATEGY_ID,strategy_version:STRATEGY_VERSION,
       symbol:candidate.symbol,asset_class:"stock",side:"buy",status:"prepared",
-      requested_notional:execution.requestedNotional,requested_quantity:execution.quantity,pool_id:"day",
+      requested_notional:execution.requestedNotional,requested_quantity:execution.quantity,pool_id:pool,
       entry_trigger:plan.entryTrigger,max_entry_price:execution.maxEntryPrice,protective_stop:plan.stopPrice,
       planned_risk_dollars:execution.plannedRiskDollars,expires_at:expiresAt,
-      stage_reason:"Atlas v2 fractional DAY PAPER entry from current trade-ready evidence.",
+      stage_reason:`Atlas v3 fractional ${pool} PAPER entry from current trade-ready evidence.`,
       take_profit_price:plan.exitPrice,take_profit_fraction:.25,take_profit_r:1.75,
       protect_winner_at_r:1,trail_remainder:true,metadata,
     });
@@ -757,7 +757,7 @@ export async function GET(request:Request){
     });
 
     if(filledQty>0&&plan.stopPrice){
-      const protection=await ensureProtection(candidate.symbol,plan.stopPrice,clientOrderId);
+      const protection=await ensureProtection(candidate.symbol,plan.stopPrice,clientOrderId,pool,true);
       return reply({ok:protection.ok,paperOnly:true,action:"entry-filled",symbol:candidate.symbol,
         clientOrderId,reservationId,protection},protection.ok?200:503);
     }
@@ -766,5 +766,5 @@ export async function GET(request:Request){
       clientOrderId,reservationId,status:mappedStatus(observed.status)});
   }
 
-  return reply({ok:true,paperOnly:true,action:"none",reason:"no-executable-day-stock"});
+  return reply({ok:true,paperOnly:true,action:"none",reason:"no-executable-funded-stock"});
 }
