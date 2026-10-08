@@ -17,11 +17,38 @@ export async function GET() {
   ).catch(() => null);
   if (!response?.ok) return NextResponse.json({ error: "Mover evidence currently unavailable." }, { status: 503 });
 
+  type Row = {
+    asset_class: string;
+    score: number;
+    confidence: number;
+    evidence: Record<string, unknown> | null;
+  };
+  const rows = await response.json() as Row[];
+  const observations = rows.map(row => {
+    // Historical v1 orderbooks were not quality-gated. Preserve their evidence
+    // but never continue displaying a high unverified research score as valid.
+    if (row.asset_class !== "crypto" || row.evidence?.quality_version === "midas-crypto-quality-v2") {
+      return row;
+    }
+    return {
+      ...row,
+      score: 0,
+      confidence: 0,
+      evidence: {
+        ...row.evidence,
+        raw_unverified_score: row.score,
+        quality_status: "legacy",
+        quality_reason: "pre-quality-gates",
+        quality_gates_passed: false,
+      },
+    };
+  });
+
   return NextResponse.json({
-    module: "market-mover-intelligence-v1",
+    module: "market-mover-intelligence-v2",
     status: "research-only",
     executionEnabled: false,
     collectedAt: new Date().toISOString(),
-    observations: await response.json(),
+    observations,
   }, { headers: { "Cache-Control": "public, s-maxage=15, stale-while-revalidate=30" } });
 }
