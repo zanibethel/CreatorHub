@@ -163,7 +163,7 @@ export async function GET(request:Request){
     }
     return {order:created,explicitReject};
   };
-  const reconcileStoredOrder=async(order:OrderRow)=>{
+  const reconcileStoredOrder=async(order:OrderRow):Promise<{observed:BrokerOrder;metadata:JsonMap}|null>=>{
     let observed:BrokerOrder|null=null;
     if(order.broker_order_id){
       const result=await broker(`orders/${encodeURIComponent(order.broker_order_id)}`);
@@ -494,7 +494,7 @@ export async function GET(request:Request){
     if(minutesToClose!==null&&minutesToClose<=10){
       const exit=await submitManagedExit(position.symbol,quantity,"day-close",parent.client_order_id,
         "Atlas v2 mandatory intraday exit before the regular-session close.");
-      return reply({ok:exit.ok,paperOnly:true,action:"day-close",symbol:position.symbol,...exit},exit.ok?200:503);
+      return reply({paperOnly:true,action:"day-close",symbol:position.symbol,...exit},exit.ok?200:503);
     }
 
     const riskDistance=average-initialStop;
@@ -524,10 +524,11 @@ export async function GET(request:Request){
           paperOnly:true,critical:!restored.ok,restored},502);
       }
       let observed=partial.order;
-      if(observed?.id){
-        for(let i=0;i<8&&!["filled","canceled","rejected","expired"].includes(mappedStatus(observed.status));i++){
+      const partialBrokerId=observed?.id;
+      if(partialBrokerId){
+        for(let i=0;i<8&&!["filled","canceled","rejected","expired"].includes(mappedStatus(observed?.status));i++){
           await sleep(200);
-          const latest=await broker(`orders/${encodeURIComponent(observed.id)}`);
+          const latest=await broker(`orders/${encodeURIComponent(partialBrokerId)}`);
           if(latest.response.ok)observed=latest.body as BrokerOrder;
         }
       }
