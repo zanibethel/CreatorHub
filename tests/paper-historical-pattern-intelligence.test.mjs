@@ -50,10 +50,10 @@ test("same-candle target and stop is ambiguous, never an automatic win",()=>{
 });
 
 test("future outcomes cannot join historical nearest neighbors",()=>{
-  const data=bars(340);
+  const data=bars(440);
   const examples=engine.extractHistoryExamples("X","crypto",data);
-  const f=engine.historicalFeatures(data,300);
-  const asOf=data[253].t;
+  const f=engine.historicalFeatures(data,400,"crypto");
+  const asOf=data[366].t;
   const matched=engine.matchHistoricalPattern(examples,f,"3-day",4,asOf,"crypto");
   assert.equal(matched.status,"insufficient-evidence");
   assert.equal(matched.score,null);
@@ -61,7 +61,7 @@ test("future outcomes cannot join historical nearest neighbors",()=>{
 });
 
 test("matching is research-only, distinct from buy eligibility",()=>{
-  const data=bars(360);
+  const data=bars(490);
   const r=engine.researchSummary("ETH/USD","crypto",data);
   assert.equal(r.rows.length,15);
   assert.equal(r.note.includes("Research only"),true);
