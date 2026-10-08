@@ -98,7 +98,7 @@ export default async function BotPerformanceAuditPage() {
       db.from("paper_fuse_observations").select("readiness,evaluated_at").gte("evaluated_at",lookback)
         .order("evaluated_at",{ascending:false}).limit(500),
       db.from("paper_bot_journal").select("id,symbol,event_type,occurred_at,score,qualification,component_scores,blockers,market_snapshot,risk_plan,metadata")
-        .eq("bot_id","default-diverse").eq("event_type","candidate").order("occurred_at",{ascending:false}).limit(30),
+        .eq("bot_id","default-diverse").eq("event_type","candidate").order("occurred_at",{ascending:false}).limit(120),
       db.from("paper_bot_journal").select("id,symbol,event_type,occurred_at,score,qualification,component_scores,blockers,market_snapshot,risk_plan,metadata")
         .eq("bot_id","default-diverse").in("event_type",["scanner_observed","scanner_assigned"]).order("occurred_at",{ascending:false}).limit(40),
 
@@ -119,6 +119,8 @@ export default async function BotPerformanceAuditPage() {
   } catch {
     errors.push("Audit storage is temporarily unavailable.");
   }
+  const atlasDynamic = atlasEvaluations.filter(e => (e.metadata?.inputProvenance as {candidateSource?:string} | undefined)?.candidateSource === "scanner-assigned-unapproved");
+  const atlasSessions = new Set(atlasEvaluations.map(e=>String(e.metadata?.symbolSessionKey??"")).filter(Boolean));
   const ordered = [...rows].sort((a,b) =>
     PAPER_BOT_PROFILES.findIndex(x=>x.id===a.bot_id)-PAPER_BOT_PROFILES.findIndex(x=>x.id===b.bot_id));
   const total = (key: keyof AuditRow) => rows.reduce((sum,row) => sum + number(row[key] as number | string | null),0);
@@ -142,19 +144,21 @@ export default async function BotPerformanceAuditPage() {
     </header>
     <section id="atlas-decisions" className={styles.section}>
       <div className={styles.sectionHeader}><h2>Atlas · decision evidence trail</h2><span>Read-only evaluation · never order authorization</span></div>
-      <p className={styles.explanation}>Scanner observations and suggestions are source evidence, NOT Atlas strategy approval. Atlas&apos;s scheduled engine evaluations below use persisted watchlist candidates only, and do not submit orders. A symbol/day key groups repeated checks; it does not identify separate executable trade opportunities.</p>
+      <p className={styles.explanation}>Scanner observations and suggestions are source evidence, NOT Atlas strategy approval. Atlas&apos;s scheduled engine evaluates the saved watchlist plus a bounded set of scanner-assigned prospects. Scanner-only prospects are explicitly unapproved for purchases pending trading and pool verification. No orders are submitted by this audit. Symbol/day groups are not proven distinct executable opportunities.</p>
       <div className={styles.metrics}>
-        <article><span>Recent strategy evaluations</span><strong>{count(atlasEvaluations.length)}</strong><small>Newest 30 decisions · five-minute deduplication</small></article>
+        <article><span>Recent strategy evaluations</span><strong>{count(atlasEvaluations.length)}</strong><small>Newest 120 decisions · five-minute deduplication</small></article>
+        <article><span>Scanner-sourced evaluations</span><strong>{count(atlasDynamic.length)}</strong><small>Unapproved for funded trading</small></article>
+        <article><span>Symbol/day groups</span><strong>{count(atlasSessions.size)}</strong><small>Not unique tradable setups</small></article>
         <article><span>Blocked / not eligible</span><strong>{count(atlasEvaluations.filter(e=>e.blockers?.length).length)}</strong><small>Includes pool-capacity authorization veto</small></article>
         <article><span>Recent scanner observations</span><strong>{count(atlasScannerEvents.filter(e=>e.event_type==="scanner_observed").length)}</strong><small>Newest 40 scanner journal events</small></article>
         <article><span>Scanner suggestions</span><strong>{count(atlasScannerEvents.filter(e=>e.event_type==="scanner_assigned").length)}</strong><small>Not orders or strategy approvals</small></article>
       </div>
-      <div className={styles.tableWrap}><table><thead><tr><th>Recorded (CT)</th><th>Symbol</th><th>Atlas score</th><th>Qualification</th><th>Blockers</th><th>Full trace</th></tr></thead><tbody>
+      <div className={styles.tableWrap}><table><thead><tr><th>Recorded (CT)</th><th>Symbol</th><th>Atlas score</th><th>Qualification</th><th>Candidate source</th><th>Blockers</th><th>Full trace</th></tr></thead><tbody>
       {atlasEvaluations.slice(0,16).map(e=><tr key={e.id}><td>{central(e.occurred_at)}</td><td>{e.symbol}</td>
-        <td>{e.score==null?"—":Number(e.score).toFixed(1)}</td><td>{e.qualification??"Unavailable"}</td>
+        <td>{e.score==null?"—":Number(e.score).toFixed(1)}</td><td>{e.qualification??"Unavailable"}</td><td>{(e.metadata?.inputProvenance as {candidateSource?:string} | undefined)?.candidateSource === "scanner-assigned-unapproved" ? "Scanner · unapproved" : "Saved watchlist"}</td>
         <td>{e.blockers?.length??0}</td><td><details><summary>Evidence</summary><pre style={{whiteSpace:"pre-wrap",maxWidth:440,overflowWrap:"anywhere"}}>{JSON.stringify({id:e.metadata?.decisionId,correlationId:e.metadata?.correlationId,source:e.metadata?.source,components:e.component_scores,blockers:e.blockers,market:e.market_snapshot,risk:e.risk_plan,provenance:e.metadata?.inputProvenance},null,2)}</pre></details></td>
       </tr>)}
-      {!atlasEvaluations.length?<tr><td colSpan={6}>No Atlas engine evaluation recorded yet. Scanner events alone cannot establish strategy decisions.</td></tr>:null}
+      {!atlasEvaluations.length?<tr><td colSpan={7}>No Atlas engine evaluation recorded yet. Scanner events alone cannot establish strategy decisions.</td></tr>:null}
       </tbody></table></div>
       <p className={styles.explanation}>Historical SOL/USD execution has a broker-attributed fill and exit, but no recoverable originating candidate decision. No historical evaluation has been invented or backdated.</p>
     </section>
