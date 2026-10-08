@@ -7,11 +7,12 @@ const authSql=readFileSync(new URL("../supabase/migrations/20261008173000_atlas_
 const releaseSql=readFileSync(new URL("../supabase/migrations/20261008173500_atlas_release_zero_fill.sql",import.meta.url),"utf8");
 const config=JSON.parse(readFileSync(new URL("../vercel.json",import.meta.url),"utf8"));
 
-test("Atlas scheduled runner remains paper-only and cron-secret gated",()=>{
+test("Atlas runner remains paper-only, cron-secret gated and explicitly disarmed",()=>{
   assert.match(route,/CRON_SECRET/);
   assert.match(route,/paperOnly:true/g);
   assert.match(route,/runAtlasAudit/);
-  assert.ok(config.crons.some(x=>x.path==="/api/paper-trading/bots/atlas-run"&&x.schedule==="*/5 * * * *"));
+  assert.ok(config.crons.some(x=>x.path==="/api/paper-trading/bots/atlas-decision-audit"&&x.schedule==="*/5 * * * *"));
+  assert.match(route,/executionArmed=false/);
 });
 
 test("Atlas executes stocks only after authorization, reservation and exact binding",()=>{
