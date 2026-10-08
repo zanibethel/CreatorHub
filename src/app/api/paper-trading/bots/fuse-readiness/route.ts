@@ -1,7 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
-import { evaluateFuseCandidate, type FuseBar } from "@/lib/paper-fuse-readiness";
+import { evaluateFuseCandidate, fuseSession, type FuseBar } from "@/lib/paper-fuse-readiness";
+import { buildFuseShadowSeeds } from "@/lib/paper-fuse-counterfactual";
+import { advancePaperCounterfactual, counterfactualPatch, type PaperCounterfactualState } from "@/lib/paper-counterfactual";
 import { FUSE_PENNY_STRATEGY_V1 as cfg } from "@/lib/paper-fuse-strategy-config";
 
 export const dynamic = "force-dynamic";
@@ -26,6 +28,38 @@ const barSchema=z.object({
 });
 const historicalSchema=z.object({symbol:z.string(),shadow_score:z.coerce.number().finite().nullable(),matched_count:z.coerce.number().int().nonnegative()});
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
+const shadowRowSchema=z.object({
+  id:z.coerce.number().int().positive(),setup_key:z.string(),bot_id:z.string(),strategy_id:z.string().nullable(),
+  strategy_version:z.coerce.number().int().nullable(),symbol:z.string(),asset_class:z.string(),
+  decision_at:z.string(),session_key:z.string().nullable(),
+  status:z.enum(["watching","triggered","completed","expired","ambiguous","superseded"]),
+  score:z.coerce.number().nullable(),trigger_price:z.coerce.number().positive(),
+  max_entry_price:z.coerce.number().positive(),protective_stop:z.coerce.number().positive(),
+  planned_take_profit:z.coerce.number().nullable(),assumed_entry_price:z.coerce.number().nullable(),
+  risk_per_unit:z.coerce.number().nullable(),one_r_price:z.coerce.number().nullable(),two_r_price:z.coerce.number().nullable(),
+  triggered_at:z.string().nullable(),stop_hit_at:z.string().nullable(),
+  one_r_hit_at:z.string().nullable(),two_r_hit_at:z.string().nullable(),first_outcome:z.string().nullable(),
+  peak_price:z.coerce.number().nullable(),trough_price:z.coerce.number().nullable(),
+  last_bar_at:z.string().nullable(),mark_count:z.coerce.number().int().nonnegative(),
+  mfe_r:z.coerce.number(),mae_r:z.coerce.number(),
+  blockers:z.array(z.string()),warnings:z.array(z.string()),
+  metadata:z.record(z.string(),z.unknown()),
+});
+function shadowState(row:z.infer<typeof shadowRowSchema>):PaperCounterfactualState {
+  return {
+    id:row.id,setupKey:row.setup_key,botId:row.bot_id,strategyId:row.strategy_id,
+    strategyVersion:row.strategy_version,symbol:row.symbol,assetClass:row.asset_class,
+    decisionAt:row.decision_at,sessionKey:row.session_key,status:row.status,score:row.score,
+    triggerPrice:row.trigger_price,maxEntryPrice:row.max_entry_price,protectiveStop:row.protective_stop,
+    plannedTakeProfit:row.planned_take_profit,assumedEntryPrice:row.assumed_entry_price,
+    riskPerUnit:row.risk_per_unit,oneRPrice:row.one_r_price,twoRPrice:row.two_r_price,
+    triggeredAt:row.triggered_at,stopHitAt:row.stop_hit_at,oneRHitAt:row.one_r_hit_at,
+    twoRHitAt:row.two_r_hit_at,firstOutcome:row.first_outcome,
+    peakPrice:row.peak_price,troughPrice:row.trough_price,lastBarAt:row.last_bar_at,
+    markCount:row.mark_count,mfeR:row.mfe_r,maeR:row.mae_r,
+    blockers:row.blockers,warnings:row.warnings,metadata:row.metadata,
+  };
+}
 function nyDate(when:number) {
   const parts=new Intl.DateTimeFormat("en-CA",{timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit"}).formatToParts(new Date(when));
   const p=Object.fromEntries(parts.map(item=>[item.type,item.value]));
@@ -46,6 +80,11 @@ export async function GET(request:Request) {
   };
   try {
     const now=Date.now();
+    const cronSecret=process.env.CRON_SECRET?.trim()??"";
+    const isCron=Boolean(cronSecret && request.headers.get("authorization")===`Bearer ${cronSecret}`);
+    const activeShadow=z.array(shadowRowSchema).parse(isCron
+      ? await db(`paper_bot_counterfactuals?bot_id=eq.${cfg.botProfileId}&status=in.(watching,triggered)&select=*&order=decision_at.asc&limit=30`)
+      : []);
     const cutoff=encodeURIComponent(new Date(now-36*3600_000).toISOString());
     const freshCutoff=encodeURIComponent(new Date(now-3*3600_000).toISOString());
     const [prospectsRaw,ledgerRaw,positionsRaw,ordersRaw,historicalRaw]=await Promise.all([
@@ -63,7 +102,7 @@ export async function GET(request:Request) {
     const orders=z.array(orderSchema).parse(ordersRaw);
     const historical=z.array(historicalSchema).parse(historicalRaw);
     const historicalBySymbol=new Map(historical.map(row=>[row.symbol,row]));
-    const symbols=prospects.map(row=>row.symbol);
+    const symbols=[...new Set([...prospects.map(row=>row.symbol),...activeShadow.map(row=>row.symbol)])];
     const quoteBatch=await fetchPreferredStockQuotes(symbols);
     const bars:Record<string,FuseBar[]>={};
     if(symbols.length) {
@@ -108,8 +147,6 @@ export async function GET(request:Request) {
     })).sort((a,b)=>b.fuseScore-a.fuseScore);
 
     // Only authenticated scheduler requests journal observations. Public dashboard reads NEVER mutate data.
-    const cronSecret=process.env.CRON_SECRET?.trim()??"";
-    const isCron=Boolean(cronSecret && request.headers.get("authorization")===`Bearer ${cronSecret}`);
     let persisted=0;
     if(isCron && plans.length) {
       const bucket=new Date(Math.floor(now/300_000)*300_000).toISOString();
@@ -148,12 +185,47 @@ export async function GET(request:Request) {
         if(!journal.ok)throw new Error(`Fuse shared journal returned HTTP ${journal.status} (observations preserved).`);
       }
     }
+    const shadowTracking:{ok:boolean;seeds:number;updates:number;error?:string}={ok:!isCron,seeds:0,updates:0};
+    if(isCron){
+      try{
+        const headers={...dbHeaders,"Content-Type":"application/json"};
+        const seeds=buildFuseShadowSeeds(plans,new Date(now).toISOString(),nyDate(now));
+        if(seeds.length){
+          const response=await fetch(`${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?on_conflict=setup_key`,{
+            method:"POST",headers:{...headers,Prefer:"resolution=ignore-duplicates,return=representation"},
+            body:JSON.stringify(seeds),cache:"no-store",signal:AbortSignal.timeout(12_000),
+          });
+          if(!response.ok)throw new Error(`Fuse shadow seed persistence HTTP ${response.status}`);
+          shadowTracking.seeds=z.array(z.object({id:z.coerce.number()})).parse(await response.json()).length;
+        }
+        const expireSession=!fuseSession(now).inRegularHours;
+        for(const row of activeShadow){
+          const updated=advancePaperCounterfactual(shadowState(row),bars[row.symbol]??[],{
+            expire:expireSession||row.session_key!==nyDate(now),
+          });
+          if(!updated.changed)continue;
+          const response=await fetch(
+            `${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?bot_id=eq.${cfg.botProfileId}&id=eq.${row.id}`,{
+              method:"PATCH",headers:{...headers,Prefer:"return=minimal"},
+              body:JSON.stringify(counterfactualPatch(updated.state)),
+              cache:"no-store",signal:AbortSignal.timeout(12_000),
+            },
+          );
+          if(!response.ok)throw new Error(`Fuse shadow outcome persistence HTTP ${response.status}`);
+          shadowTracking.updates++;
+        }
+        shadowTracking.ok=true;
+      }catch(error){
+        shadowTracking.ok=false;
+        shadowTracking.error=error instanceof Error?error.message:"Fuse shadow tracking error";
+      }
+    }
     const evidence=z.array(z.object({
       symbol:z.string(),readiness:z.string(),fuse_score:z.coerce.number(),bar_bucket_at:z.string(),
       blockers:z.array(z.string()),warnings:z.array(z.string()),
     })).parse(await db(`paper_fuse_observations?bot_id=eq.${cfg.botProfileId}&select=symbol,readiness,fuse_score,bar_bucket_at,blockers,warnings&order=bar_bucket_at.desc&limit=60`));
     return reply({collectedAt:new Date(now).toISOString(),strategyId:cfg.id,strategyVersion:cfg.version,paperOnly:true,
-      researchOnly:true,executionEnabled:false,submissionReady:false,persisted,evidence,
+      researchOnly:true,executionEnabled:false,submissionReady:false,persisted,shadowTracking,evidence,
       marketData:{source:quoteBatch.source,fallback:quoteBatch.fallback,providerError:quoteBatch.providerError,barFeed:"alpaca-iex"},
       ledger:{status:ledger.status,equity:ledger.equity,buyingPower:ledger.buying_power??ledger.equity},
       plans});
