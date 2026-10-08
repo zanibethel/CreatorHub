@@ -1,4 +1,4 @@
-/** Parses PostgREST's exact HEAD count (e.g. "0-0/123" or "*/0"). */
+/** Parses PostgREST's exact HEAD count (e.g. "0-0/123" or the empty-range form). */
 export function parsePostgrestExactCount(contentRange:string|null):number {
   const match=contentRange?.match(/\/(\d+)$/);
   if(!match)throw new Error("Journal count response was missing the exact total.");
