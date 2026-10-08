@@ -66,9 +66,11 @@ export default function PaperSignalPipeline({
   positions,
   intakeEvents,
   currentPriceFor,
+  automationEnabled,
   compact = false,
 }: {
   botName: string;
+  automationEnabled: boolean;
   prospects: PaperProspect[];
   stagedOrders: StagedPaperOrder[];
   brokerOrders: PaperBrokerOrder[];
@@ -109,14 +111,16 @@ export default function PaperSignalPipeline({
   return <section className={[styles.signalDesk, compact ? styles.signalDeskCompact : ""].filter(Boolean).join(" ")}>
     <div className={styles.signalDeskHeader}>
       <div>
-        <span className={styles.signalAutoBadge}>AUTO · SIMULATION</span>
+        <span className={styles.signalAutoBadge}>{automationEnabled ? "AUTO · SIMULATION" : "OBSERVE · SIMULATION"}</span>
         <h2>Live Trade Pipeline</h2>
-        <p>{botName} is making its own simulated decisions. This view exposes what it sees before, during, and after execution.</p>
+        <p>{automationEnabled
+          ? `${botName} is making its own simulated execution decisions. This view exposes what it sees before, during, and after execution.`
+          : `${botName} is exposing its live strategy decisions while automatic execution remains disabled for this bot.`}</p>
       </div>
       <div className={styles.signalEngineStatus}>
-        <span>Decision engine</span>
-        <strong>Running</strong>
-        <small>Visual layer does not authorize trades</small>
+        <span>Execution mode</span>
+        <strong>{automationEnabled ? "Automatic" : "Review only"}</strong>
+        <small>{automationEnabled ? "Visual layer does not authorize trades" : "Strategy evidence is visible; submissions stay disabled"}</small>
       </div>
     </div>
 
