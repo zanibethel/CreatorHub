@@ -169,3 +169,61 @@ REVOKE ALL ON FUNCTION public.paper_atlas_consume_partial_terminal(uuid,text)
 FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_consume_partial_terminal(uuid,text)
 TO service_role;
+
+
+-- Explicit venue rejection before an order exists is the only safe bound/no-broker release.
+CREATE OR REPLACE FUNCTION public.paper_atlas_release_bound_rejection(
+  p_reservation_id uuid,
+  p_client_order_id text)
+RETURNS boolean
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path=''
+AS $$
+DECLARE v_changed integer;
+BEGIN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
+    RAISE EXCEPTION 'Service role required';
+  END IF;
+  PERFORM 1 FROM public.paper_bot_ledgers
+   WHERE bot_id='default-diverse' FOR UPDATE;
+
+  IF NOT EXISTS(
+    SELECT 1
+      FROM public.paper_bot_orders o
+      JOIN public.paper_atlas_reservations r
+        ON r.reservation_id=p_reservation_id
+     WHERE o.client_order_id=p_client_order_id
+       AND o.bot_id='default-diverse'
+       AND o.strategy_id='paper-medium-high-v1'
+       AND o.strategy_version=1
+       AND o.side='buy'
+       AND o.pool_id='day'
+       AND r.bot_id='default-diverse'
+       AND r.pool='day'
+       AND r.status='reserved'
+       AND r.client_order_id=p_client_order_id
+       AND o.status='rejected'
+       AND o.broker_order_id IS NULL
+       AND o.last_reconciled_at IS NOT NULL
+       AND o.metadata->>'brokerSubmissionRejected'='true'
+       AND o.metadata->>'brokerLookupConfirmedMissing'='true'
+       AND o.metadata->>'atlasReservationId'=r.reservation_id::text
+       AND o.metadata->>'decisionId'=r.decision_id
+       AND o.metadata->>'opportunityId'=r.opportunity_id
+  ) THEN RETURN false; END IF;
+
+  UPDATE public.paper_atlas_reservations
+     SET status='released',updated_at=now()
+   WHERE reservation_id=p_reservation_id
+     AND bot_id='default-diverse'
+     AND status='reserved'
+     AND client_order_id=p_client_order_id;
+  GET DIAGNOSTICS v_changed=ROW_COUNT;
+  RETURN v_changed=1;
+END $$;
+
+REVOKE ALL ON FUNCTION public.paper_atlas_release_bound_rejection(uuid,text)
+FROM PUBLIC,anon,authenticated;
+GRANT EXECUTE ON FUNCTION public.paper_atlas_release_bound_rejection(uuid,text)
+TO service_role;
