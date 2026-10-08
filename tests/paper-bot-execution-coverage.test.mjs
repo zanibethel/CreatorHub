@@ -70,7 +70,15 @@ for (const bot of research) {
   });
 }
 
-test("Atlas is explicitly tracked as unscheduled, not falsely counted among autonomous executors", () => {
+test("Atlas is now a guarded five-minute PAPER executor", () => {
   assert.ok(profiles.includes('id: "default-diverse"'));
-  assert.ok(!cronPaths.some((job) => job.includes("atlas-run") || job.includes("default-diverse-run")));
+  const job=cron.find((entry)=>entry.path==="/api/paper-trading/bots/atlas-run");
+  assert.ok(job);
+  assert.equal(job.schedule,"*/5 * * * *");
+  const route=read("src/app/api/paper-trading/bots/atlas-run/route.ts");
+  assert.match(route,/paper_atlas_authorize_candidate/);
+  assert.match(route,/paper_atlas_reserve/);
+  assert.match(route,/paper_atlas_bind_order/);
+  assert.match(route,/order_class:"bracket"/);
+  assert.doesNotMatch(route,/https:\/\/api\.alpaca\.markets/);
 });

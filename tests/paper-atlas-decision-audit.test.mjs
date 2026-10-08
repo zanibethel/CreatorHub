@@ -65,7 +65,7 @@ test("scheduled Atlas audit route is cron-secret gated and never imports broker 
   assert.match(route,/evaluatePaperCandidate/);
   assert.doesNotMatch(route,/paper-api\.alpaca\.markets|submitOrder|placeOrder|createBrokerOrder/);
   const configJson=JSON.parse(text("../vercel.json"));
-  assert.ok(configJson.crons.some(x=>x.path==="/api/paper-trading/bots/atlas-decision-audit"&&x.schedule==="*/5 * * * *"));
+  assert.ok(configJson.crons.some(x=>x.path==="/api/paper-trading/bots/atlas-run"&&x.schedule==="*/5 * * * *"));
 });
 test("SQL ensures repeat scanner/retry event uniqueness without changing fills",()=>{
   const migration=text("../supabase/migrations/20261008134118_atlas_decision_journal.sql");

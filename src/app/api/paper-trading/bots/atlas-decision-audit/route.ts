@@ -127,6 +127,9 @@ export async function GET(request: Request) {
       inputProvenance:{
         engine:"paper-medium-high-v1",candidateSource: savedStocks.has(candidate.symbol) || savedCrypto.has(candidate.symbol)
           ? "persisted-paper-watchlist" : "scanner-assigned-unapproved",
+        approvedPools:[...candidate.pools],
+        opportunityId: opportunityBySymbol.get(`${assetClass}:${scannerSymbol}`)
+          ?? `atlas-watchlist:${assetClass}:${candidate.symbol}:${scanBucketUtc.slice(0,10)}`,
         marketSources:market.sources ?? {},marketErrors:market.errors ?? {},
         latestBarAt:candles.at(-1)?.time ?? null,
         latestBenchmarkBarAt:benchmarkCandles.at(-1)?.time ?? null,
