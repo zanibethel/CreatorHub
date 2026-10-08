@@ -338,9 +338,9 @@ export const CRYPTO_IGNITION_BOT: PaperBotProfile = {
     "Score is below 60",
     "Score reaches 80+ and graduates to Flash",
     "Spread/chase/volatility gates fail",
-    "Dedicated Spark position manager is not yet validated",
+    "Fast confirmation, spread, volatility or risk gates are not aligned",
   ],
-  executionState: "research",
+  executionState: "automatic",
   universe: {
     assetClasses: ["crypto"],
     description: "BTC, ETH, SOL, LINK and DOT versus USD, evaluated specifically before slower 15-minute confirmation.",
@@ -355,7 +355,7 @@ export const CRYPTO_IGNITION_BOT: PaperBotProfile = {
   },
   notes: [
     "Spark is deliberately separate from Flash so we can compare early entry evidence against the confirmed 80+ strategy without changing Flash.",
-    "Execution remains disabled until the dedicated crypto manager is wired and validated.",
+    "Automatic simulation uses a dedicated Spark entry, protective-stop, partial-profit, and trailing manager.",
     "Spark uses a smaller 0.35% planned risk budget and 20% allocation cap.",
   ],
 };
