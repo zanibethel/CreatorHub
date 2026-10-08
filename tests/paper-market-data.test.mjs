@@ -11,7 +11,7 @@ const json = value => Response.json(value);
 function route({ env = {}, fetch } = {}) {
   const exports = {};
   vm.runInNewContext(compiled, {
-    exports, Request, Response, URL, URLSearchParams, AbortSignal,
+    exports, Request, Response, URL, URLSearchParams, AbortSignal, Error,
     process: { env }, fetch,
     require: name => {
       if (name === "next/server") return { NextResponse: Response };
