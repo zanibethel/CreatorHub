@@ -3,6 +3,7 @@ import { z } from "zod";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import { evaluateMomentumBreakoutCandidate, type MomentumBar } from "@/lib/paper-momentum-breakout-readiness";
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-breakout-strategy-config";
+import { classifyPulseJournalPlan } from "@/lib/paper-pulse-journal-contract";
 
 export const dynamic="force-dynamic";
 
@@ -129,21 +130,42 @@ export async function GET(request:Request){
 
     const cronSecret=process.env.CRON_SECRET?.trim()??"";
     const isCron=Boolean(cronSecret&&request.headers.get("authorization")===`Bearer ${cronSecret}`);
-    if(isCron&&plans.length){
+    if(isCron){
+      // Record an actual evaluated setup, or a genuine empty-scan heartbeat.
+      // No phantom trades are created when the scanner has no Pulse assignments.
+      const events=plans.length===0
+        ? [{
+          bot_id:strategy.botProfileId,strategy_id:strategy.id,strategy_version:strategy.version,
+          event_type:"system",asset_class:"stock",occurred_at:new Date(now).toISOString(),
+          qualification:null,regime:"unknown",component_scores:{},market_snapshot:{},risk_plan:{},
+          blockers:[],warnings:["No scanner-qualified stocks currently assigned to Pulse."],
+          metadata:{source:"pulse-5m-readiness",executionEnabled,paperOnly:true,noCandidates:true,
+            scannerScope:"review-ready stock prospects assigned to Pulse"},
+        }]
+        : plans.map(plan=>{
+          const classification=classifyPulseJournalPlan({
+            state:plan.state==="ready"?"ready":plan.state==="blocked"?"blocked":"waiting",
+            selectedForSubmission:plan.selectedForSubmission,
+          });
+          return {
+            bot_id:strategy.botProfileId,strategy_id:strategy.id,strategy_version:strategy.version,
+            event_type:classification.eventType,symbol:plan.symbol,asset_class:"stock",occurred_at:new Date(now).toISOString(),
+            score:plan.scannerScore,qualification:classification.qualification,regime:"unknown",
+            component_scores:{acceleration:plan.acceleration,catalyst:plan.catalyst,chasePenalty:plan.chasePenalty,
+              fastMomentumPct:plan.fastMomentumPct,relativeVolume:plan.relativeVolume},
+            market_snapshot:{bid:plan.bid,ask:plan.ask,spreadPct:plan.spreadPct,
+              percentChange:prospects.find(row=>row.symbol===plan.symbol)?.percent_change??null},
+            risk_plan:{entryTrigger:plan.trigger,maxEntryPrice:plan.maxEntry,protectiveStop:plan.protectiveStop,
+              takeProfitPrice:plan.takeProfit,plannedNotional:plan.plannedNotional,plannedRiskDollars:plan.plannedRiskDollars},
+            blockers:plan.blockers,warnings:plan.waitingOn,
+            metadata:{source:"pulse-5m-readiness",executionEnabled,paperOnly:true,
+              strategyState:plan.state,selectedForSubmission:plan.selectedForSubmission},
+          };
+        });
       const response=await fetch(`${SUPABASE_URL}/rest/v1/paper_bot_journal`,{
         method:"POST",
         headers:{...dbHeaders,"Content-Type":"application/json",Prefer:"return=minimal"},
-        body:JSON.stringify(plans.map(plan=>({
-          bot_id:strategy.botProfileId,strategy_id:strategy.id,strategy_version:strategy.version,
-          event_type:"prospect-intake",symbol:plan.symbol,asset_class:"stock",occurred_at:new Date(now).toISOString(),
-          score:plan.scannerScore,qualification:plan.state==="ready"?"staged":plan.state==="blocked"?"rejected":"deferred",
-          regime:"unknown",
-          component_scores:{acceleration:plan.acceleration,catalyst:plan.catalyst,chasePenalty:plan.chasePenalty,fastMomentumPct:plan.fastMomentumPct,relativeVolume:plan.relativeVolume},
-          market_snapshot:{bid:plan.bid,ask:plan.ask,spreadPct:plan.spreadPct,percentChange:prospects.find(row=>row.symbol===plan.symbol)?.percent_change??null},
-          risk_plan:{entryTrigger:plan.trigger,maxEntryPrice:plan.maxEntry,protectiveStop:plan.protectiveStop,takeProfitPrice:plan.takeProfit,plannedNotional:plan.plannedNotional,plannedRiskDollars:plan.plannedRiskDollars},
-          blockers:plan.blockers,warnings:plan.waitingOn,
-          metadata:{source:"pulse-5m-readiness",executionEnabled,paperOnly:true},
-        }))),
+        body:JSON.stringify(events),
         cache:"no-store",signal:AbortSignal.timeout(10_000),
       });
       if(!response.ok)throw new Error(`Pulse journal returned HTTP ${response.status}.`);
