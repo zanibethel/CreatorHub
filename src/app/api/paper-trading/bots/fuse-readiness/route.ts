@@ -185,7 +185,7 @@ export async function GET(request:Request) {
         if(!journal.ok)throw new Error(`Fuse shared journal returned HTTP ${journal.status} (observations preserved).`);
       }
     }
-    let shadowTracking:{ok:boolean;seeds:number;updates:number;error?:string}={ok:!isCron,seeds:0,updates:0};
+    const shadowTracking:{ok:boolean;seeds:number;updates:number;error?:string}={ok:!isCron,seeds:0,updates:0};
     if(isCron){
       try{
         const headers={...dbHeaders,"Content-Type":"application/json"};
