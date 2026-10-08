@@ -15,6 +15,21 @@ function route({ env = {}, fetch } = {}) {
     process: { env }, fetch,
     require: name => {
       if (name === "next/server") return { NextResponse: Response };
+      if (name === "@/lib/live-stock-market-data") return {
+        fetchPreferredStockQuotes: async symbols => {
+          if (!env.ALPACA_API_KEY_ID || !env.ALPACA_API_SECRET_KEY) throw new Error("Stock quote keys are not configured.");
+          const response = await fetch(`https://data.alpaca.markets/v2/stocks/quotes/latest?symbols=${encodeURIComponent(symbols.join(","))}`);
+          if (!response.ok) throw new Error(`Market quotes HTTP ${response.status}`);
+          const payload = await response.json();
+          return {
+            source: "alpaca-iex", providerError: null,
+            quotes: Object.fromEntries(symbols.map(symbol => {
+              const quote = payload.quotes?.[symbol];
+              return [symbol, quote ? { bid: quote.bp, ask: quote.ap, time: quote.t } : null];
+            })),
+          };
+        },
+      };
       throw new Error(`Unexpected import ${name}`);
     },
   });
