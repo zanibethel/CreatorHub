@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 import { PAPER_BOT_PROFILES, type PaperBotProfile } from "@/lib/paper-bot-profiles";
 import usePaperBotLedgers from "./usePaperBotLedgers";
 import usePaperProspects from "./usePaperProspects";
@@ -17,10 +17,7 @@ const money = (value: number | null | undefined) => value == null ? "—" : new 
 const stamp = (value: string | null | undefined) => value ? new Date(value).toLocaleString() : "—";
 
 function shortName(profile: PaperBotProfile) {
-  if (profile.id === "weekend-crypto-day-100") return "Daily Crypto";
-  if (profile.id === "three-trade-weekly-swing-100") return "Weekly Swing";
-  if (profile.id === "crypto-swing-100") return "Crypto Swing";
-  return "Default Diverse";
+  return profile.codename ?? profile.name;
 }
 
 function Panel({ title, children }: { title:string; children:React.ReactNode }) {
@@ -48,11 +45,11 @@ export default function PaperTradingChartsDashboard() {
   const closedTrades = trades.filter(trade => trade.status === "closed");
   const assignedProspects = prospectReport?.prospects.filter(item => item.assigned_bot_ids.includes(profile.id)) ?? [];
 
-  const symbols = useMemo(() => [...new Set([
+  const symbols = [...new Set([
     ...positions.map(item => item.symbol),
     ...staged.map(item => item.symbol),
     ...assignedProspects.map(item => item.symbol),
-  ])].slice(0,20), [positions,staged,assignedProspects]);
+  ])].slice(0,20);
 
   const { report:chartReport, error:chartError } = usePaperChartData(profile.id,symbols);
 
@@ -172,7 +169,7 @@ export default function PaperTradingChartsDashboard() {
         <Panel title="Chart context">
           <div className={styles.portfolioStats}>
             <div className={styles.portfolioStat}><span>Bot</span><strong>{shortName(profile)}</strong><small>{profile.strategyId ?? "strategy pending"}</small></div>
-            <div className={styles.portfolioStat}><span>Timeframe</span><strong>{chartReport?.timeframe ?? "Loading"}</strong><small>chosen for this bot's horizon</small></div>
+            <div className={styles.portfolioStat}><span>Timeframe</span><strong>{chartReport?.timeframe ?? "Loading"}</strong><small>chosen for this bot&apos;s horizon</small></div>
             <div className={styles.portfolioStat}><span>Equity points</span><strong>{history.length}</strong><small>virtual ledger checkpoints</small></div>
             <div className={styles.portfolioStat}><span>Last chart refresh</span><strong>{stamp(chartReport?.collectedAt)}</strong><small>market history refreshes periodically</small></div>
           </div>

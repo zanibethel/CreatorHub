@@ -164,7 +164,7 @@ export default function UploadCenter({ userId }: { userId: string }) {
 
   async function patchChunk(uploadUrl: string, file: File, startingOffset: number) {
     const retryDelays = [0, 3000, 5000, 10000, 20000];
-    let offset = startingOffset;
+    const offset = startingOffset;
     let lastError: Error | null = null;
 
     for (const delay of retryDelays) {

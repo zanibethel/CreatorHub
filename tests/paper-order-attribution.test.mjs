@@ -24,6 +24,8 @@ const swingStrategy = module("../src/lib/paper-swing-strategy-config.ts");
 const weekendStrategy = module("../src/lib/paper-weekend-crypto-strategy-config.ts");
 const cryptoSwingStrategy = module("../src/lib/paper-crypto-swing-strategy-config.ts");
 const squeezeStrategy = module("../src/lib/paper-squeeze-breakout-strategy-config.ts");
+const momentumStrategy = module("../src/lib/paper-momentum-breakout-strategy-config.ts");
+const ignitionStrategy = module("../src/lib/paper-crypto-ignition-strategy-config.ts");
 const tradePlan = module("../src/lib/paper-bot-trade-plan.ts");
 const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-strategy-config": strategy,
@@ -31,6 +33,8 @@ const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-weekend-crypto-strategy-config": weekendStrategy,
   "./paper-crypto-swing-strategy-config": cryptoSwingStrategy,
   "./paper-squeeze-breakout-strategy-config": squeezeStrategy,
+  "./paper-momentum-breakout-strategy-config": momentumStrategy,
+  "./paper-crypto-ignition-strategy-config": ignitionStrategy,
   "./paper-bot-trade-plan": tradePlan,
 });
 const attribution = module("../src/lib/paper-order-attribution.ts", { "./paper-bot-profiles": profiles });
@@ -38,7 +42,7 @@ const attribution = module("../src/lib/paper-order-attribution.ts", { "./paper-b
 test("paper bot broker tags are short and unique", () => {
   const tags = profiles.PAPER_BOT_PROFILES.map(profile => profile.brokerTag);
   assert.equal(new Set(tags).size, tags.length);
-  assert.deepEqual(Array.from(tags), ["div", "pny", "sw3", "csw", "sqz", "wkd"]);
+  assert.deepEqual(Array.from(tags), ["div", "pny", "sw3", "csw", "sqz", "pls", "spk", "wkd"]);
 });
 
 test("client order ids encode bot ownership and strategy version", () => {
@@ -68,6 +72,10 @@ test("active comparison bot tags remain independently parseable", () => {
   assert.equal(attribution.parsePaperClientOrderId(squeezeId).botId, "squeeze-breakout-100");
   assert.equal(attribution.parsePaperClientOrderId(weekendId).botId, "weekend-crypto-day-100");
   assert.equal(attribution.parsePaperClientOrderId(weekendId).strategyVersion, 3);
+  const pulseId = attribution.createPaperClientOrderId("momentum-breakout-100", 1, "abcdef221199");
+  const sparkId = attribution.createPaperClientOrderId("crypto-ignition-100", 1, "abcdef331199");
+  assert.equal(attribution.parsePaperClientOrderId(pulseId).botId, "momentum-breakout-100");
+  assert.equal(attribution.parsePaperClientOrderId(sparkId).botId, "crypto-ignition-100");
   assert.equal(profiles.THREE_TRADE_SWING_BOT.status, "active");
   assert.equal(profiles.CRYPTO_SWING_BOT.status, "active");
   assert.equal(profiles.SQUEEZE_BREAKOUT_BOT.status, "active");

@@ -2,6 +2,7 @@
 "use client";
 
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import Link from "next/link";
 import AIRecommendationsButton from "@/components/AIRecommendationsButton";
 import ConnectionsPanel from "@/components/ConnectionsPanel";
 import CreatorForm from "@/components/CreatorForm";
@@ -401,15 +402,15 @@ export default function Dashboard({ userId }: { userId: string }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
-          <a href="/upload" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+          <Link href="/upload" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
             Upload
-          </a>
-          <a href="/paper-trading" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+          </Link>
+          <Link href="/paper-trading" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
             Trading Lab
-          </a>
-          <a href="/paper-trading/bots" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
+          </Link>
+          <Link href="/paper-trading/bots" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
             Bot Lab
-          </a>
+          </Link>
           {activeCreator ? (
             <button type="button" style={secondaryButton} onClick={() => setEditingLayout((current) => !current)}>
               {editingLayout ? "Done" : "Edit"}

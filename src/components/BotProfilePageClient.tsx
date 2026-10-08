@@ -37,6 +37,10 @@ export default function BotProfilePageClient({botId}:{botId:string}){
 
   const ledger=ledgers?.bots.find(bot=>bot.botId===botId);
   const automationEnabled=ledger?.executionEnabled===true;
+  const executionStatusKnown=Boolean(ledger)||profile.executionState==="planned";
+  const executionBadge=!executionStatusKnown
+    ? ledgerError?"EXECUTION STATUS UNAVAILABLE":"CHECKING EXECUTION STATUS"
+    : automationEnabled?"AUTOMATIC SIMULATION":profile.executionState==="planned"?"PLANNED":"RESEARCH / EVIDENCE";
   const staged=ledgers?.stagedOrders?.[botId]??[];
   const brokerOrders=(ledgers?.brokerOrders?.[botId]??[]).filter(order=>!TERMINAL_ORDER_STATUSES.has(order.status.toLowerCase()));
   const positions=ledgers?.positionPlans?.[botId]??[];
@@ -74,7 +78,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
     <section className={styles.botProfileHero}>
       <div className={styles.botProfileIdentity}>
         <span className={automationEnabled?styles.botStatusActive:styles.portfolioBadge}>
-          {automationEnabled?"AUTOMATIC SIMULATION":profile.executionState==="planned"?"PLANNED":"RESEARCH / EVIDENCE"}
+          {executionBadge}
         </span>
         <h2>{profile.name}</h2>
         <p>{profile.mission??profile.style}</p>
@@ -112,7 +116,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
       ]}/>
     </section>
 
-    <PaperSignalPipeline
+    {executionStatusKnown?<PaperSignalPipeline
       botName={profile.codename??profile.name}
       automationEnabled={automationEnabled}
       prospects={assigned}
@@ -121,7 +125,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
       positions={positions}
       intakeEvents={intakeEvents}
       currentPriceFor={currentPriceFor}
-    />
+    />:<div className={styles.portfolioWarnings}><span>{ledgerError?"Live bot execution status could not be verified.":"Loading current bot execution status and evidence…"}</span></div>}
 
     <footer className={styles.portfolioFooter}>
       <span>{profile.codename??profile.name} uses its own isolated virtual ledger and risk budget.</span>

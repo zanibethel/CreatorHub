@@ -29,7 +29,7 @@ Existing report `/paper-trading` currently rotates five views every 12 seconds a
 
 ### Suggested carousel lineup
 
-1. **Challenge overview:** preseason/official day state, $1,000 simulated program, six $100 reserved pools and $400 unallocated, portfolio changes, simulated P/L, freshness timestamp.
+1. **Challenge overview:** preseason/official day state, $1,000 simulated program, eight $100 reserved pools and $200 unallocated, portfolio changes, simulated P/L, freshness timestamp.
 2. **Portfolio performance:** chart and verified balance/performance breakdown; exact distinction between virtual ledgers and external execution infrastructure.
 3. **Bot spotlight(s):** bot name, strategy/version, active/planned status, score, holdings, realized/unrealized P/L, risk, research/readiness and current blockers. Cycle bot pages over time, including inactive bots clearly labeled.
 4. **Prospects/watchlist:** discovered candidates, scanner and strategy scores shown separately, stage and signal freshness, why watchlist placement is not execution approval.
