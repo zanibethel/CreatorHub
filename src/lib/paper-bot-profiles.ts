@@ -6,9 +6,10 @@ import { SQUEEZE_BREAKOUT_STRATEGY_V1 } from "./paper-squeeze-breakout-strategy-
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 } from "./paper-momentum-breakout-strategy-config";
 import { CRYPTO_IGNITION_STRATEGY_V1 } from "./paper-crypto-ignition-strategy-config";
 import { PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION } from "./paper-bot-trade-plan";
+import { FUSE_PENNY_STRATEGY_V1 } from "./paper-fuse-strategy-config";
 
 export type PaperBotStatus = "active" | "planned" | "paused";
-export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "crypto-swing-readiness" | "squeeze-breakout-readiness" | "momentum-breakout-readiness" | "crypto-ignition-readiness" | "not-configured";
+export type PaperBotPlanSource = "decision-engine" | "swing-readiness" | "crypto-readiness" | "crypto-swing-readiness" | "squeeze-breakout-readiness" | "momentum-breakout-readiness" | "crypto-ignition-readiness" | "fuse-readiness" | "not-configured";
 
 export type PaperBotProfile = {
   id: string;
@@ -89,19 +90,19 @@ export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
   codename: "Fuse",
   role: "Penny-Stock Volatility",
   holdingPeriod: "Intraday only",
-  mission: "Handle sub-$5 momentum separately so penny-stock behavior does not distort larger-stock rules.",
-  entrySignals: ["Low-price liquidity", "Volume ignition", "Tight enough spread for the price tier"],
-  refusesWhen: ["Spread/liquidity is unsafe", "Volatility cannot support a defined stop", "Dedicated strategy is not yet armed"],
-  executionState: "planned",
-  status: "planned",
+  mission: "Study early $0.08–$5 penny-stock momentum and reject thin, stale or already exhausted moves before simulated entries.",
+  entrySignals: ["Assigned fresh Scanner v3 stock prospects", "5-minute relative volume and momentum ignition", "Fresh two-sided quote and 4-bar breakout", "Position sized to isolated $100 capital"],
+  refusesWhen: ["Price outside $0.08–$5.00", "Spread, stale quote, thin liquidity, halt-like missing bars", "12%+ session gains or breakout chase above 1.25%", "Insufficient buying power, duplicate exposure or daily 1.5% loss limit"],
+  executionState: "research",
+  status: "active",
   challengeStartingCash: 100,
   brokerTag: "pny",
-  strategyId: null,
-  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "not-configured" },
+  strategyId: FUSE_PENNY_STRATEGY_V1.id,
+  tradePlan: { contractVersion: PAPER_BOT_TRADE_PLAN_CONTRACT_VERSION, source: "fuse-readiness" },
   style: "Higher-volatility intraday penny-stock experiment",
   universe: {
     assetClasses: ["stock"],
-    description: "Low-priced, sufficiently liquid stocks selected under a dedicated future liquidity/spread/volatility policy.",
+    description: "Scanner-assigned $0.08–$5 stocks evaluated under Fuse v1 5m liquidity, spread, ignition and risk controls.",
     maximumPriceUsd: 5,
   },
   cadence: {
@@ -114,9 +115,9 @@ export const PENNY_VOLATILITY_DAY_BOT: PaperBotProfile = {
     shareRiskBudgetWithOtherBots: false,
   },
   notes: [
-    "Higher volatility does not remove stop-loss, liquidity, spread, daily-loss, or kill-switch requirements.",
-    "Exact scoring, sizing, stop, trade-frequency, and liquidity thresholds are intentionally not approved yet.",
-    "This profile remains disabled until its own strategy version is designed and simulation-validated.",
+    "Fuse v1 is research-only, with read-only readiness and auditable decisions per 5-minute bucket.",
+    "0.5% equity risk per idea, 20% allocation cap, 1.5% daily loss cutoff, at most one open position and three entries per day.",
+    "Submissions are not implemented or enabled. Close-before-overnight needs a separately verified exit manager and brokerage halt safety controls.",
   ],
 };
 
