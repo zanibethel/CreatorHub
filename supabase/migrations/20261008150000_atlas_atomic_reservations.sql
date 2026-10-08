@@ -37,7 +37,7 @@ DECLARE
   v_pool_reserved numeric;
   v_id uuid;
 BEGIN
-  IF current_user <> 'service_role' THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
   IF nullif(trim(p_decision_id),'') IS NULL OR nullif(trim(p_opportunity_id),'') IS NULL
@@ -92,7 +92,7 @@ CREATE OR REPLACE FUNCTION public.paper_atlas_release(p_reservation_id uuid)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_changed integer;
 BEGIN
-  IF current_user <> 'service_role' THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
   -- Fail closed: only an unlinked reservation can be released, and only if no
@@ -118,7 +118,7 @@ CREATE OR REPLACE FUNCTION public.paper_atlas_consume(
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_changed integer;
 BEGIN
-  IF current_user <> 'service_role' THEN
+  IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
   END IF;
   PERFORM 1 FROM public.paper_bot_ledgers WHERE bot_id='default-diverse' FOR UPDATE;
