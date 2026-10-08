@@ -33,6 +33,11 @@ export function buildAtlasStockExecutionPlan(input:AtlasStockExecutionInput){
      ||stopPrice>=entryTrigger||exitPrice<=entryTrigger)
     blockers.push("Atlas reference entry/stop/exit/risk plan is incomplete.");
 
+  const referenceStopDistancePct=finitePositive(entryTrigger)&&finitePositive(stopPrice)&&stopPrice<entryTrigger
+    ?(entryTrigger-stopPrice)/entryTrigger*100:null;
+  if(referenceStopDistancePct===null||referenceStopDistancePct>8)
+    blockers.push("Atlas reference stop distance exceeds the 8.00% execution ceiling.");
+
   const maxEntry=finitePositive(entryTrigger)?entryTrigger*1.006:null;
   if(finitePositive(input.ask)&&finitePositive(entryTrigger)&&input.ask<entryTrigger)
     blockers.push("Atlas breakout trigger has not been reached.");
