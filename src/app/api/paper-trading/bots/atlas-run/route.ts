@@ -252,6 +252,9 @@ export async function GET(request:Request){
   const protectiveOrdersFor=(symbol:string)=>recentOrders.filter(o=>o.side==="sell"&&o.symbol===symbol
     &&ACTIVE_STATUSES.includes(o.status)&&objectValue(o.metadata).purpose==="protective-stop"
     &&objectValue(o.metadata).executionMode===EXECUTION_MODE);
+  const pendingRiskExitFor=(symbol:string)=>recentOrders.find(o=>o.side==="sell"&&o.symbol===symbol
+    &&ACTIVE_STATUSES.includes(o.status)&&objectValue(o.metadata).purpose!=="protective-stop"
+    &&objectValue(o.metadata).executionMode===EXECUTION_MODE)??null;
 
   const cancelProtection=async(symbol:string)=>{
     const protections=protectiveOrdersFor(symbol);
@@ -368,6 +371,13 @@ export async function GET(request:Request){
     const initialStop=numeric(entry.protective_stop)??numeric(entryMetadata.initialStop);
     if(!(qty>0&&averageEntry&&initialStop&&initialStop<averageEntry))
       return reply({error:"Atlas position risk references are incomplete.",paperOnly:true,critical:true},503);
+
+    const pendingRiskExit=pendingRiskExitFor(symbol);
+    if(pendingRiskExit){
+      return reply({ok:true,paperOnly:true,action:"exit-pending",symbol,
+        clientOrderId:pendingRiskExit.client_order_id,purpose:objectValue(pendingRiskExit.metadata).purpose??"risk-exit",
+        audit:auditBody});
+    }
 
     const quote=await marketQuote(symbol);
     if(!quote?.mark)return reply({error:"Atlas manager does not have a valid current stock quote.",paperOnly:true},503);
@@ -614,6 +624,13 @@ export async function GET(request:Request){
     const state=await settleEntry(activeEntry);
     return reply({...state,paperOnly:true,action:"reconcile-entry",symbol:activeEntry.symbol,audit:auditBody},
       state.ok?200:state.state.includes("pending")||state.state.includes("unconfirmed")?502:200);
+  }
+
+  const pendingAtlasExit=recentOrders.find(o=>o.side==="sell"&&ACTIVE_STATUSES.includes(o.status)
+    &&objectValue(o.metadata).purpose!=="protective-stop"&&objectValue(o.metadata).executionMode===EXECUTION_MODE);
+  if(pendingAtlasExit){
+    return reply({ok:true,paperOnly:true,action:"exit-pending",symbol:pendingAtlasExit.symbol,
+      clientOrderId:pendingAtlasExit.client_order_id,purpose:objectValue(pendingAtlasExit.metadata).purpose??"risk-exit",audit:auditBody});
   }
 
   if(!session.entriesOpen){
