@@ -28,9 +28,11 @@ import useSwingReadiness from "./useSwingReadiness";
 import useCryptoSwingReadiness from "./useCryptoSwingReadiness";
 import useSqueezeBreakoutReadiness from "./useSqueezeBreakoutReadiness";
 import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
+import usePaperSignalDesk from "./usePaperSignalDesk";
+import PaperSignalPipeline from "./PaperSignalPipeline";
 import styles from "./PaperTradingLab.module.css";
 
-type PortfolioView = "portfolio" | "holdings" | "watchlist" | "prospects" | "orders" | "trades" | "strategy";
+type PortfolioView = "portfolio" | "pipeline" | "holdings" | "watchlist" | "prospects" | "orders" | "trades" | "strategy";
 
 type WatchRow = {
   symbol: string;
@@ -408,6 +410,7 @@ export default function PaperBotLab() {
   const { report: cryptoReadiness, error: cryptoReadinessError } = useWeekendCryptoReadiness();
   const { report: strategyReview, error: strategyReviewError, refresh: refreshStrategyReview } = usePaperStrategyReview();
   const { report: prospectReport, error: prospectError } = usePaperProspects();
+  const { report: signalDesk, error: signalDeskError, refresh: refreshSignalDesk } = usePaperSignalDesk();
   const { watchlist, error: watchlistError } = useSharedWatchlist();
 
   const stockSymbols = watchlist.stocks.map(item => item.symbol).join(",");
@@ -460,6 +463,7 @@ export default function PaperBotLab() {
   const review = strategyReview?.bots.find(item => item.botId === profile.id) ?? null;
   const counterfactuals = ledgerReport?.counterfactuals?.[profile.id] ?? [];
   const assignedProspects = prospectReport?.prospects.filter(item => item.assigned_bot_ids.includes(profile.id)) ?? [];
+  const intakeEvents = signalDesk?.events?.[profile.id] ?? [];
 
   const defaultTradePlans: PaperBotTradePlan[] = [...watchlist.stocks, ...watchlist.crypto].map(item => {
     const stockQuote = marketSnapshot?.stocks[item.symbol];
@@ -745,6 +749,7 @@ export default function PaperBotLab() {
 
   const views: Array<{ id: PortfolioView; label: string }> = [
     { id: "portfolio", label: "Portfolio" },
+    { id: "pipeline", label: "Live pipeline" },
     { id: "holdings", label: `Holdings ${positions.length}` },
     { id: "watchlist", label: `Watchlist ${watchRows.length}` },
     { id: "prospects", label: `Prospects ${prospectReport?.prospects.length ?? 0}` },
@@ -757,6 +762,7 @@ export default function PaperBotLab() {
     refreshLedgers();
     refreshAccount();
     refreshStrategyReview();
+    refreshSignalDesk();
     refreshMarket();
     refreshProspectMarket();
   };
@@ -827,13 +833,25 @@ export default function PaperBotLab() {
       {views.map(item => <button key={item.id} aria-pressed={view === item.id} onClick={() => setView(item.id)}>{item.label}</button>)}
     </nav>
 
-    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || squeezeReadinessError || cryptoReadinessError || strategyReviewError || prospectError || watchlistError || marketError || prospectMarketError
+    {ledgerError || accountError || swingReadinessError || cryptoSwingReadinessError || squeezeReadinessError || cryptoReadinessError || strategyReviewError || prospectError || signalDeskError || watchlistError || marketError || prospectMarketError
       ? <div className={styles.portfolioWarnings}>
-          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, squeezeReadinessError, cryptoReadinessError, strategyReviewError, prospectError, watchlistError, marketError, prospectMarketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
+          {[ledgerError, accountError, swingReadinessError, cryptoSwingReadinessError, squeezeReadinessError, cryptoReadinessError, strategyReviewError, prospectError, signalDeskError, watchlistError, marketError, prospectMarketError].filter(Boolean).map((error, index) => <span key={index}>{error}</span>)}
         </div>
       : null}
 
     {view === "portfolio" ? <div className={styles.portfolioDashboard}>
+      <div className={styles.portfolioDashboardFull}>
+        <PaperSignalPipeline
+          botName={botShortName(profile)}
+          prospects={assignedProspects}
+          stagedOrders={stagedOrders}
+          brokerOrders={liveBrokerOrders}
+          positions={positions}
+          intakeEvents={intakeEvents}
+          currentPriceFor={currentProspectPrice}
+          compact
+        />
+      </div>
       <PortfolioPanel title="Holdings" action={<button onClick={() => setView("holdings")}>View all</button>}>
         <HoldingRows positions={positions} trades={trades} accountPositions={accountReport?.snapshot?.positions} compact />
       </PortfolioPanel>
@@ -851,6 +869,16 @@ export default function PaperBotLab() {
       </PortfolioPanel>
     </div> : null}
 
+    {view === "pipeline" ? <PaperSignalPipeline
+      botName={botShortName(profile)}
+      prospects={assignedProspects}
+      stagedOrders={stagedOrders}
+      brokerOrders={liveBrokerOrders}
+      positions={positions}
+      intakeEvents={intakeEvents}
+      currentPriceFor={currentProspectPrice}
+    /> : null}
+
     {view === "holdings" ? <PortfolioPanel title={`${botShortName(profile)} holdings`}>
       <HoldingRows positions={positions} trades={trades} accountPositions={accountReport?.snapshot?.positions} />
     </PortfolioPanel> : null}
@@ -860,7 +888,7 @@ export default function PaperBotLab() {
       <WatchRows rows={watchRows} />
       <p className={styles.portfolioNote}>D / S / L describes the strategy horizon this symbol is currently configured to be considered for. It is not trade authorization; score, setup state, risk, liquidity, and execution gates still have to pass.</p>
       {profile.id === "weekend-crypto-day-100" ? <p className={styles.portfolioNote}>Only BTC/USD, ETH/USD, SOL/USD, LINK/USD, and DOT/USD are execution-eligible. Monitor-only crypto remains research evidence and cannot trigger a READY submission by itself.</p> : null}
-      {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>QQQ, NVDA, and MSFT are revalidated against live quotes before a simulated submission can be selected. Swing v1 deliberately uses READY/waiting/blocked revalidation rather than a synthetic 0–100 score, so its Score field shows N/A.</p> : null}
+      {profile.id === "three-trade-weekly-swing-100" ? <p className={styles.portfolioNote}>Scanner-assigned stocks can enter Weekly Swing staging only after v3 intake checks trend, momentum, fresh spread, ATR/structure risk, duplicate exposure, and chase risk. Prepared plans are then revalidated against live quotes before automatic simulated submission. Swing readiness deliberately uses READY/waiting/blocked gates rather than inventing a second score.</p> : null}
       {profile.id === "crypto-swing-100" ? <p className={styles.portfolioNote}>Crypto Swing v1 uses 1-hour trend, momentum, volume expansion and breakout structure for 1-7 day reference plans. It receives only scanner-assigned crypto prospects. Automated execution is intentionally disabled while we collect initial swing evidence.</p> : null}
       {profile.id === "squeeze-breakout-100" ? <p className={styles.portfolioNote}>Squeeze Breakout v1 looks for an extended compressed stock base, historically quieter volume, then increasing relative-volume pace as price presses toward or through the base high. The 20–30% opportunity zone is a target scenario, not a prediction. Automated execution stays disabled while we validate the signal.</p> : null}
     </PortfolioPanel> : null}
