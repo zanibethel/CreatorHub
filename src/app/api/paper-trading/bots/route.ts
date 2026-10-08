@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { paperBotLedgerRowSchema, projectPaperBotSummary } from "@/lib/paper-bot-ledger";
+import { parsePostgrestExactCount } from "@/lib/paper-bot-journal-count";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,6 @@ const positionRow = z.object({
   last_exit_manager_at: timestamp.nullable(),
   exit_manager_state: exitManagerState,
 });
-const journalCountRow = z.object({ bot_id: z.string().min(1).max(64), id: z.coerce.number().int().positive() });
 const brokerOrderRow = z.object({
   bot_id: z.string().min(1).max(64),
   broker_order_id: z.string().min(1).max(80),
@@ -168,12 +168,11 @@ export async function GET() {
   };
 
   try {
-    const [capitalPlanRaw, ledgerRaw, historyRaw, positionRaw, journalRaw, brokerOrderRaw, brokerFillRaw, stagedRaw, tradeMetricRaw, counterfactualRaw] = await Promise.all([
+    const [capitalPlanRaw, ledgerRaw, historyRaw, positionRaw, brokerOrderRaw, brokerFillRaw, stagedRaw, tradeMetricRaw, counterfactualRaw] = await Promise.all([
       read("paper_capital_plan?plan_id=eq.main&select=plan_id,total_capital,bot_pool_capital,reserved_bot_pools,allocated_capital,unallocated_reserve,currency&limit=1"),
       read("paper_bot_ledgers?select=bot_id,display_name,status,strategy_id,strategy_version,starting_cash,cash,equity,realized_pl,unrealized_pl,buying_power,peak_equity,current_drawdown_pct,open_planned_risk_pct,correlated_risk_pct,daily_realized_loss_pct,weekly_drawdown_pct,last_synced_at,source,metadata,pool_usage&order=bot_id.asc"),
       read("paper_bot_equity_history?select=bot_id,collected_at,equity&order=collected_at.asc&limit=5000"),
       read("paper_bot_positions?select=bot_id,symbol,quantity,average_entry,protective_stop,initial_protective_stop,planned_risk_dollars,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder,last_exit_manager_at,exit_manager_state&limit=5000"),
-      read("paper_bot_journal?select=id,bot_id&limit=10000"),
       read("paper_bot_broker_orders?select=bot_id,broker_order_id,symbol,asset_class,side,order_type,order_class,status,quantity,filled_quantity,average_fill_price,submitted_at,filled_at,last_seen_at&order=submitted_at.desc.nullslast,last_seen_at.desc&limit=10000"),
       read("paper_bot_broker_fills?select=bot_id,fill_activity_id,symbol,side,quantity,price,transaction_time,ledger_applied_at&order=transaction_time.desc&limit=10000"),
       read("paper_bot_orders?select=bot_id,strategy_id,strategy_version,symbol,asset_class,status,requested_notional,requested_quantity,pool_id,entry_trigger,max_entry_price,protective_stop,planned_risk_dollars,expires_at,stage_reason,take_profit_price,take_profit_fraction,take_profit_r,protect_winner_at_r,trail_remainder&status=eq.prepared&order=created_at.asc&limit=100"),
@@ -185,19 +184,28 @@ export async function GET() {
     const ledgers = z.array(paperBotLedgerRowSchema).parse(ledgerRaw);
     const history = z.array(historyRow).parse(historyRaw);
     const positions = z.array(positionRow).parse(positionRaw);
-    const journals = z.array(journalCountRow).parse(journalRaw);
     const brokerOrders = z.array(brokerOrderRow).parse(brokerOrderRaw);
     const brokerFills = z.array(brokerFillRow).parse(brokerFillRaw);
     const stagedOrders = z.array(stagedOrderRow).parse(stagedRaw);
     const tradeMetrics = z.array(tradeMetricRow).parse(tradeMetricRaw);
     const counterfactuals = z.array(counterfactualRow).parse(counterfactualRaw);
+    // Per-bot exact counts: a single unfiltered 10K row response silently hid new bots.
+    const journalCountPairs = await Promise.all(ledgers.map(async row => {
+      const response = await fetch(`${SUPABASE_URL}/rest/v1/paper_bot_journal?bot_id=eq.${encodeURIComponent(row.bot_id)}&select=id`,{
+        method:"HEAD",headers:{...headers,Prefer:"count=exact",Range:"0-0"},
+        cache:"no-store",signal:AbortSignal.timeout(10_000),
+      });
+      if(!response.ok)throw new Error("Bot journal count query failed.");
+      return [row.bot_id,parsePostgrestExactCount(response.headers.get("content-range"))] as const;
+    }));
+    const journalCounts=new Map<string,number>(journalCountPairs);
 
     const body = {
       collectedAt: new Date().toISOString(),
       bots: ledgers.map(row => projectPaperBotSummary(
         row,
         positions.filter(position => position.bot_id === row.bot_id).length,
-        journals.filter(event => event.bot_id === row.bot_id).length,
+        journalCounts.get(row.bot_id) ?? 0,
         brokerOrders.filter(order => order.bot_id === row.bot_id).length,
         brokerFills.filter(fill => fill.bot_id === row.bot_id && fill.ledger_applied_at !== null).length,
         brokerFills.find(fill => fill.bot_id === row.bot_id && fill.ledger_applied_at !== null)?.transaction_time ?? null,
