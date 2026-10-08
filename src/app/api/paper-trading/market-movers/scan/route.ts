@@ -91,16 +91,19 @@ export async function GET(request: Request) {
   }
 
   const start = new Date(nowMs - 20 * 60_000).toISOString();
-  for (const symbol of stocks) {
-    try {
-      const result = await marketJson(
-        `${DATA_URL}/v2/stocks/${symbol}/trades?feed=iex&sort=desc&limit=1000&start=${encodeURIComponent(start)}&end=${encodeURIComponent(now)}`,
-      );
-      const finding = analyzeStockPrints(symbol, result.trades, nowMs);
-      if (finding) observations.push(finding);
-    } catch (error) {
-      failures.push(`IEX prints for ${symbol}: ${error instanceof Error ? error.message : "unavailable"}`);
-    }
+  // Bound wall time: batches of four requests instead of up to eight sequential 12s calls.
+  for (let offset = 0; offset < stocks.length; offset += 4) {
+    await Promise.all(stocks.slice(offset, offset + 4).map(async symbol => {
+      try {
+        const result = await marketJson(
+          `${DATA_URL}/v2/stocks/${symbol}/trades?feed=iex&sort=desc&limit=1000&start=${encodeURIComponent(start)}&end=${encodeURIComponent(now)}`,
+        );
+        const finding = analyzeStockPrints(symbol, result.trades, nowMs);
+        if (finding) observations.push(finding);
+      } catch (error) {
+        failures.push(`IEX prints for ${symbol}: ${error instanceof Error ? error.message : "unavailable"}`);
+      }
+    }));
   }
 
   if (observations.length) {
