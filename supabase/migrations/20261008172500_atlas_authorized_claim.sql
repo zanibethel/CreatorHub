@@ -1,1 +1,0 @@
--- Atlas paper-only authorization and reservation hardening.
