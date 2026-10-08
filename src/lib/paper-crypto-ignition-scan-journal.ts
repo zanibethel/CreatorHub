@@ -3,7 +3,7 @@
  * The source Prospect Score is not a Spark qualification or execution approval.
  */
 export type SparkScanCandidate = {
-  symbol:string; sourceScore:number; state:"ready"|"waiting"|"blocked"; selectedForSubmission:boolean;
+  symbol:string; sourceScore:number; state:string; selectedForSubmission:boolean;
   bid:number|null; ask:number|null; spreadPct:number|null;
   fastMomentumPct:number|null; slowMomentumPct:number|null; relativeVolume:number|null;
   trigger:number|null; maxEntry:number|null; protectiveStop:number|null; takeProfit:number|null;
