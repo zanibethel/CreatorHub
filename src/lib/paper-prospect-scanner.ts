@@ -240,7 +240,7 @@ export function suggestedProspectBots(input: {
   if (positive(input.price) && input.price <= config.assignment.pennyPriceCeilingUsd) {
     return ["penny-volatility-day-100", "default-diverse"];
   }
-  return ["default-diverse", "three-trade-weekly-swing-100"];
+  return ["default-diverse", "momentum-breakout-100", "three-trade-weekly-swing-100"];
 }
 
 export function scoreProspect(input: ProspectScoreInput): ProspectScoreResult {
