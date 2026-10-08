@@ -158,7 +158,8 @@ export default async function BotPerformanceAuditPage() {
               <div><span>Shadow +2R / settled</span><strong>{count(row.shadow_2r_before_stop)} / {count(row.completed_shadow_scenarios)}</strong></div>
             </div>
             <div className={styles.diagnostic}><strong>{note.label}</strong><p>{note.detail}</p></div>
-            {row.bot_id === "weekend-crypto-day-100" && <Link className={styles.back} href="/paper-trading/bots/performance/flash">Inspect Flash decision-time evidence and +2R scenarios →</Link>}\n            <div className={styles.timestamps}><span>Last decision: {central(row.latest_journal_at)}</span><span>Last candidate: {central(row.latest_candidate_at)}</span></div>
+            {row.bot_id === "weekend-crypto-day-100" && <Link className={styles.back} href="/paper-trading/bots/performance/flash">Inspect Flash decision-time evidence and +2R scenarios →</Link>}
+            <div className={styles.timestamps}><span>Last decision: {central(row.latest_journal_at)}</span><span>Last candidate: {central(row.latest_candidate_at)}</span></div>
           </article>;
         })}</div>
       </section>
