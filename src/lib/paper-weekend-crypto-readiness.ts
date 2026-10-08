@@ -454,7 +454,7 @@ export function evaluateWeekendCryptoReadiness(input: {
       referencePlan,
       waitingOn,
       blockers,
-      trackingBars: fastBars.slice(-12),
+      trackingBars: fastBars.slice(-24),
     } satisfies WeekendCryptoCandidate;
   });
 
