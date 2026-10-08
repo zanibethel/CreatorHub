@@ -117,7 +117,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
       ]}/>
     </section>
 
-    {botId==="penny-volatility-day-100"?<FuseResearchPanel history={ledgers?.history?.[botId]??[]} refreshVersion={ledgers?.collectedAt?Date.parse(ledgers.collectedAt):0}/>:null}
+    {botId==="penny-volatility-day-100"?<FuseResearchPanel history={ledgers?.history?.[botId]??[]} refreshVersion={0}/>:null}
 
     {executionStatusKnown?<PaperSignalPipeline
       botName={profile.codename??profile.name}
