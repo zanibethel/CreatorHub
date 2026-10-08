@@ -27,6 +27,7 @@ const squeezeStrategy = module("../src/lib/paper-squeeze-breakout-strategy-confi
 const momentumStrategy = module("../src/lib/paper-momentum-breakout-strategy-config.ts");
 const ignitionStrategy = module("../src/lib/paper-crypto-ignition-strategy-config.ts");
 const tradePlan = module("../src/lib/paper-bot-trade-plan.ts");
+const fuseStrategy = module("../src/lib/paper-fuse-strategy-config.ts");
 const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-strategy-config": strategy,
   "./paper-swing-strategy-config": swingStrategy,
@@ -36,6 +37,7 @@ const profiles = module("../src/lib/paper-bot-profiles.ts", {
   "./paper-momentum-breakout-strategy-config": momentumStrategy,
   "./paper-crypto-ignition-strategy-config": ignitionStrategy,
   "./paper-bot-trade-plan": tradePlan,
+  "./paper-fuse-strategy-config": fuseStrategy,
 });
 const attribution = module("../src/lib/paper-order-attribution.ts", { "./paper-bot-profiles": profiles });
 
