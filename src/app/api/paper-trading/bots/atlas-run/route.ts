@@ -593,7 +593,7 @@ export async function GET(request:Request){
 
   if(activeEntry){
     const state=await settleEntry(activeEntry);
-    return reply({ok:state.ok,paperOnly:true,action:"reconcile-entry",symbol:activeEntry.symbol,...state,audit:auditBody},
+    return reply({...state,paperOnly:true,action:"reconcile-entry",symbol:activeEntry.symbol,audit:auditBody},
       state.ok?200:state.state.includes("pending")||state.state.includes("unconfirmed")?502:200);
   }
 
@@ -718,8 +718,8 @@ export async function GET(request:Request){
       take_profit_r:1.75,expires_at:expiresAt,submitted_at:null,created_at:new Date().toISOString(),metadata:orderMetadata,
     };
     const state=await settleEntry(prepared);
-    return reply({ok:state.ok,paperOnly:true,action:"entry",symbol:candidate.symbol,
-      clientOrderId,reservationId,...state,audit:auditBody},state.ok?200:502);
+    return reply({...state,paperOnly:true,action:"entry",symbol:candidate.symbol,
+      clientOrderId,reservationId,audit:auditBody},state.ok?200:502);
   }
 
   return reply({ok:true,paperOnly:true,action:"none",reason:"no-executable-day-stock",
