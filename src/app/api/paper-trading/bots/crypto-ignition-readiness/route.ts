@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { buildSparkScanJournalRows } from "@/lib/paper-crypto-ignition-scan-journal";
 import { evaluateCryptoIgnitionCandidate } from "@/lib/paper-crypto-ignition-readiness";
 import { CRYPTO_IGNITION_STRATEGY_V1 as strategy } from "@/lib/paper-crypto-ignition-strategy-config";
 
@@ -88,21 +89,14 @@ export async function GET(request:Request){
 
     const cronSecret=process.env.CRON_SECRET?.trim()??"";
     const isCron=Boolean(cronSecret&&request.headers.get("authorization")===`Bearer ${cronSecret}`);
-    if(isCron&&candidates.length){
+    if(isCron){
       const response=await fetch(`${SUPABASE_URL}/rest/v1/paper_bot_journal`,{
         method:"POST",
         headers:{...dbHeaders,"Content-Type":"application/json",Prefer:"return=minimal"},
-        body:JSON.stringify(candidates.map(candidate=>({
-          bot_id:strategy.botProfileId,strategy_id:strategy.id,strategy_version:strategy.version,
-          event_type:"prospect-intake",symbol:candidate.symbol,asset_class:"crypto",occurred_at:new Date(now).toISOString(),
-          score:candidate.sourceScore,qualification:candidate.state==="ready"?"staged":candidate.state==="blocked"?"rejected":"deferred",
-          regime:"unknown",
-          component_scores:{sourceScore:candidate.sourceScore,fastMomentumPct:candidate.fastMomentumPct,slowMomentumPct:candidate.slowMomentumPct,relativeVolume:candidate.relativeVolume},
-          market_snapshot:{bid:candidate.bid,ask:candidate.ask,spreadPct:candidate.spreadPct},
-          risk_plan:{entryTrigger:candidate.trigger,maxEntryPrice:candidate.maxEntry,protectiveStop:candidate.protectiveStop,takeProfitPrice:candidate.takeProfit,plannedNotional:candidate.plannedNotional,plannedRiskDollars:candidate.plannedRiskDollars},
-          blockers:candidate.blockers,warnings:candidate.waitingOn,
-          metadata:{source:"spark-early-crypto-readiness",executionEnabled,paperOnly:true,graduationRule:"80+ belongs to Flash"},
-        }))),
+        body:JSON.stringify(buildSparkScanJournalRows(strategy.botProfileId,{
+          collectedAt:new Date(now).toISOString(),strategyId:strategy.id,
+          strategyVersion:strategy.version,executionEnabled,candidates,
+        })),,
         cache:"no-store",signal:AbortSignal.timeout(10_000),
       });
       if(!response.ok)throw new Error(`Spark journal returned HTTP ${response.status}.`);
