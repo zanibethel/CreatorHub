@@ -314,7 +314,7 @@ export async function GET(request:Request){
   };
 
   const submitExit=async(input:{symbol:string;qty:number;purpose:string;reason:string;entry:OrderRow})=>{
-    if(!(input.qty>0))return {order:null as BrokerOrder|null,ambiguous:false};
+    if(!(input.qty>0))return {order:null as BrokerOrder|null,ambiguous:false,rejected:true};
     const clientId=createPaperClientOrderId(BOT_ID,STRATEGY_VERSION,crypto.randomUUID());
     const metadata={purpose:input.purpose,paperOnly:true,executionMode:EXECUTION_MODE,brokerOrderType:"market",
       parentClientOrderId:input.entry.client_order_id,sessionDate};
@@ -323,7 +323,7 @@ export async function GET(request:Request){
       symbol:input.symbol,asset_class:"stock",side:"sell",status:"prepared",requested_quantity:input.qty,pool_id:"day",
       planned_risk_dollars:0,expires_at:clock.next_close??null,stage_reason:input.reason,metadata,
     });
-    if(insertError)return {order:null,ambiguous:true};
+    if(insertError)return {order:null,ambiguous:false,rejected:true};
     const submitted=await submitSimple({
       symbol:input.symbol,qty:qtyString(input.qty),side:"sell",type:"market",time_in_force:"day",
       client_order_id:clientId,extended_hours:false,
@@ -333,15 +333,22 @@ export async function GET(request:Request){
         last_reconciled_at:submitted.rejected?new Date().toISOString():null,
         metadata:{...metadata,brokerSubmissionRejected:submitted.rejected,brokerLookupPending:!submitted.rejected,
           executionError:submitted.detail}});
-      return {order:null,ambiguous:!submitted.rejected};
+      return {order:null,ambiguous:!submitted.rejected,rejected:submitted.rejected};
     }
-    const observed=await pollOrder(submitted.order,10);
+    let observed=await pollOrder(submitted.order,10);
+    if(input.purpose==="take-profit-partial"&&!isTerminal(observed.status)&&observed.id){
+      await broker(`orders/${encodeURIComponent(observed.id)}`,{method:"DELETE"});
+      await sleep(200);
+      const after=await lookupByClientId(clientId).catch(()=>observed);
+      if(after)observed=await pollOrder(after,5);
+    }
+    const stillPending=!isTerminal(observed.status);
     await patchOrder(clientId,{broker_order_id:observed.id??null,status:mappedStatus(observed.status),
       submitted_at:new Date().toISOString(),last_reconciled_at:new Date().toISOString(),
       metadata:{...metadata,brokerObservedStatus:observed.status??"submitted",
         filledQuantityObserved:numeric(observed.filled_qty)??0,
-        filledAveragePriceObserved:numeric(observed.filled_avg_price),brokerLookupPending:false}});
-    return {order:observed,ambiguous:false};
+        filledAveragePriceObserved:numeric(observed.filled_avg_price),brokerLookupPending:stillPending}});
+    return {order:observed,ambiguous:stillPending,rejected:false};
   };
 
   const brokerPositions=await currentPositions();
