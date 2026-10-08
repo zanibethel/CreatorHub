@@ -1,0 +1,22 @@
+-- Manual integration/concurrency validation plan for Atlas reservations.
+-- Run ONLY in an isolated disposable Supabase test database seeded with
+-- representative paper_bot_ledgers, paper_bot_journal, paper_bot_orders,
+-- and paper_bot_positions fixtures. NEVER run against the production ledger.
+--
+-- 1. Apply 20261008150000_atlas_atomic_reservations.sql to test database.
+-- 2. Confirm authenticated/anon roles cannot SELECT or EXECUTE reservation RPCs.
+-- 3. Create an explicitly authorized test candidate and matching opportunity ID.
+-- 4. From two independent service-role DB sessions, simultaneously call
+--    paper_atlas_reserve with the same decision/opportunity: exactly one succeeds.
+-- 5. With two different authorized decisions whose combined notional exceeds
+--    the day pool (20% of starting_cash), exactly one must succeed.
+-- 6. Verify the same test for combined requests exceeding ledger cash.
+-- 7. Insert an unresolved Atlas order and confirm all new reservations fail.
+-- 8. Verify scanner-only, blocked, wrong bot, and wrong strategy decisions fail.
+-- 9. Verify release RPC always fails closed until broker reconciliation exists.
+-- 10. Verify consume fails for missing, other-bot, unfilled, wrong-pool, or
+--     excessive-notional orders; succeeds once for matching filled Atlas order.
+-- 11. Verify no changes to other bots' ledgers, positions, or orders.
+--
+-- This is a test plan, NOT evidence that concurrency tests have been executed.
+SELECT 'Atlas reservation integration test plan only' AS note;
