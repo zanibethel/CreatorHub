@@ -110,8 +110,11 @@ export function extractHistoryExamples(symbol:string,assetClass:HistoryAssetClas
       for(const targetPct of HISTORY_TARGETS) {
         const outcome=labelOutcome(bars,entryIndex,duration,targetPct);
         examples.push({
-          symbol,assetClass,horizon,targetPct,decisionAt:bars[i].t,
-          entryAt:bars[entryIndex].t,outcomeEndAt:bars[outcome.endIndex].t,
+          symbol,assetClass,horizon,targetPct,
+          // One second before next UTC day boundary: completed candle, never the bar open.
+          decisionAt:new Date(Date.parse(bars[i].t)+DAY_MS-1000).toISOString(),
+          entryAt:bars[entryIndex].t,
+          outcomeEndAt:new Date(Date.parse(bars[outcome.endIndex].t)+DAY_MS).toISOString(),
           entryPrice:round(outcome.entry),features,status:outcome.status,
           maxGainPct:outcome.peak,maxDrawdownPct:outcome.drawdown,
           terminalReturnPct:outcome.terminal,
@@ -180,13 +183,13 @@ export function evaluateHistoryHoldout(examples:HistoryExample[],assetClass:Hist
     .sort((a,b)=>Date.parse(a.decisionAt)-Date.parse(b.decisionAt));
   const split=Math.floor(cohort.length*.75);
   const validation=cohort.slice(split).filter(e=>e.status!=="ambiguous");
-  let scored=0,matchedHits=0,controlHits=0;
+  let scored=0,matchedHits=0;
   for(const candidate of validation) {
     const history=cohort.filter(e=>Date.parse(e.outcomeEndAt)<Date.parse(candidate.decisionAt));
     const m=matchHistoricalPattern(history,candidate.features,horizon,targetPct,candidate.decisionAt,assetClass);
     if(m.status!=="research-only"||m.similarTargetRate===null||m.baselineTargetRate===null) continue;
     scored++;if(candidate.status==="target") matchedHits++;
-    if(candidate.status==="target" && m.similarTargetRate>m.baselineTargetRate) controlHits++;
+
   }
   return {
     assetClass,horizon,targetPct,total:cohort.length,
@@ -207,7 +210,7 @@ export function researchSummary(symbol:string,assetClass:HistoryAssetClass,raw:H
   const examples=extractHistoryExamples(symbol,assetClass,bars);
   const latest=bars.length?historicalFeatures(bars,bars.length-1):null;
   if(!latest||!examples.length) throw new Error("Insufficient completed history for 12-month context and resolved outcomes.");
-  const asOf=bars[bars.length-1].t;
+  const asOf=new Date(Date.parse(bars[bars.length-1].t)+DAY_MS).toISOString();
   const rows=(["same-day","3-day","2-week"] as HistoryHorizon[]).flatMap(horizon=>
     HISTORY_TARGETS.map(targetPct=>({
       ...evaluateHistoryHoldout(examples,assetClass,horizon,targetPct),
