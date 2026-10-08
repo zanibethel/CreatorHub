@@ -1,0 +1,4 @@
+-- Deployed as migration paper_bot_performance_audit_read_only on October 8, 2026.
+-- The canonical production definition is SELECT from pg_get_viewdef(public.paper_bot_performance_audit_v1::regclass).
+-- The view contains research-only aggregate counts; execution settings remain unchanged.
+-- Note: definition captured through the corresponding migration operation in Supabase migration history.

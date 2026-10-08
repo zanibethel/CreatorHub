@@ -72,7 +72,7 @@ export default function BotProfilePageClient({botId}:{botId:string}){
         <p>{profile.role??profile.style}</p>
       </div>
       <div className={styles.botLabActions}>
-        <Link href="/paper-trading/signals">Signal Desk</Link>
+        <Link href="/paper-trading/bots/performance">Performance Audit</Link><Link href="/paper-trading/signals">Signal Desk</Link>
         <button type="button" onClick={refresh}>Refresh</button>
       </div>
     </header>
