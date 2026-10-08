@@ -44,8 +44,12 @@ test("Atlas stock execution fails closed on stale quote or missing fractional su
   assert.ok(plan.blockers.some(x=>x.includes("fractional")));
 });
 
-test("Atlas fractional v2 executes the day pool only",()=>{
+test("Atlas chooses the shortest explicitly approved funded stock horizon",()=>{
   assert.equal(mod.atlasExecutionPool(["day","multi-day","multi-week"]),"day");
-  assert.equal(mod.atlasExecutionPool(["day"]),"day");
-  assert.equal(mod.atlasExecutionPool(["multi-day","multi-week"]),null);
+  assert.equal(mod.atlasExecutionPool(["multi-day","multi-week"]),"multi-day");
+  assert.equal(mod.atlasExecutionPool(["multi-week"]),"multi-week");
+  assert.equal(mod.atlasExecutionPool([]),null);
+  assert.equal(mod.atlasPoolCapFraction("day"),0.20);
+  assert.equal(mod.atlasPoolCapFraction("multi-day"),0.40);
+  assert.equal(mod.atlasPoolCapFraction("multi-week"),0.40);
 });
