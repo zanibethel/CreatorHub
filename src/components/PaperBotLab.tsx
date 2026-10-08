@@ -799,6 +799,10 @@ export default function PaperBotLab() {
       })}
     </nav>
 
+    {PAPER_BOT_PROFILES.some(item=>item.status==="planned")?<p className={styles.portfolioNote}>
+      Reserved profiles: {PAPER_BOT_PROFILES.filter(item=>item.status==="planned").map((item,index)=><span key={item.id}>{index>0?" · ":""}<Link href={`/paper-trading/bots/${item.id}`}>{botShortName(item)} (planned — view profile)</Link></span>)}
+    </p>:null}
+
     <section className={styles.portfolioHero}>
       <div className={styles.portfolioHeroTitle}>
         <div>
