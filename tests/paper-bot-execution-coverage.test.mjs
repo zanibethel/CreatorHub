@@ -70,18 +70,26 @@ for (const bot of research) {
   });
 }
 
-test("Atlas runs five-minute audits plus one-minute guarded PAPER protection", () => {
+test("Atlas runs five-minute audits plus isolated stock and crypto PAPER managers", () => {
   assert.ok(profiles.includes('id: "default-diverse"'));
   const audit=cron.find(entry=>entry.path==="/api/paper-trading/bots/atlas-decision-audit");
-  const run=cron.find(entry=>entry.path==="/api/paper-trading/bots/atlas-run");
+  const stockRun=cron.find(entry=>entry.path==="/api/paper-trading/bots/atlas-run");
+  const cryptoRun=cron.find(entry=>entry.path==="/api/paper-trading/bots/atlas-crypto-run");
   assert.equal(audit?.schedule,"*/5 * * * *");
-  assert.equal(run?.schedule,"* * * * 1-5");
-  const route=read("src/app/api/paper-trading/bots/atlas-run/route.ts");
-  assert.match(route,/executionEnabled/);
-  assert.match(route,/paper_atlas_authorize_candidate/);
-  assert.match(route,/paper_atlas_reserve/);
-  assert.match(route,/purpose:"protective-stop"/);
-  assert.match(route,/order_class:"simple"/);
-  assert.doesNotMatch(route,/order_class:"bracket"/);
-  assert.doesNotMatch(route,/https:\/\/api\.alpaca\.markets/);
+  assert.equal(stockRun?.schedule,"* * * * 1-5");
+  assert.equal(cryptoRun?.schedule,"* * * * *");
+
+  const stock=read("src/app/api/paper-trading/bots/atlas-run/route.ts");
+  const crypto=read("src/app/api/paper-trading/bots/atlas-crypto-run/route.ts");
+  assert.match(stock,/crypto-reservation-owned-by-crypto-runner/);
+  assert.match(stock,/crypto-position-owned-by-crypto-runner/);
+  assert.match(crypto,/stock-reservation-owned-by-stock-runner/);
+  assert.match(crypto,/stock-position-owned-by-stock-runner/);
+  assert.match(crypto,/paper_atlas_authorize_candidate/);
+  assert.match(crypto,/paper_atlas_reserve/);
+  assert.match(crypto,/purpose:"protective-stop"/);
+  assert.match(crypto,/type:"stop_limit"/);
+  assert.match(crypto,/time_in_force:"gtc"/);
+  assert.doesNotMatch(stock,/https:\/\/api\.alpaca\.markets/);
+  assert.doesNotMatch(crypto,/https:\/\/api\.alpaca\.markets/);
 });
