@@ -164,6 +164,8 @@ export function evaluateMomentumBreakoutCandidate(input:{
     plannedQuantity,plannedNotional,plannedRiskDollars,plannedRiskPct,
     blockers,waitingOn,
     reasons:prospect.reasons,
+    marketOpen:session.marketOpen,
+    trackingBars:bars5m,
     paperOnly:true as const,
   };
 }
