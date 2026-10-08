@@ -96,7 +96,7 @@ export async function GET(request:Request){
         body:JSON.stringify(buildSparkScanJournalRows(strategy.botProfileId,{
           collectedAt:new Date(now).toISOString(),strategyId:strategy.id,
           strategyVersion:strategy.version,executionEnabled,candidates,
-        }),
+        })),
         cache:"no-store",signal:AbortSignal.timeout(10_000),
       });
       if(!response.ok)throw new Error(`Spark journal returned HTTP ${response.status}.`);
