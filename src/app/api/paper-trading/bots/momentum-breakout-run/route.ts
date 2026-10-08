@@ -127,7 +127,9 @@ export async function GET(request:Request){
   if(!readinessResponse.ok)return reply({ok:false,action:"readiness-error",result:body},502);
   const readiness=readinessSchema.parse(body);
   let counterfactualTracking={ok:false,seeds:0,updates:0};
-  try{counterfactualTracking=await persistCounterfactuals(readiness);}catch{}
+  try{counterfactualTracking=await persistCounterfactuals(readiness);}catch(error){
+    return reply({ok:false,action:"counterfactual-error",reason:error instanceof Error?error.message:"Pulse counterfactual evidence unavailable."},503);
+  }
 
   if(!readiness.executionEnabled)return reply({ok:true,action:"none",reason:"pulse-executor-disabled",collectedAt:readiness.collectedAt,counterfactualTracking});
 
