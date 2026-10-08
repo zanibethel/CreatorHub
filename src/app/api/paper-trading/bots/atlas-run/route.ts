@@ -276,7 +276,7 @@ export async function GET(request:Request){
   };
 
   const createProtection=async(input:{symbol:string;qty:number;stop:number;entry:OrderRow;reason:string})=>{
-    if(!(input.qty>0&&input.stop>0))return false;
+    if(!(input.qty>0&&input.stop>0))return {established:false,ambiguous:false,rejected:true};
     const clientId=createPaperClientOrderId(BOT_ID,STRATEGY_VERSION,crypto.randomUUID());
     const stop=roundPrice(input.stop);
     const metadata={
@@ -290,7 +290,7 @@ export async function GET(request:Request){
       entry_trigger:stop,protective_stop:stop,planned_risk_dollars:0,expires_at:clock.next_close??null,
       stage_reason:input.reason,metadata,
     });
-    if(insertError)return false;
+    if(insertError)return {established:false,ambiguous:false,rejected:true};
     const submitted=await submitSimple({
       symbol:input.symbol,qty:qtyString(input.qty),side:"sell",type:"stop",time_in_force:"day",
       stop_price:String(stop),client_order_id:clientId,extended_hours:false,
@@ -300,14 +300,14 @@ export async function GET(request:Request){
         last_reconciled_at:submitted.rejected?new Date().toISOString():null,
         metadata:{...metadata,brokerSubmissionRejected:submitted.rejected,brokerLookupPending:!submitted.rejected,
           executionError:submitted.detail}});
-      return false;
+      return {established:false,ambiguous:!submitted.rejected,rejected:submitted.rejected};
     }
     const observed=await pollOrder(submitted.order,2);
     await patchOrder(clientId,{broker_order_id:observed.id??null,status:mappedStatus(observed.status),
       submitted_at:new Date().toISOString(),last_reconciled_at:new Date().toISOString(),
       metadata:{...metadata,brokerObservedStatus:observed.status??"submitted",
         filledQuantityObserved:numeric(observed.filled_qty)??0,brokerLookupPending:false}});
-    return Boolean(observed.id);
+    return {established:Boolean(observed.id),ambiguous:false,rejected:false};
   };
 
   const submitExit=async(input:{symbol:string;qty:number;purpose:string;reason:string;entry:OrderRow})=>{
@@ -640,6 +640,7 @@ export async function GET(request:Request){
     if(pool!=="day"||!opportunityId||!decisionId)continue;
 
     const compact=normalize(candidate.symbol);
+    if(entryOrders.some(o=>o.symbol===candidate.symbol&&objectValue(o.metadata).sessionDate===sessionDate))continue;
     if(brokerPositions.some(p=>normalize(p.symbol)===compact&&Math.abs(numeric(p.qty)??0)>0))continue;
     if(sharedOpenOrders.some(o=>normalize(o.symbol)===compact))continue;
 
