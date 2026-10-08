@@ -129,7 +129,8 @@ export async function GET(request:Request){
     if(ready[0]&&executionEnabled)ready[0].selectedForSubmission=true;
 
     const cronSecret=process.env.CRON_SECRET?.trim()??"";
-    const isCron=Boole    if(isCron){
+    const isCron=Boolean(cronSecret&&request.headers.get("authorization")===`Bearer ${cronSecret}`);
+    if(isCron){
       // Record an actual evaluated setup, or a genuine empty-scan heartbeat.
       // No phantom trades are created when the scanner has no Pulse assignments.
       const events=plans.length===0
