@@ -44,7 +44,8 @@ test("Atlas stock execution fails closed on stale quote or missing fractional su
   assert.ok(plan.blockers.some(x=>x.includes("fractional")));
 });
 
-test("Atlas initial executable horizon is multi-day only",()=>{
-  assert.equal(mod.atlasExecutionPool(["day","multi-day","multi-week"]),"multi-day");
-  assert.equal(mod.atlasExecutionPool(["day"]),null);
+test("Atlas fractional v2 executes the day pool only",()=>{
+  assert.equal(mod.atlasExecutionPool(["day","multi-day","multi-week"]),"day");
+  assert.equal(mod.atlasExecutionPool(["day"]),"day");
+  assert.equal(mod.atlasExecutionPool(["multi-day","multi-week"]),null);
 });
