@@ -24,6 +24,10 @@ export type PaperProspect = {
     liquidity: number;
     volumeExpansion: number;
     structure: number;
+    news?: number;
+    acceleration?: number;
+    catalyst?: number;
+    chasePenalty?: number;
   };
   reasons: string[];
   source_flags: string[];
