@@ -84,12 +84,7 @@ const projectedProfit = (entry: number | null | undefined, target: number | null
   entry != null && target != null && quantity != null && entry > 0 && quantity > 0 ? (target - entry) * quantity * fraction : null;
 
 function botShortName(profile: PaperBotProfile) {
-  if (profile.id === "weekend-crypto-day-100") return "Daily Crypto";
-  if (profile.id === "three-trade-weekly-swing-100") return "Weekly Swing";
-  if (profile.id === "crypto-swing-100") return "Crypto Swing";
-  if (profile.id === "squeeze-breakout-100") return "Squeeze Breakout";
-  if (profile.id === "penny-volatility-day-100") return "Penny Volatility";
-  return "Default Diverse";
+  return profile.codename ?? profile.role ?? profile.name;
 }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
@@ -699,6 +694,8 @@ export default function PaperBotLab() {
     "crypto-readiness": cryptoTradePlans,
     "crypto-swing-readiness": cryptoSwingReadiness?.plans ?? [],
     "squeeze-breakout-readiness": squeezeReadiness?.plans ?? [],
+    "momentum-breakout-readiness": [],
+    "crypto-ignition-readiness": [],
   } satisfies Record<Exclude<PaperBotProfile["tradePlan"]["source"], "not-configured">, PaperBotTradePlan[]>;
 
   const candidateTradePlans = profile.tradePlan.source === "not-configured"
@@ -775,18 +772,18 @@ export default function PaperBotLab() {
 
   const capitalModel = ledgerReport?.accountingModel;
   const programCapital = capitalModel?.programStartingCapital ?? 1000;
-  const reservedBotPools = capitalModel?.reservedBotPools ?? 6;
+  const reservedBotPools = capitalModel?.reservedBotPools ?? PAPER_BOT_PROFILES.length;
   const botPoolCapital = capitalModel?.challengeStartingCash ?? 100;
-  const unallocatedReserve = capitalModel?.unallocatedReserve ?? 400;
+  const unallocatedReserve = capitalModel?.unallocatedReserve ?? Math.max(0, programCapital - reservedBotPools * botPoolCapital);
 
   return <main className={styles.botLab}>
     <header className={styles.botLabHeader}>
       <div>
         <Link href="/paper-trading">← Trading Lab</Link>
         <h1>Bot Portfolios</h1>
-        <p>A $1,000 virtual trading fund reserves six $100 bot pools now, with the remaining $400 held for future bots. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot.</p>
+        <p>A $1,000 virtual trading fund keeps each strategy in its own $100 bot pool. Holdings, P/L, orders, fills, and trade history stay attributed to the assigned bot, with unused capital reserved for future strategies.</p>
       </div>
-      <div className={styles.botLabActions}><Link href="/paper-trading/signals">Signal Desk</Link><button onClick={refreshAll}>Refresh</button></div>
+      <div className={styles.botLabActions}><Link href={`/paper-trading/bots/${profile.id}`}>Bot Profile</Link><Link href="/paper-trading/signals">Signal Desk</Link><button onClick={refreshAll}>Refresh</button></div>
     </header>
 
     <nav className={styles.botSwitcher} aria-label="Bot portfolios">
