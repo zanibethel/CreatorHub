@@ -22,10 +22,14 @@ GRANT SELECT,INSERT,UPDATE ON public.paper_atlas_reservations TO service_role;
 
 CREATE OR REPLACE FUNCTION public.paper_atlas_reserve(
   p_decision_id text,p_opportunity_id text,p_pool text,p_amount numeric,
-  p_pool_limit numeric,p_pool_committed numeric)
+  p_expected_bot text DEFAULT 'default-diverse')
 RETURNS jsonb LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE
   v_cash numeric;
+  v_starting_cash numeric;
+  v_pool_limit numeric;
+  v_pool_committed numeric;
+  v_pending numeric;
   v_reserved numeric;
   v_pool_reserved numeric;
   v_id uuid;
@@ -37,14 +41,13 @@ BEGIN
     OR length(p_decision_id)>160 OR length(p_opportunity_id)>240
     OR p_pool NOT IN ('day','multi-day','multi-week')
     OR p_amount IS NULL OR p_amount<=0 OR p_amount>100
-    OR p_pool_limit IS NULL OR p_pool_limit<0
-    OR p_pool_committed IS NULL OR p_pool_committed<0 THEN
+    OR p_expected_bot <> 'default-diverse' THEN
     RETURN jsonb_build_object('reserved',false,'reason','invalid-request');
   END IF;
   -- A locked ledger row is the concurrency gate for all Atlas claims.
-  SELECT cash INTO v_cash FROM public.paper_bot_ledgers
+  SELECT cash,starting_cash INTO v_cash,v_starting_cash FROM public.paper_bot_ledgers
     WHERE bot_id='default-diverse' FOR UPDATE;
-  IF NOT FOUND OR v_cash IS NULL OR v_cash<0 THEN
+  IF NOT FOUND OR v_cash IS NULL OR v_cash<0 OR v_starting_cash IS NULL OR v_starting_cash<=0 THEN
     RETURN jsonb_build_object('reserved',false,'reason','ledger-unavailable');
   END IF;
   SELECT reservation_id INTO v_id FROM public.paper_atlas_reservations
@@ -53,11 +56,21 @@ BEGIN
   IF FOUND THEN
     RETURN jsonb_build_object('reserved',false,'reason','duplicate','reservationId',v_id);
   END IF;
+  -- Pool ceilings are derived from Atlas's own starting cash, never caller-supplied.
+  v_pool_limit := v_starting_cash * CASE p_pool WHEN 'day' THEN 0.20 WHEN 'multi-day' THEN 0.40 ELSE 0.40 END;
+  SELECT coalesce(sum(greatest(market_value,0)),0) INTO v_pool_committed
+    FROM public.paper_bot_positions WHERE bot_id='default-diverse' AND pool_id=p_pool;
+  -- Fail closed while any order is unresolved; an unconfirmed fill may already consume cash.
+  SELECT count(*) INTO v_pending FROM public.paper_bot_orders
+    WHERE bot_id='default-diverse' AND status IN ('prepared','submitted','accepted','partially_filled','pending_new');
+  IF v_pending>0 THEN
+    RETURN jsonb_build_object('reserved',false,'reason','unresolved-orders');
+  END IF;
   SELECT coalesce(sum(amount),0),
          coalesce(sum(amount) FILTER (WHERE pool=p_pool),0)
     INTO v_reserved,v_pool_reserved FROM public.paper_atlas_reservations
     WHERE bot_id='default-diverse' AND status='reserved';
-  IF v_cash-v_reserved<p_amount OR p_pool_committed+v_pool_reserved+p_amount>p_pool_limit THEN
+  IF v_cash-v_reserved<p_amount OR v_pool_committed+v_pool_reserved+p_amount>v_pool_limit THEN
     RETURN jsonb_build_object('reserved',false,'reason','insufficient-capacity');
   END IF;
   INSERT INTO public.paper_atlas_reservations
@@ -66,7 +79,7 @@ BEGIN
   RETURNING reservation_id INTO v_id;
   RETURN jsonb_build_object('reserved',true,'reservationId',v_id);
 END $$;
-REVOKE ALL ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,numeric,numeric)
+REVOKE ALL ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text)
   FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,numeric,numeric)
   TO service_role;
