@@ -1,4 +1,5 @@
 import {NextResponse} from "next/server";
+import {historicalResearchUniverse,scheduledResearchAsset} from "@/lib/historical-research-universe";
 import {createAdminSupabaseClient} from "@/lib/supabase-admin";
 import {
   HISTORY_VERSION, normalizeHistoryBars, researchSummary, extractHistoryExamples,
@@ -10,22 +11,12 @@ export const maxDuration=60;
 const DATA_URL="https://data.alpaca.markets";
 const STOCK=/^[A-Z][A-Z0-9.]{0,9}$/;
 const CRYPTO=/^[A-Z0-9]{2,16}\/USD$/;
-const UNIVERSE=[
-  {assetClass:"stock" as const,symbol:"AAPL"},
-  {assetClass:"stock" as const,symbol:"MSFT"},
-  {assetClass:"stock" as const,symbol:"NVDA"},
-  {assetClass:"stock" as const,symbol:"QQQ"},
-  {assetClass:"crypto" as const,symbol:"BTC/USD"},
-  {assetClass:"crypto" as const,symbol:"ETH/USD"},
-  {assetClass:"crypto" as const,symbol:"SOL/USD"},
-  {assetClass:"crypto" as const,symbol:"ADA/USD"},
-];
 function reply(data:unknown,status=200) {
   return NextResponse.json(data,{status,headers:{"Cache-Control":"no-store"}});
 }
 function selectAsset(request:Request) {
   const url=new URL(request.url);
-  const defaultItem=UNIVERSE[Math.floor(Date.now()/86_400_000)%UNIVERSE.length];
+  const defaultItem=scheduledResearchAsset(historicalResearchUniverse(),Date.now(),4);
   const assetClass=url.searchParams.get("assetClass") ?? defaultItem.assetClass;
   const symbol=(url.searchParams.get("symbol") ?? (assetClass===defaultItem.assetClass?defaultItem.symbol:""))
     .toUpperCase().replace("-", "/");
