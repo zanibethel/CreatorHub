@@ -68,3 +68,10 @@ test("Atlas crypto partial profit restores fee-aware protection",()=>{
   assert.match(route,/average\/\(1-feeRate\)/);
   assert.match(route,/Math\.max\(currentStop,breakEven,mark-riskDistance\)/);
 });
+
+
+test("Atlas crypto migration keeps reservation function dollar tags intact",()=>{
+  assert.match(sql,/AS \$atlas_reserve\$/);
+  assert.match(sql,/END \$atlas_reserve\$;/);
+  assert.doesNotMatch(sql,/AS \$\nDECLARE/);
+});
