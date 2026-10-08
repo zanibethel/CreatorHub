@@ -449,8 +449,10 @@ export async function GET(request:Request){
 
     if(filledQty>0){
       const stop=num(order.protective_stop);
-      if(!stop)return reply({error:"Atlas filled entry is missing its protective stop.",paperOnly:true,critical:true},503);
-      const protection=await ensureProtection(order.symbol,stop,order.client_order_id);
+      const orderPool=order.pool_id==="day"||order.pool_id==="multi-day"||order.pool_id==="multi-week"
+        ?order.pool_id:null;
+      if(!stop||!orderPool)return reply({error:"Atlas filled entry is missing its protective stop or funded pool.",paperOnly:true,critical:true},503);
+      const protection=await ensureProtection(order.symbol,stop,order.client_order_id,orderPool,clock.is_open===true);
       if(!protection.ok)return reply({error:"Atlas fractional position is not confirmed protected.",
         paperOnly:true,critical:true,protection},503);
       const {data:consumed,error:consumeError}=await db.rpc("paper_atlas_consume",{
@@ -488,15 +490,9 @@ export async function GET(request:Request){
     if(entryError||!entryRows?.[0])return reply({error:"Atlas position has no attributed entry plan.",critical:true},503);
     const parent=entryRows[0] as OrderRow;
 
-    if(position.pool_id!=="day")
-      return reply({ok:true,paperOnly:true,action:"none",reason:"non-day-position-remains-audit-only",symbol:position.symbol});
-
-    if(clock.is_open!==true)
-      return reply({ok:true,paperOnly:true,action:"hold",reason:"market-closed",symbol:position.symbol});
-
-    const liveQuote=await quote(position.symbol);
-    const mark=num(liveQuote?.bid)??num(liveQuote?.ask);
-    if(!mark)return reply({error:"Atlas position quote unavailable."},503);
+    const pool=position.pool_id==="day"||position.pool_id==="multi-day"||position.pool_id==="multi-week"
+      ?position.pool_id:null;
+    if(!pool)return reply({error:"Atlas position has no valid funded pool.",critical:true},503);
 
     const quantity=floorQty(Math.min(num(position.quantity)??0,num(brokerPos.qty)??0));
     const average=num(position.average_entry);
@@ -509,9 +505,23 @@ export async function GET(request:Request){
     if(!(quantity>0&&average&&initialStop&&initialStop<average&&currentStop&&target))
       return reply({error:"Atlas position risk plan is incomplete.",critical:true},503);
 
-    if(minutesToClose!==null&&minutesToClose<=10){
-      const exit=await submitManagedExit(position.symbol,quantity,"day-close",parent.client_order_id,
-        "Atlas v2 mandatory intraday exit before the regular-session close.");
+    if(clock.is_open!==true){
+      const protection=await ensureProtection(position.symbol,currentStop,parent.client_order_id,pool,false);
+      return reply({
+        ok:protection.ok,paperOnly:true,
+        action:pool==="day"?"day-carryover-protected":"hold",
+        reason:"market-closed",symbol:position.symbol,pool,protection,
+        critical:pool==="day",
+      },protection.ok?200:503);
+    }
+
+    const liveQuote=await quote(position.symbol);
+    const mark=num(liveQuote?.bid)??num(liveQuote?.ask);
+    if(!mark)return reply({error:"Atlas position quote unavailable."},503);
+
+    if(pool==="day"&&minutesToClose!==null&&minutesToClose<=10){
+      const exit=await submitManagedExit(position.symbol,quantity,"day-close",parent.client_order_id,pool,
+        "Atlas v3 mandatory intraday exit before the regular-session close.");
       return reply({paperOnly:true,action:"day-close",symbol:position.symbol,...exit},exit.ok?200:503);
     }
 
