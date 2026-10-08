@@ -10,7 +10,7 @@ Live-money execution is disabled across the entire program.
 | Bot | Codename | Role | Typical horizon | Production simulation state |
 |---|---|---|---|---|
 | Default Diverse | **Atlas** | Diversified generalist | intraday to multi-week | evidence/review |
-| Penny Volatility | **Fuse** | sub-$5 volatility / momentum | intraday | planned |
+| Penny Volatility | **Fuse** | $0.08–$5 early volatility / momentum | intraday | active research / orders disabled |
 | Weekly Swing | **Harbor** | selective trend continuation / breakout | multi-day | automatic |
 | Crypto Swing | **Orbit** | selective crypto swing | 1–7 days | evidence/review |
 | Squeeze Breakout | **Coil** | compression + volume ignition | intraday to several sessions | evidence/review |
@@ -28,7 +28,7 @@ Atlas should not become the catch-all place where specialized setup rules are ad
 
 **Job:** isolate the unusual liquidity, spread, sizing, and volatility behavior of stocks from roughly $0.08 to $5.
 
-Fuse remains planned. Penny-stock rules should not be weakened into Pulse simply to gain coverage.
+Fuse v1 is live for independent *research-only* scanner scoring, five-minute market-data checks, rejected prospect journaling and isolated $100 virtual-equity review. Broker submission and intraday close-flat management are **not armed**. See [Fuse research strategy](PAPER_FUSE_PENNY_VOLATILITY.md). Penny-stock rules must not be weakened into Pulse.
 
 ## Harbor — Weekly Swing
 
@@ -134,7 +134,7 @@ Risk/execution:
 A scanner discovery is not an order.
 
 Current stock routing:
-- sub-$5 candidates: Atlas / Fuse lane as applicable
+- $0.08–$5 candidates: Atlas / Fuse research lane as applicable
 - non-penny review-ready stock candidates: Atlas + Pulse + Harbor
 - each strategy independently accepts or rejects the setup
 
