@@ -28,3 +28,16 @@ on conflict (bot_id) do update set
   broker_tag=excluded.broker_tag,
   metadata=public.paper_bot_ledgers.metadata || excluded.metadata,
   updated_at=now();
+
+
+update public.paper_capital_plan
+set reserved_bot_pools=8,
+    allocated_capital=800,
+    unallocated_reserve=200,
+    metadata=metadata || jsonb_build_object(
+      'description','Eight $100 bot pools reserved now; remaining $200 held for future bot pools.',
+      'pulsePoolReserved',true,
+      'sparkPoolReserved',true
+    ),
+    updated_at=now()
+where plan_id='main';
