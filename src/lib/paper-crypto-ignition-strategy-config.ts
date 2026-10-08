@@ -1,0 +1,52 @@
+export const CRYPTO_IGNITION_STRATEGY_V1 = {
+  id: "crypto-ignition-v1",
+  botProfileId: "crypto-ignition-100",
+  displayName: "Spark — $100 Crypto Ignition Bot",
+  version: 1,
+  mode: "paper-research",
+  timezone: "America/Chicago",
+  universe: ["BTC/USD","ETH/USD","SOL/USD","LINK/USD","DOT/USD"],
+  cadence: {
+    maximumNewEntriesPerDay: 3,
+    maximumOpenPositions: 1,
+  },
+  marketData: {
+    maximumQuoteAgeSeconds: 60,
+    maximumSpreadPct: 0.15,
+    minimumCompleted5mBars: 18,
+    preferredCompleted15mBars: 16,
+  },
+  setup: {
+    minimumSourceScore: 60,
+    maximumSourceScore: 79,
+    fastMomentumLookbackBars: 3,
+    minimumFastMomentumPct: 0.20,
+    breakoutLookbackBars: 6,
+    breakoutBufferPct: 0.03,
+    minimumRelativeVolume: 1.10,
+    maximumChaseAtr: 0.50,
+    minimumAtrPct: 0.08,
+    maximumAtrPct: 1.75,
+    requireSlowConfirmationWhenAvailable: false,
+  },
+  risk: {
+    riskPerTradePct: 0.35,
+    maximumPositionAllocationPct: 20,
+    maximumOpenRiskPct: 0.50,
+    dailyRealizedLossLimitPct: 1.00,
+    minimumStopPct: 0.80,
+    maximumStopPct: 2.25,
+    atrStopMultiplier: 1.35,
+    firstTakeProfitR: 2.00,
+    firstTakeProfitFraction: 0.50,
+    protectWinnerAtR: 1.00,
+    trailRemainder: true,
+  },
+  execution: {
+    paperOnly: true,
+    executionEnabledByDefault: false,
+    note: "Evidence-first until the dedicated crypto position manager is wired and validated.",
+  },
+} as const;
+
+export type CryptoIgnitionStrategyConfig = typeof CRYPTO_IGNITION_STRATEGY_V1;
