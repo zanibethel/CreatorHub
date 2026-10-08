@@ -32,6 +32,10 @@
     {
       "path": "/api/paper-trading/bots/crypto-ignition-run",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/paper-trading/historical-patterns/run",
+      "schedule": "15 8 * * *"
     }
   ]
 }
