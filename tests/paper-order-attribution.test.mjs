@@ -42,7 +42,7 @@ const attribution = module("../src/lib/paper-order-attribution.ts", { "./paper-b
 test("paper bot broker tags are short and unique", () => {
   const tags = profiles.PAPER_BOT_PROFILES.map(profile => profile.brokerTag);
   assert.equal(new Set(tags).size, tags.length);
-  assert.deepEqual(Array.from(tags), ["div", "pny", "sw3", "csw", "sqz", "wkd", "pls", "spk"]);
+  assert.deepEqual(Array.from(tags), ["div", "pny", "sw3", "csw", "sqz", "pls", "spk", "wkd"]);
 });
 
 test("client order ids encode bot ownership and strategy version", () => {
