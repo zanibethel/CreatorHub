@@ -86,6 +86,6 @@ export function evaluateCryptoIgnitionCandidate(input:{
     fastMomentumPct:source.fastMomentumPct,slowMomentumPct:source.slowMomentumPct,
     relativeVolume,atrPct:source.atrPct,trigger:source.trigger,maxEntry:source.maxEntry,
     protectiveStop,takeProfit,plannedQuantity,plannedNotional,plannedRiskDollars,plannedRiskPct,
-    blockers,waitingOn,paperOnly:true as const,
+    blockers,waitingOn,trackingBars:source.trackingBars,paperOnly:true as const,
   };
 }
