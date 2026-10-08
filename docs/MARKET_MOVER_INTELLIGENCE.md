@@ -1,6 +1,6 @@
-# Market Mover Intelligence — v1
+# Market Mover Intelligence — v2 observational quality gates
 
-Status: **observational implementation**, pending production verification. This is one research module under the Historical Pattern Intelligence Engine. Live trading remains disabled and **this module cannot authorize simulated trades either**.
+Status: **v2 signal-quality hardening**, release pending verification. This is one research module under the Historical Pattern Intelligence Engine. Live trading remains disabled and **this module cannot authorize simulated trades either**.
 
 ## Hypothesis
 Large market participants may leave reproducible activity patterns before some 4–20% moves over intraday, 1–3-day, and two-week horizons. Test this claim against **matched non-winners**. Do not treat correlation with momentum, price, or volume as proof that a particular institution bought.
@@ -14,6 +14,19 @@ Large market participants may leave reproducible activity patterns before some 4
 - View `/paper-trading/movers`; fetch public, read-only observations from `/api/paper-trading/market-movers`. No secret credentials reach the browser.
 - Source failures yield partial results/errors and do not create synthetic evidence. Idempotent 15-minute buckets reduce accidental duplicate samples.
 - **No changes** to the existing scanner Prospect Score, bot readiness, bot trade conditions, per-bot ledgers, orders, risk, execution, or Pine simulation logic.
+
+## Midas v2 quality control (crypto depth)
+
+The original BAT/USD snapshot displayed about $7 on one side of the book yet received a 65/100 strength score. It remained extreme across scans and did not represent verified accumulation. The v2 safeguards prevent such snapshots from receiving an eligible score.
+
+- Continue collecting timestamped **rejected** and **watching** observations as evidence with `quality_status`, `quality_version`, `quality_reason`, and raw unverified imbalance.
+- Both near-midpoint displayed sides must be **at least $20,000 each**, with **$100,000 combined** within 2% of midprice; spread must be **<=0.50%**. These are provisional research floor settings, not empirically optimized signal thresholds.
+- Both sides must have **at least two eligible price levels**, and no single displayed level may hold >90% of a side's depth. A direction needs **>=15% signed imbalance**.
+- Before a positive score, a **separate persisted v2 quality-gated observation** from 10–45 minutes earlier must independently show the same direction. Confirmations are per-symbol and per-direction with strict first-observable-time fencing. Current 15-minute scans permit two-point confirmation. A repeated thin book is still rejected.
+- The public API shows legacy ungated crypto scores as zero eligible score, retains the old raw value in the evidence, and labels the sample **legacy**. This does not rewrite any existing Supabase event record.
+- `score` is zero until `quality_status=confirmed`; this confirms **consistent displayed depth**, not an actual whale purchase, actor identity, or model forecasting accuracy. Confidence remains a low-evidence research label and is not a calibrated probability. The scanner and all simulated bot execution gates are unchanged.
+- If history cannot be read, crypto signal evaluation fails closed instead of silently assuming confirmation.
+- Thresholds and venue coverage must be validated against long-run false-positive and missed-move results before they are tuned or influence bot decision making.
 
 ## Score interpretation
 This is a directional **research strength** signal, **not** win probability. Displayed depth and isolated trade prints are low-confidence proxies. A strong displayed bid imbalance can mean short-lived liquidity, not verified accumulation. Stock print direction is always `unknown` in v1. Research scores from buy-side and sell-side snapshots must never be pooled as if both predict upside.
@@ -38,8 +51,9 @@ Each source needs its own immutable event ID, detection/availability timestamps,
 - [x] Evidence-only scoring code, test fixtures and append-only DB migration committed on a feature branch
 - [x] Private Supabase table created and RLS enabled
 - [x] Cron sampler, read-only API, dashboard and 15-minute schedule implemented on branch
-- [ ] PR reviewed, CI verified and merged
-- [ ] Production Vercel deployment healthy, scheduled run successful and at least one **real** observation persisted
+- [x] Original v1 merged and production read endpoint verified; real crypto book observations persisted
+- [ ] v2 quality-hardening PR reviewed, CI verified and merged
+- [ ] v2 production deployment healthy and next two separate scheduled collection cycles verified with gated evidence
 - [ ] Verified Form 4 ingestion; historical institutional quarterly ingestion
 - [ ] Verified on-chain wallet clustering; historical control-group research
 - [ ] Out-of-sample calibration; **only then** discuss scanner score influence
