@@ -5,6 +5,7 @@ import { PAPER_BOT_PROFILES } from "@/lib/paper-bot-profiles";
 import { BotMascot, BotBadge } from "./BotMascot";
 import PaperSignalPipeline from "./PaperSignalPipeline";
 import FuseResearchPanel from "./FuseResearchPanel";
+import PulseHandoffPanel from "./PulseHandoffPanel";
 import usePaperBotLedgers from "./usePaperBotLedgers";
 import usePaperProspects, { type PaperProspect } from "./usePaperProspects";
 import usePaperSignalDesk from "./usePaperSignalDesk";
@@ -120,6 +121,8 @@ export default function BotProfilePageClient({botId}:{botId:string}){
         ...profile.notes.slice(0,2),
       ]}/>
     </section>
+
+    {botId==="momentum-breakout-100"?<PulseHandoffPanel/>:null}
 
     {botId==="penny-volatility-day-100"?<FuseResearchPanel history={ledgers?.history?.[botId]??[]} refreshVersion={0}/>:null}
 
