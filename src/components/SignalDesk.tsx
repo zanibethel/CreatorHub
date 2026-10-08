@@ -18,12 +18,7 @@ const ACTIVE_PROFILES = PAPER_BOT_PROFILES.filter(profile => profile.status === 
 const TERMINAL_ORDER_STATUSES = new Set(["filled","canceled","cancelled","rejected","expired","replaced","closed","done_for_day"]);
 
 function shortName(profile: PaperBotProfile) {
-  if (profile.id === "weekend-crypto-day-100") return "Daily Crypto";
-  if (profile.id === "three-trade-weekly-swing-100") return "Weekly Swing";
-  if (profile.id === "crypto-swing-100") return "Crypto Swing";
-  if (profile.id === "squeeze-breakout-100") return "Squeeze Breakout";
-  if (profile.id === "penny-volatility-day-100") return "Penny Volatility";
-  return "Default Diverse";
+  return profile.codename ?? profile.role ?? profile.name;
 }
 
 function normalizedSymbol(value: string) {
@@ -207,7 +202,7 @@ export default function SignalDesk() {
               <h2>{shortName(profile)}</h2>
               <p>{profile.style}</p>
             </div>
-            <Link href="/paper-trading/bots">Open bot portfolio →</Link>
+            <Link href={`/paper-trading/bots/${profile.id}`}>Open bot profile →</Link>
           </div>
           <PaperSignalPipeline
             botName={shortName(profile)}
