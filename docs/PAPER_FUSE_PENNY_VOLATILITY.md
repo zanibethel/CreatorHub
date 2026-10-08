@@ -6,7 +6,7 @@
 - Profile: `/paper-trading/bots/penny-volatility-day-100`
 - Scheduler: `*/5 * * * 1-5` (the readiness evaluator independently guards NY regular-session entry times)
 - Data: scanner-assigned U.S. stock prospects; fresh Tradier consolidated quotes preferred, otherwise Alpaca IEX quotes; completed regular-session Alpaca IEX five-minute candles only.
-- No real orders, simulated orders, staging, fills, live brokerage API submission, automated exits or official challenge day counter are activated.
+- No broker-submitted orders, simulated execution fills, staging, automated exits or official challenge day counter are activated. Counterfactual price-path research is enabled but is not an executed trade.
 
 ## Independent v1 research gates
 
@@ -34,6 +34,22 @@ Score is **Fuse-specific**: 10 scanner provenance, 25 volume ignition, 20 fast m
 
 Every authenticated scheduled evaluation inserts at most one row per symbol/5-minute UTC bucket into `paper_fuse_observations`, with quote/bar timestamps, score, raw inputs, proposed risk plan, blockers, and waiting reasons. Deduplication uses the composite PK; new rows are copied to `paper_bot_journal` for existing Signal Desk, with refusal recorded explicitly. Public GET queries never journal. Duplicate scheduler invocations do not resubmit the same event. Future historical-pattern/market-mover evidence is shown as **shadow-only**, with no risk-gate bypass.
 
+## Research-only counterfactual outcomes (phase 1)
+
+The authenticated five-minute Fuse readiness scheduler now seeds day-scoped, unique
+`paper_bot_counterfactuals` studies for genuinely `research-ready` candidates.
+It advances those studies on later completed regular-session five-minute bars,
+including when a candidate disappears from the scanner's current assignments.
+The existing counterfactual engine records ambiguous trigger/stop ordering rather
+than assuming a winning intrabar sequence and expires unresolved studies at the
+end of the New York session (or on the next cron if one is missed).
+
+Each seeded scenario has `researchOnly=true`, `brokerOrderPlaced=false`, and
+`executedTrade=false`. No order submission, broker fill, automated exit, or
+virtual-ledger P/L is recorded. Public readiness reads do not create/update
+counterfactuals. The first qualifying signal per symbol and New York date is
+studied; these studies are hypothetical and must not be mixed into executed P/L.
+
 ## Release / validation
 
 1. Ensure production build compiles and all `npm run test:paper` tests pass.
@@ -43,4 +59,4 @@ Every authenticated scheduled evaluation inserts at most one row per symbol/5-mi
 5. Confirm weekday scheduled calls produce evidence only when assigned scanner prospects are fresh.
 6. After several real sessions, review refusals, missing winners, MFE/MAE, price-source bias, latency, slippage, partial fills, halts, forced close and price-tier profitability. A later order/execution phase needs a new explicitly approved, independently tested switch and full stop/flatten manager.
 
-**Not yet built:** submission lifecycle, halt-safe close management, counterfactual price tracking, calibrated historical model influence or validated profitability. Do not describe `research-ready` as `trade-executable`.
+**Not yet built:** submission lifecycle, halt-safe close management, calibrated historical model influence or validated profitability. Research-only counterfactual price tracking is implemented, but requires full-session validation. Do not describe `research-ready` as `trade-executable`.
