@@ -8,7 +8,7 @@ The PAPER program uses a persisted $1,000 virtual fund. Eight $100 bot pools are
 - Production `GET /api/paper-trading/bots` returned HTTP 200 with eight bots and $1,000 total program capital ($800 reserved, $200 unallocated).
 - Production readiness endpoints returned HTTP 200 for Pulse, Spark, Flash, Harbor, Orbit, and Coil. Pulse and Spark report `paperOnly: true`, `executionEnabled: true`, `submissionReady: false` at the audit time. Armed does not mean a trade was submitted or filled.
 - Atlas has reconciled simulated SOL/USD fills. Pulse and Spark do not yet have journal events, broker fills, or counterfactual rows. Their first qualifying setups and scheduled-run evidence need follow-up verification.
-- Fuse has a profile and ledger but `strategy_id: null`, `not-configured` trade-plan source and simulated execution disabled. It is not built as a functioning strategy. Define and validate its independent research/readiness route and risk model before separately authorizing simulated orders.
+- Fuse now has active research strategy `penny-volatility-day-v1`, a dedicated read-only readiness route/profile and idempotent five-minute decision storage in `paper_fuse_observations`. Production GET returned HTTP 200, $100 virtual equity and `executionEnabled: false`, with no assigned fresh prospects at the early-morning verification. **Simulated order submission and protective/flatten manager are not implemented or authorized.** See `PAPER_FUSE_PENNY_VOLATILITY.md`.
 - No bot has real-money permission. The official challenge counter remains unstarted pending the owner's separate approval after carousel completion.
 
 ## Default profile
@@ -26,7 +26,7 @@ The PAPER program uses a persisted $1,000 virtual fund. Eight $100 bot pools are
 
 This is the current default bot. The existing scoring, regime, stop-loss, risk-sizing, portfolio-heat, correlation, and kill-switch architecture belongs to this profile.
 
-## Planned experimental profiles
+## Research-stage experimental profiles
 
 ### $100 Penny Volatility Day Bot
 
@@ -35,13 +35,13 @@ Purpose: test whether a deliberately higher-volatility, intraday-only strategy c
 Persisted challenge intent:
 - Starting capital: $100.
 - Stock-only.
-- Penny/low-priced universe, initially represented by a maximum candidate price of $5.
+- Penny/low-priced universe from $0.08 to $5.00 inclusive.
 - Intraday-only; no intentional overnight holdings.
-- Dedicated liquidity, spread, volatility, sizing, stop, and daily-loss rules are required before activation.
+- Dedicated research rules now check completed five-minute bars, relative volume, spread, market session, volatility, breakout, chase, buying power, size, stop and daily loss.
 - Higher volatility never bypasses protective stops or kill switches.
-- Status: planned/disabled.
+- Status: active research / simulated execution disabled.
 
-The exact entry frequency and risk parameters are intentionally not fixed yet. They should be designed from market-data availability and replay/paper tests rather than copied from the diversified bot.
+Initial v1 research caps are 0.5% planned virtual-equity loss per trade, 20% allocation, and 1.5% daily loss. These values remain provisional pending real-session evidence and counterfactual testing. The official challenge counter is unstarted, and no fills are assumed.
 
 ### $100 Daily Crypto Day Bot
 
@@ -175,7 +175,7 @@ The code registry lives in `src/lib/paper-bot-profiles.ts`.
 
 Current eight reserved $100 pools:
 1. `default-diverse` — active.
-2. `penny-volatility-day-100` — planned/disabled, but its $100 pool is reserved.
+2. `penny-volatility-day-100` — active research-only Fuse v1, $100 pool reserved; broker submission disabled.
 3. `three-trade-weekly-swing-100` — active under `three-trade-weekly-swing-v1`; PAPER bracket execution is armed but still gated by same-session readiness.
 4. `crypto-swing-100` — active research-only under `crypto-swing-v1`; dynamic scanner-fed 1–7 day crypto swing plans with execution disabled.
 5. `squeeze-breakout-100` — active research-only under `squeeze-breakout-v1`; dedicated compressed-base / volume-ignition stock scanner with PAPER execution disabled during initial validation.
