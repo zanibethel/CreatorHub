@@ -104,7 +104,7 @@ export default function PaperSignalPipeline({
       if (event.event_type === "prospect-intake") {
         return !["staged","eligible"].includes((event.qualification ?? "").toLowerCase());
       }
-      return ["strategy-rejected","broker-rejected","canceled","expired","execution-error"].includes(event.event_type);
+      return ["rejected","canceled","expired","replaced","execution_error"].includes(event.event_type);
     })
     .slice(0, compact ? 3 : 8);
 
@@ -223,7 +223,9 @@ export default function PaperSignalPipeline({
           const move = numeric(event.market_snapshot,"percentChange");
           const qualification = event.event_type === "prospect-intake"
             ? event.qualification ?? "blocked"
-            : event.event_type;
+            : event.event_type === "rejected"
+              ? event.metadata.lifecycleSource === "broker-reconciliation" ? "broker rejected" : "strategy rejected"
+              : event.event_type;
           return <article className={styles.signalCard} key={`decision-${event.symbol}-${event.occurred_at}-${index}`}>
             <div className={styles.signalCardTop}>
               <div><strong>{event.symbol ?? "Unknown"}</strong><small>{event.event_type === "prospect-intake" ? "BOT INTAKE DECISION" : "AUTOMATED SYSTEM DECISION"}</small></div>
