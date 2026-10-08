@@ -115,7 +115,8 @@ END $$;
 REVOKE ALL ON FUNCTION public.paper_atlas_release(uuid) FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_release(uuid) TO service_role;
 
--- A reservation may be consumed only after a matching Atlas order is observed.
+-- A reservation may be consumed only after a matching fully filled Atlas order is observed.
+-- Partial fills retain the full reservation until a separate terminal reconciliation protocol exists.
 -- Do not mark ambiguous broker outcomes consumed or released automatically.
 CREATE OR REPLACE FUNCTION public.paper_atlas_consume(
   p_reservation_id uuid,p_client_order_id text)
@@ -136,7 +137,7 @@ BEGIN
       AND o.side='buy'
       AND o.pool_id=r.pool
       AND (r.client_order_id IS NULL OR r.client_order_id=p_client_order_id)
-      AND o.status IN ('filled','partially_filled')
+      AND o.status = 'filled'
       AND coalesce(o.requested_notional,0)>0
       AND o.requested_notional<=r.amount
   ) THEN RETURN false; END IF;
