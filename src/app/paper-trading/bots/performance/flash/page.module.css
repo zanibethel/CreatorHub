@@ -1,0 +1,13 @@
+.case{background:linear-gradient(145deg,#152b34,#09151d);border:1px solid #486478;border-radius:14px;overflow:hidden}
+.case summary{cursor:pointer;padding:17px 18px;display:flex;justify-content:space-between;align-items:center;gap:15px;flex-wrap:wrap;list-style-position:inside;color:#f1fbfc}
+.case summary strong{font-size:16px}.case summary small{display:block;color:#a8cad4;margin:6px 0 0;font-size:11px}
+.caseStatus{background:#193b4c;color:#b3e6ee;font-size:11px;font-weight:700;padding:8px 10px;border-radius:9px}
+.caseContent{padding:0 18px 18px;display:grid;gap:17px}
+.dataGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+.dataGrid>div{border:1px solid #23485a;background:#0b202b;border-radius:10px;padding:12px;display:grid;gap:5px;min-width:0}
+.dataGrid span{color:#93bbc8;font-size:11px}.dataGrid strong{color:#f1fcff;font-weight:650;font-size:13px;overflow-wrap:anywhere}
+.evidence{background:#13232d;padding:15px;border:1px solid #30556b;border-radius:10px}
+.evidence>strong{font-size:13px}.evidence ul{margin:10px 0 0;padding-left:22px;color:#bcdbe5;font-size:12px;line-height:1.75}
+.evidence p{color:#c4d6dd;font-size:12px}
+.disclaimer{font-size:11px;line-height:1.6;color:#a1b8c3;margin:0}
+@media(max-width:650px){.dataGrid{grid-template-columns:1fr}.case summary{padding:14px}.caseContent{padding:0 13px 15px}}
