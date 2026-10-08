@@ -70,15 +70,11 @@ for (const bot of research) {
   });
 }
 
-test("Atlas is now a guarded five-minute PAPER executor", () => {
+test("Atlas remains audit-scheduled while fractional protection is being corrected", () => {
   assert.ok(profiles.includes('id: "default-diverse"'));
-  const job=cron.find((entry)=>entry.path==="/api/paper-trading/bots/atlas-run");
-  assert.ok(job);
-  assert.equal(job.schedule,"*/5 * * * *");
+  assert.ok(cronPaths.includes("/api/paper-trading/bots/atlas-decision-audit"));
+  assert.ok(!cronPaths.includes("/api/paper-trading/bots/atlas-run"));
   const route=read("src/app/api/paper-trading/bots/atlas-run/route.ts");
-  assert.match(route,/paper_atlas_authorize_candidate/);
-  assert.match(route,/paper_atlas_reserve/);
-  assert.match(route,/paper_atlas_bind_order/);
-  assert.match(route,/order_class:"bracket"/);
-  assert.doesNotMatch(route,/https:\/\/api\.alpaca\.markets/);
+  assert.match(route,/executionArmed=false/);
+  assert.match(route,/fractional-protection-pending/);
 });

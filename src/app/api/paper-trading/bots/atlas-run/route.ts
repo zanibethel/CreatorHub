@@ -84,6 +84,9 @@ export async function GET(request:Request){
   const auditBody=await auditResponse.json().catch(()=>({}));
   if(!auditResponse.ok)return reply({error:"Atlas audit failed; execution skipped.",audit:auditBody},503);
 
+  const executionArmed=false;
+  if(!executionArmed)return reply({ok:true,paperOnly:true,action:"none",reason:"fractional-protection-pending",audit:auditBody});
+
   const db=createAdminSupabaseClient();
   const brokerHeaders={
     "APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,
