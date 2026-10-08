@@ -106,7 +106,7 @@ GRANT EXECUTE ON FUNCTION public.paper_atlas_reserve(text,text,text,numeric,text
 -- The prepared order must carry reservation + decision lineage in metadata.
 CREATE OR REPLACE FUNCTION public.paper_atlas_bind_order(
   p_reservation_id uuid,p_client_order_id text)
-RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $
+RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
 DECLARE v_changed integer;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
@@ -141,7 +141,7 @@ BEGIN
      AND client_order_id IS NULL;
   GET DIAGNOSTICS v_changed=ROW_COUNT;
   RETURN v_changed=1;
-END $;
+END $$;
 REVOKE ALL ON FUNCTION public.paper_atlas_bind_order(uuid,text)
   FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_atlas_bind_order(uuid,text)
