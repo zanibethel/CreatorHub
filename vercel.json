@@ -48,6 +48,10 @@
     {
       "path": "/api/paper-trading/historical-patterns/intraday/run",
       "schedule": "45 */4 * * *"
+    },
+    {
+      "path": "/api/paper-trading/market-movers/insiders/scan",
+      "schedule": "25 */6 * * *"
     }
   ]
 }
