@@ -34,7 +34,7 @@ const js=ts.transpileModule(source,{compilerOptions:{
 }}).outputText;
 const fixedTime=Date.parse("2026-10-08T19:45:00Z");
 class FixedDate extends Date {static now(){return fixedTime;}}
-function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false}={}){
+function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false,unavailable=false}={}){
   const events=[],orders=new Map();
   let canceled=false,flattenCount=0,parentCanceled=false;
   const entry={client_order_id:CLIENT,symbol:"NVD",side:"buy",
@@ -82,7 +82,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=fal
     if(url.hostname!=="paper-api.alpaca.markets")throw Error("Unexpected host");
     if(url.pathname==="/v2/clock")return asJson({is_open:true});
     if(url.pathname==="/v2/positions")return asJson(parentPending?[]:
-      [{symbol:"NVD",qty:"5",qty_available:canceled?"5":"0"}]);
+      [{symbol:"NVD",qty:"5",qty_available:canceled&&!unavailable?"5":"0"}]);
     if(url.pathname==="/v2/orders"&&method==="GET"){
       const pending=[...(canceled?[]:[stop(),target()]),
         ...(foreign?[{id:"OTHER",client_order_id:"foreign",symbol:"NVD",
@@ -190,4 +190,13 @@ test("Fuse broker POST timeout uses one submission attempt then refuses any repl
   assert.equal(second.status,503);
   assert.equal(second.body.decisions[0].action,"flatten-unconfirmed-no-retry");
   assert.equal(a.getFlattenCount(),1);
+});
+
+test("Fuse refuses market flatten until all remaining shares are broker-sellable",async()=>{
+  const a=setup({unavailable:true});
+  assert.equal((await a.run()).body.decisions[0].action,"oco-cancel-requested");
+  const outcome=await a.run();
+  assert.equal(outcome.status,503);
+  assert.equal(outcome.body.decisions[0].action,"manual-reconciliation");
+  assert.equal(a.getFlattenCount(),0);
 });
