@@ -167,11 +167,31 @@ async function runPaperCron(request:Request){
       throw Error("Broker positions malformed or pagination cap reached.");
     const others=z.array(z.object({bot_id:z.string(),symbol:z.string(),quantity:z.coerce.number()}))
       .parse(await db(`paper_bot_positions?bot_id=neq.${strategy.botProfileId}&quantity=gt.0&select=bot_id,symbol,quantity`));
-    const entries=z.array(orderSchema).parse(await db(
-      `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&side=eq.buy&status=in.(submitted,partially_filled,filled)&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,metadata&order=created_at.desc&limit=60`))
-      .filter(row=>row.metadata.executionMode==="paper-fractional-simple-v1");
-    if(entries.length>=60||others.length>=500)
+    // Reconcile ALL active Pulse buy parents, including whole-share brackets.
+    // Only fractional parents need active stop-manager writes below, but a
+    // stranded virtual holding or tagged PAPER buy must never be invisible.
+    const allEntries=z.array(orderSchema).parse(await db(
+      `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&side=eq.buy&status=in.(submitted,partially_filled,filled)&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,metadata&order=created_at.desc&limit=60`));
+    const ownPositions=z.array(z.object({
+      bot_id:z.literal(strategy.botProfileId),symbol:z.string(),quantity:z.coerce.number(),
+    })).parse(await db(
+      `paper_bot_positions?bot_id=eq.${strategy.botProfileId}&quantity=gt.0&select=bot_id,symbol,quantity&limit=500`));
+    if(allEntries.length>=60||others.length>=500||ownPositions.length>=500)
       throw Error("Pulse paper ownership scan exceeded its safe pagination limit.");
+    const stranded=ownPositions.filter(p=>!allEntries.some(e=>e.symbol===p.symbol));
+    if(stranded.length)
+      return reply({ok:false,paperOnly:true,
+        error:"Pulse virtual PAPER stock shares lack an active broker-attributed buy parent.",
+        orphanVirtualSymbols:stranded.map(p=>p.symbol)},503);
+    const openVenueOrders=await allOpen();
+    const orphanBuys=openVenueOrders.filter(o=>o.side==="buy"&&
+      /^chb-pls-v[1-9][0-9]*-/.test(o.client_order_id)&&
+      !allEntries.some(e=>e.client_order_id===o.client_order_id));
+    if(orphanBuys.length)
+      return reply({ok:false,paperOnly:true,
+        error:"Orphan active Pulse-tagged PAPER buy cannot be tied to an active local parent.",
+        orphanClientOrderIds:orphanBuys.map(o=>o.client_order_id)},503);
+    const entries=allEntries.filter(row=>row.metadata.executionMode==="paper-fractional-simple-v1");
     for(const entry of entries){
       const symbol=entry.symbol;
       try {
