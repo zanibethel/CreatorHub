@@ -260,16 +260,23 @@ async function runPaperCron(request:Request){
           outcome.push({symbol,action:"stop-outcome-unconfirmed"});continue;
         }
         if(stopActive){
-          const stopQty=numeric(currentStop.qty)??0;
+          const stopQty=numeric(currentStop.qty);
+          const stopFilled=numeric(currentStop.filled_qty);
+          // A partially filled sell stop has fewer protective shares left
+          // than its original quantity. Unreported fills are never assumed 0.
+          const stopRemaining=stopQty!==null&&stopFilled!==null&&
+            stopQty>=0&&stopFilled>=0&&stopFilled<=stopQty
+            ?stopQty-stopFilled:null;
           const stopAt=numeric(currentStop.stop_price);
           const requiredStop=numeric(entry.protective_stop);
           const identity=currentStop.client_order_id===stopId&&currentStop.symbol===symbol&&
             currentStop.side==="sell"&&currentStop.type==="stop";
           const protective=identity&&stopAt!==null&&requiredStop!==null&&requiredStop>0&&
-            stopAt+0.000001>=requiredStop&&stopQty+0.00000001>=owned;
+            stopAt+0.000001>=requiredStop&&stopRemaining!==null&&
+            stopRemaining+0.00000001>=owned;
           if(!protective){
             outcome.push({symbol,action:"manual-reconciliation",
-              detail:"broker stop identity, type, quantity or loss limit cannot be verified"});continue;
+              detail:"broker stop identity, remaining unfilled quantity or loss limit cannot be verified"});continue;
           }
           if(!flattenDue){
             outcome.push({symbol,action:"broker-stop-verified"});continue;
