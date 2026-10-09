@@ -209,7 +209,7 @@ async function runPaperCron(request:Request){
       if(physical.length>1||mine.length>1)
         throw Error("Pulse bracket broker/virtual stock ownership has duplicate rows.");
       const rawQty=physical[0]?.qty??"0";
-      if(!/^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$/.test(rawQty))
+      if(!/^(?:0|[1-9][0-9]*)(?:\.[0-9]+)?$/.test(rawQty))
         throw Error("Pulse bracket physical share quantity is malformed.");
       const shares=Number(rawQty),virtualQty=mine[0]?.quantity??0;
       if(!Number.isSafeInteger(shares)||shares<0||!Number.isSafeInteger(virtualQty)||
