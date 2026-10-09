@@ -83,5 +83,7 @@ export async function GET(request:Request){
   if (!authorized(request)) return respond({error:"Unauthorized."},401);
   return respond({policy:PAPER_SHARED_CAPITAL_POLICY_V1,
     independentPreview:true,executionIntegrated:false,
-    existingBotLedgersUnchanged:true,capitalReservationsImplemented:false});
+    existingBotLedgersUnchanged:true,capitalReservationsImplemented:true,
+    persistentShadowIntakeImplemented:true,automaticShadowMarkingEnabled:false,
+    brokerExecutionAuthorized:false});
 }
