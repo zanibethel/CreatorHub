@@ -244,6 +244,44 @@ alone does not prove its live journal write.
 
 ---
 
+## Observed stock-bot scheduler signoff — October 9, 2026, 13:50 UTC
+
+**PROVEN for the six instrumented stock jobs:** actual Supabase
+`paper_bot_cron_health` records from the `vercel-cron-agent` source
+confirmed fresh HTTP 200 responses and **zero consecutive failures** from:
+
+| Job | Last observed UTC | Status | Action |
+|---|---|---|---|
+| Atlas runner | 13:49:39 | 200 | none |
+| Fuse runner | 13:50:03 | 200 | none |
+| Fuse independent exit manager | 13:50:00 | 200 | completed |
+| Harbor runner | 13:50:06 | 200 | none |
+| Pulse runner | 13:45:45 | 200 | none |
+| Pulse independent stop manager | 13:50:02 | 200 | completed |
+
+The first monitoring deployment exposed two **real** cron failures:
+Fuse 503 due to deployment-host-dependent internal requests and Harbor
+502 due to incompatible prospect journal classifications. PRs
+[#89](https://github.com/zanibethel/CreatorHub/pull/89) and
+[#90](https://github.com/zanibethel/CreatorHub/pull/90) fixed those
+problems. Post-deployment Harbor intake successfully persisted
+`rejected/unqualified` records with the original
+`metadata.intakeDisposition='rejected'`.
+
+**Scope of this signoff:** authenticated job invocation/completion for
+the six monitored stock jobs, not proof that any strategy successfully
+placed and protected a position. **Global G0 is not fully complete**:
+separately verify Flash/Spark and other crypto/stock jobs not yet
+instrumented. Older historical job failures remain in total counters but
+all six latest consecutive-failure counters were zero at this check.
+
+**No forced buy, no stock reservation, no change to PAPER permissions
+or official challenge counter.** Complete G2-G7 with one genuine PAPER
+entry/fill/verified stop/exit/virtual-ledger reconciliation before
+increasing pilot order frequency.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
