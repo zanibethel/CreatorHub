@@ -235,3 +235,27 @@ test("Pulse waits on broker pending_cancel and pending_replace without submittin
       (status==="pending_cancel"?"awaiting-partial-entry-cancel":"manual-reconciliation")));
   }
 });
+
+test("Pulse never reports a stop pending broker cancellation/replacement as protected",async()=>{
+  for(const status of ["pending_cancel","pending_replace"]){
+    const {state,run}=fixture();
+    await run(); // first authenticated invocation creates one valid PAPER stop
+    const id=helper.pulseCompanionClientOrderId(entryId,"stop");
+    state.orders.get(id).status=status;
+    const result=await run();
+    assert.equal(result.status,503,JSON.stringify(result.body));
+    assert.ok(result.body.outcome.some(x=>x.action==="stop-outcome-unconfirmed"));
+    assert.equal(state.posted.length,1);
+    assert.equal(state.cancels.length,0);
+  }
+});
+test("Pulse awaits unfilled pending cancellation without a duplicate broker DELETE",async()=>{
+  const {state,run}=fixture();
+  state.entryStatusOverride="pending_cancel";
+  state.partialEntry=true;state.brokerQty="0";state.available="0";
+  const result=await run();
+  assert.equal(result.status,503,JSON.stringify(result.body));
+  assert.ok(result.body.outcome.some(x=>x.action==="awaiting-partial-entry-cancel"));
+  assert.equal(state.posted.length,0);
+  assert.equal(state.cancels.length,0);
+});
