@@ -1167,6 +1167,41 @@ or start the official challenge counter. Challenge is
 
 ---
 
+## Samsung Galaxy S10 broker-monitor host plan — October 9, 2026
+
+The owner approved using the **existing CoOperative Galaxy S10 Android node
+hardware instead of the Mac** to host the lightweight read-only Alpaca PAPER
+event listener. The CoOperative repository currently publishes a
+`CoOperativeLocalAI.apk` release but **does not contain the APK's Android
+source/Gradle project**, so modifying/re-signing the installed APK is not
+supported by the currently connected repository. This phase therefore
+stages an independently supervised **Termux process on the same Galaxy S10**
+without disrupting its paired CoOperative AI APK or changing job routing.
+
+The new setup is documented at `docs/PAPER_STREAM_GALAXY_NODE.md`.
+New code: `scripts/run-paper-stream-termux.sh`,
+`scripts/install-paper-stream-termux.sh` and reboot-only Linux UUID
+spool-lock recovery in `workers/alpaca-paper-trade-updates.mjs`.
+Termux:Boot and `termux-services` (runit) can supervise the process
+after Android reboot, with an optional wake lock and manual battery
+optimization exemptions. The worker uses existing private Supabase
+ingestion and Alpaca PAPER-only WebSocket, stores only scrubbed broker
+events in Termux app-private data, and has **no trade execution API**.
+
+**Do not claim activation from merged scripts.** The phone still needs
+Termux/Termux:Boot installation, the private credentials and dedicated
+ingress token digest configured, supervised process start, actual
+Alpaca PAPER auth/subscription ACK, Supabase connection heartbeat,
+screen-off endurance, network recovery and reboot verification. Do
+not use the CoOperative pairing key as a trading-event ingestion token.
+If an Android socket dies during sleep, report missing stream coverage,
+not zero market/broker activity.
+
+No pilot reset, RXRX/SNAP reservation release, forced simulated trade,
+Coil arm, or challenge counter start is authorized.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
