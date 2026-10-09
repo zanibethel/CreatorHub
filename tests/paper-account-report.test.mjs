@@ -118,6 +118,12 @@ test('authorized collection saves only the sanitized snapshot while reconciling 
     if (url.includes('paper_report_state')) return json([{cron_token_hash:hash}]);
     if (url.endsWith('paper_report_claim_refresh')) return json(true);
     if (url.endsWith('paper_bot_reconcile_broker_activity')) {reconciled = JSON.parse(options.body); return json({ordersSeen:1,fillsAdded:1});}
+    if (url.endsWith('paper_bot_record_order_lifecycle_evidence')) {
+      const body=JSON.parse(options.body);
+      assert.ok(Array.isArray(body.p_orders));
+      assert.ok(body.p_collected_at);
+      return json(1);
+    }
     if (url.endsWith('paper_bot_link_prepared_orders')) return json(1);
     if (url.endsWith('paper_bot_apply_unapplied_fills')) return json({fillsApplied:1,botsUpdated:['default-diverse']});
     if (url.endsWith('paper_bot_finalize_trade_metrics')) return json({tradesFinalized:0});
