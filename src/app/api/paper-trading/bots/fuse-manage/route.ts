@@ -250,7 +250,7 @@ async function runPaperCron(request:Request){
         const entryPending=active.has(raw.status)&&filled<(shares(raw.qty??"0")??0);
         const stopOrTargetActive=children.some(c=>c.side==="sell"&&active.has(c.status));
         const targetLegs=children.filter(c=>c.side==="sell"&&c.type==="limit");
-        if(targetLegs.length!==1||targetLegs.some(c=>shares(c.filled_qty)===null||shares(c.qty)===null))
+        if(owned>0&&(targetLegs.length!==1||targetLegs.some(c=>shares(c.filled_qty)===null||shares(c.qty)===null)))
           throw Error("Fuse broker target partial fill quantity is missing or malformed.");
         const takeProfitHasFills=targetLegs.some(c=>(shares(c.filled_qty)??0)>0);
         // Inconsistent open-order snapshots are not authorization to cancel
