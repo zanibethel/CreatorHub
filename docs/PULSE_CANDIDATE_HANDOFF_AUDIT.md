@@ -16,6 +16,14 @@ broker ownership scans also fail closed. If shares are partly reserved and
 the complete existing position cannot be protected, the manager declines
 to claim a partial stop as sufficient coverage.
 
+**Additional stop-state guard:** Broker order states `pending_cancel` and
+`pending_replace` now explicitly fail the verified-protection test.
+A stop moving through either state produces an actionable reconciliation
+failure, not `broker-stop-verified`, and the manager will not blindly
+submit another stop or an overlapping exit until its broker disposition
+is independently known. An unfilled parent already `pending_cancel`
+is likewise left alone without sending a duplicate DELETE.
+
 Regression cases: extra fills during partial-buy cancel, a foreign PAPER
 order on the same physical symbol, reduced `qty_available`, and parent
 `pending_cancel` / `pending_replace`. No strategy scoring thresholds,
