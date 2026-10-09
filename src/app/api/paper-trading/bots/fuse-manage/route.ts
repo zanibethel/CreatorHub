@@ -172,6 +172,9 @@ export async function GET(request:Request){
     ]);
     const entries=z.array(entrySchema).parse(entriesRaw);
     const virtual=z.array(virtualSchema).parse(virtualRaw);
+    if(entries.length>=75||virtual.length>=500||open.length>=500)
+      return reply({ok:false,paperOnly:true,executionEnabled:false,
+        error:"Fuse ownership or PAPER broker pagination limit reached; cannot prove venue isolation."},503);
     const decisions:Array<{symbol:string;action:string;detail?:string}>=[];
     const strandedVirtual=virtual.filter(v=>v.bot_id===cfg.botProfileId&&
       !entries.some(e=>e.symbol===v.symbol));
@@ -255,9 +258,11 @@ export async function GET(request:Request){
           }
           // Second broker read closes the window for stale position/venue data.
           const [nowPositions,nowOpen]=await Promise.all([allPositions(),allOpen()]);
-          const nowQty=shares(nowPositions.find(p=>p.symbol===symbol)?.qty??"0");
-          if(nowQty!==owned||nowQty!==virtualQty||!current||
-            nowOpen.some(o=>o.symbol===symbol&&active.has(o.status))){
+          const refreshed=nowPositions.find(p=>p.symbol===symbol);
+          const nowQty=shares(refreshed?.qty??"0");
+          const available=shares(refreshed?.qty_available);
+          if(nowQty!==owned||nowQty!==virtualQty||available!==owned||!current||
+            nowOpen.length>=500||nowOpen.some(o=>o.symbol===symbol&&active.has(o.status))){
             decisions.push({symbol,action:"manual-reconciliation",detail:"Broker holdings/orders changed before flatten."});continue;
           }
           // A previously submitted exit must never be duplicated.
