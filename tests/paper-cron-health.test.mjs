@@ -100,3 +100,12 @@ test("heartbeat RPC is service-role only; does not touch order or position table
   assert.match(s,/grant execute on function public.paper_bot_record_cron_health.+ to service_role/);
   assert.doesNotMatch(s,/update public.paper_bot_orders|update public.paper_bot_positions|insert into public.paper_bot_orders/i);
 });
+
+test("cron heartbeat uses the configured project Supabase fallback if public URL env is absent",async()=>{
+  const h=harness({db:""});
+  const wrapped=h.wrap(INFO,async()=>Response.json({ok:true,action:"none"},{status:200}));
+  assert.equal((await wrapped(request())).status,200);
+  assert.equal(h.calls.length,1);
+  assert.ok(h.calls[0].url.startsWith("https://yufptpfiwdbzzrvhkvux.supabase.co/rest/v1/rpc/"),
+    "must write operational heartbeat to the same configured database as the trading routes");
+});
