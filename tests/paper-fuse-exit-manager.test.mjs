@@ -17,7 +17,7 @@ const CLIENT="chb-pny-v1-mvzpxd60-aabcdef123456789";
 function state(overrides={}){
   return {marketOpen:true,regularClockMinute:true,flattenDue:false,
     brokerQty:5,virtualQty:5,entryFilledQty:5,entryPending:false,
-    stopOrTargetActive:true,foreignSymbolOrder:false,parentVerified:true,
+    stopOrTargetActive:true,takeProfitHasFills:false,foreignSymbolOrder:false,parentVerified:true,
     protection:{state:"protected"},...overrides};
 }
 test("Fuse waits under broker protection and requires staged close at 3:40 ET",()=>{
@@ -27,6 +27,21 @@ test("Fuse waits under broker protection and requires staged close at 3:40 ET",(
   assert.equal(pick(state({protection:{state:"unprotected"}})).action,"cancel-bracket-exits");
   assert.equal(pick(state({protection:{state:"unprotected"},stopOrTargetActive:false})).action,"flatten-ready");
 });
+test("Fuse preserves broker target exits on partial-fill OCO uncertainty, even at the session cutoff",()=>{
+  const partial=state({brokerQty:3,virtualQty:3,entryFilledQty:5,
+    takeProfitHasFills:true,protection:{state:"unprotected"}});
+  const denied=pick(partial);
+  assert.equal(denied.action,"manual-reconciliation");
+  assert.match(denied.reason,/Partial take-profit/);
+  assert.equal(pick(state({...partial,flattenDue:true})).action,"manual-reconciliation");
+  // When Alpaca has correctly resized the stop and the regular session
+  // continues, this is still broker protected without an extra sell.
+  assert.equal(pick(state({...partial,protection:{state:"protected"}})).action,"protected");
+  // But an in-flight partial target cannot be canceled for flatten at 15:40.
+  assert.equal(pick(state({...partial,protection:{state:"protected"},flattenDue:true})).action,
+    "manual-reconciliation");
+});
+
 test("Fuse never flattens before physical and virtual fills match or during symbol collision",()=>{
   assert.equal(pick(state({virtualQty:4})).action,"manual-reconciliation");
   assert.equal(pick(state({foreignSymbolOrder:true})).action,"manual-reconciliation");
