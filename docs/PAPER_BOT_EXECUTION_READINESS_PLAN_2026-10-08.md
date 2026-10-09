@@ -659,6 +659,67 @@ the official challenge counter remains **UNSTARTED**.
 
 ---
 
+## Pulse continuous whole-share broker bracket watchdog — October 9, 2026
+
+**PR [#105](https://github.com/zanibethel/CreatorHub/pull/105)** merged as
+`c5480c6c4367636a5dac0637cc4fe8cc244c2668`.
+GitHub TypeScript, lint, **all PAPER monitor tests**, and production build
+passed, along with the Vercel preview check.
+Production deployment `dpl_DMVcxkwMrwd9g1gRR2xyjdH7mSAM` was
+confirmed **READY** and assigned to `creatorhub-gray.vercel.app`
+at **2026-10-09 16:22:53 UTC**, no reported alias error.
+
+**Defect repaired:** After the Pulse ownership preflight in PR #103,
+`momentum-breakout-manage` only *recognized* broker-hosted
+`paper-bracket` whole-share parent orders for ownership. It then
+filtered them out of active stop monitoring and checked only
+`paper-fractional-simple-v1` stops. Initial broker protection evidence
+at buy submission could therefore grow stale after a canceled,
+undercovered or mispriced bracket child, while subsequent one-minute
+manager runs remained HTTP 200.
+
+**New read-only independent check on every one-minute manager run:**
+
+- Recognizes and validates each active Pulse whole-share bracket's
+  exact parent client order ID and broker ID, symbol ownership, one
+  associated virtual holding, and broker-vs-virtual whole-share quantity.
+- Independently fetches the **nested parent and both child sells** from
+  Alpaca PAPER, reuses the tested bracket evidence helper to verify
+  active status, positive stop/target prices at least as protective
+  as the authorized plan, and each leg's unfilled remaining coverage.
+- Reconciles those child IDs to the current open Alpaca orders and blocks
+  **any foreign or unrecognized active buy/sell order** for that stock
+  symbol; existing shared symbol reservations remain authoritative.
+- Fails closed HTTP 503 with an attribution/protection error on stale
+  or ambiguous broker evidence; **does not** submit a replacement
+  stop, flatten, cancel an OCO, retry an entry, or release reservations.
+  The existing fractional manager remains responsible only for its
+  previously authorized fractional-protection actions.
+- Regression tests cover valid live protection, canceled/missing exit
+  legs, insufficient stop coverage, downgraded target, broker/ledger
+  share mismatch, and foreign live stock buys. No trades were forced
+  to produce this evidence.
+
+**Observed after production deploy:** the real authenticated
+`pulse-manage` Vercel cron at **16:23:02 UTC** returned **HTTP 200**,
+action `completed`, zero consecutive failures, source
+`vercel-cron-agent` on the new production version.
+All eight monitored stock/crypto jobs remained HTTP 200 with zero
+consecutive failures. Pulse and Fuse virtual equity remained **$100**
+each with unused one-shot entry pilot claims; Supabase recorded zero
+unapplied attributed broker fills. Harbor's active SNAP stock symbol
+reservation remains **held** pending separate operator authorization.
+
+**Limits of signoff:** This verifies the code, deploy, and regular
+manager execution, **not** a genuinely filled Pulse whole-share bracket.
+No actual Pulse/Fuse stock fill has yet been broker-verified end to end.
+The first naturally selected broker fill, protective stop/target live
+confirmation over time, partial-fill behavior, safe close, and
+fee-aware ledger P/L remain open release gates.
+Coil stays disabled. Challenge/day counter remains **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
