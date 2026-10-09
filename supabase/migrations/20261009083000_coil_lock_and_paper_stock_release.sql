@@ -52,6 +52,21 @@ REVOKE ALL ON FUNCTION public.paper_stock_symbol_claim(text,text,text)
 GRANT EXECUTE ON FUNCTION public.paper_stock_symbol_claim(text,text,text)
  TO service_role;
 
+-- Every release writes an audit record within the same database transaction.
+CREATE TABLE IF NOT EXISTS public.paper_stock_symbol_release_audit (
+  audit_id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
+  reservation_id uuid NOT NULL REFERENCES public.paper_stock_symbol_reservations(reservation_id),
+  symbol text NOT NULL,
+  bot_id text NOT NULL,
+  client_order_id text NOT NULL,
+  source text NOT NULL,
+  broker_checked_at timestamptz NOT NULL,
+  released_at timestamptz NOT NULL DEFAULT now()
+);
+ALTER TABLE public.paper_stock_symbol_release_audit ENABLE ROW LEVEL SECURITY;
+REVOKE ALL ON public.paper_stock_symbol_release_audit FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON public.paper_stock_symbol_release_audit TO service_role;
+
 -- The service role may release ONLY with fresh independent broker evidence
 -- from the private PAPER endpoint, a terminal local order and zero virtual
 -- shares or unresolved stock orders for any bot. This function has NO cron.
@@ -84,16 +99,29 @@ BEGIN
   FROM public.paper_stock_symbol_reservations
   WHERE reservation_id=p_reservation_id
     AND client_order_id=p_client_order_id
-    AND status='active'
-  FOR UPDATE;
+    AND status='active';
  IF NOT FOUND OR v_owner.symbol IS DISTINCT FROM p_proof->>'symbol'
    OR v_owner.bot_id IS DISTINCT FROM p_proof->>'botId'
    OR v_owner.client_order_id IS DISTINCT FROM p_proof->>'clientOrderId'
  THEN RETURN false; END IF;
- -- Take the SAME lock every bot's new stock-reservation claim uses.
+ -- Same lock order as admission: global symbol lock first, row lock second.
  PERFORM pg_catalog.pg_advisory_xact_lock(
    pg_catalog.hashtextextended('paper-stock:'||v_owner.symbol,0)
  );
+ SELECT * INTO v_owner
+  FROM public.paper_stock_symbol_reservations
+  WHERE reservation_id=p_reservation_id
+    AND client_order_id=p_client_order_id
+    AND status='active' FOR UPDATE;
+ IF NOT FOUND THEN RETURN false; END IF;
+ -- Any unapplied physical fill could still produce newly held virtual shares
+ -- on the next reporting cycle. Never unlock before fill reconciliation.
+ IF EXISTS(SELECT 1 FROM public.paper_bot_broker_fills f
+           WHERE f.symbol=v_owner.symbol AND f.ledger_applied_at IS NULL)
+   OR NOT EXISTS(SELECT 1 FROM public.paper_report_state r
+           WHERE r.report_key='main' AND r.status='ready'
+             AND r.last_attempt_at>pg_catalog.now()-interval '2 minutes')
+ THEN RETURN false; END IF;
  IF EXISTS(SELECT 1 FROM public.paper_bot_positions p
            WHERE p.symbol=v_owner.symbol AND p.asset_class IN ('stock','etf')
              AND p.quantity<>0)
@@ -111,7 +139,12 @@ BEGIN
     SET status='released',released_at=pg_catalog.now()
     WHERE reservation_id=v_owner.reservation_id AND status='active'
       AND client_order_id=v_owner.client_order_id;
- RETURN FOUND;
+ IF NOT FOUND THEN RETURN false; END IF;
+ INSERT INTO public.paper_stock_symbol_release_audit
+   (reservation_id,symbol,bot_id,client_order_id,source,broker_checked_at)
+ VALUES(v_owner.reservation_id,v_owner.symbol,v_owner.bot_id,
+   v_owner.client_order_id,'alpaca-paper-independent-audit-v1',v_time);
+ RETURN true;
 END $$;
 REVOKE ALL ON FUNCTION public.paper_stock_symbol_release_verified(uuid,text,jsonb)
  FROM PUBLIC,anon,authenticated;
