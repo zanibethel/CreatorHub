@@ -57,7 +57,9 @@ function fixture(){
     const u=new URL(url);
     const method=options.method??"GET";
     if(u.hostname.endsWith("supabase.co")){
-      if(u.pathname.endsWith("/paper_bot_positions"))return reply(state.virtualRows);
+      if(u.pathname.endsWith("/paper_bot_positions"))
+        return reply(state.virtualRows.filter(v=>u.searchParams.get("bot_id")==="neq.momentum-breakout-100"
+          ?v.bot_id!=="momentum-breakout-100":v.bot_id==="momentum-breakout-100"));
       if(!u.pathname.endsWith("/paper_bot_orders"))throw Error("Unexpected DB path: "+u.pathname);
       if(method==="GET"){
         if(u.searchParams.has("side"))return reply(state.noActiveEntry?[]:[state.entry]);
