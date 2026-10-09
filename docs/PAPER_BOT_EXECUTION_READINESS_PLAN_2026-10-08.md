@@ -282,6 +282,75 @@ increasing pilot order frequency.
 
 ---
 
+## Independent PAPER broker reconciliation — October 9, 2026, 14:02 UTC
+
+**Evidence scope:** directly inspected Alpaca PAPER order, position and fill-activity
+responses, then independently queried production Supabase ledger, journal,
+broker-order, broker-fill, virtual-position and stock-reservation tables. This
+snapshot is not a future-state guarantee and is **not** a live-money check.
+
+- **Broker / virtual exposure:** Alpaca reported **zero open orders and zero
+  open positions**; Supabase `paper_bot_positions` contained **zero virtual
+  positions**. The shared `paper_stock_symbol_reservations` table was empty.
+  There was no reason to invoke or enable the manual release path.
+- **Broker fill ingestion:** all eight entries in
+  `paper_bot_broker_fills` had non-NULL `ledger_applied_at` (zero unapplied
+  fills). This table records the attributed strategy trades and does not
+  substitute for Alpaca's complete account-wide fill/activity enumeration.
+- **Spark `spk` SOL/USD — actual PAPER protective-stop close:** Alpaca confirmed
+  original limit **buy** order
+  `474d458c-c15d-43bf-aeaa-963fa7bd32a0` filled
+  `0.159903793` at `$109.55` on 2026-10-09 00:55:21 UTC.
+  A separate protective sell order was placed and later canceled as the
+  protection was updated. Its replacement, stop-limit **sell** order
+  `c26be0ec-83fc-4db4-b12a-d3dd396f46a6`, filled
+  `0.159504033` at `$109.785` on 2026-10-09 13:32:56 UTC.
+  Supabase independently matched the broker order ID and full fill, recorded
+  `closed` / `protective-stop` in the strategy journal and applied
+  `-$0.050088` of net realized P/L at 13:33:13 UTC. This was a real
+  **PAPER fill**, not merely an accepted stop or counterfactual.
+  The broker currently reports no remaining SOL/USD exposure or open
+  protective orders. The buy/sell quantities differ because crypto execution
+  quantity and fees must be accounted for; do **not** compare price changes
+  alone to determine net profit.
+- **Spark overall:** `crypto-ignition-100` broker-tag `spk` virtual ledger:
+  starting cash `$100`, current equity `$99.668301`, realized P/L
+  `-$0.331669`, unrealized P/L `$0`; last ledger sync 14:02:17 UTC.
+  Its observed broker-linked BTC/USD and two SOL/USD lifecycles were closed.
+- **Atlas `div`:** `default-diverse` virtual equity `$99.755227`,
+  realized P/L `-$0.244772`, no active virtual/broker exposure.
+  Separate 2026-10-08 F/SPY orders with `atlas-probe-` client IDs are
+  controlled broker probes, **not evidence of an automatically qualified
+  Atlas stock-strategy trade**.
+- **Pulse `pls` and Fuse `pny`:** no newly confirmed broker fills,
+  zero virtual exposure, independent ledgers each remain `$100`.
+  Pulse's existing SQQQ rejected local order has no broker order ID and
+  must not be counted as a broker submission or actual trade.
+- **Harbor `sw3`:** one `TSLL` order was
+  `prepared` (created at 13:40:05 UTC, expiry 20:00 UTC),
+  `broker_order_id=NULL`, `requiresRevalidation=true`. It was **not**
+  submitted to Alpaca and no fill should be inferred. Later rejected
+  intake journal entries must not be reclassified as approved trades.
+- **Flash `wkd` and Spark `spk` research:** fresh production candidate
+  journal events at roughly 14:00 UTC indicate ongoing research activity
+  but **not** authenticated scheduler health proof. Flash remains without
+  a confirmed actual fill; its counterfactuals are separate.
+- **Coil `sqz`:** execution remains deliberately disabled; do not arm it
+  or add a stock broker executor under this audit.
+
+**Safety signoff status:** the six instrumented stock crons have post-deploy
+HTTP 200 and zero consecutive failures (PR #91), and the observed current
+broker/virtual open positions, order status and applied attributed fills
+reconcile. **Global G0** remains incomplete for Flash/Spark and other
+uninstrumented routes. **Pulse/Fuse and Atlas stock G2-G7** remain open
+until one naturally qualified PAPER entry is authorized, broker-filled,
+independently protected, safely exited and reconciled end to end.
+No trade was forced, no permission or strategy threshold changed, no
+pilot claim reset, no reservation released and the official challenge
+counter remains UNSTARTED.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
