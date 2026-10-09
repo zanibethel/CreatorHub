@@ -42,11 +42,18 @@ async function handle(request:Request,release:boolean){
     request.headers.get("x-paper-stock-release-token")!==operatorToken))
     return reply({error:"Independent manual release authorization unavailable."},403);
 
-  const input=release
-    ?reqSchema.safeParse(await request.json().catch(()=>null))
-    :idSchema.safeParse(new URL(request.url).searchParams.get("reservation_id"));
-  if(!input.success)return reply({error:"Invalid reservation request."},400);
-  const id=release?input.data.reservationId:input.data;
+  let id:string;
+  let expectedClient:string|null=null;
+  if(release){
+    const parsed=reqSchema.safeParse(await request.json().catch(()=>null));
+    if(!parsed.success)return reply({error:"Invalid reservation release request."},400);
+    id=parsed.data.reservationId;
+    expectedClient=parsed.data.clientOrderId;
+  }else{
+    const parsed=idSchema.safeParse(new URL(request.url).searchParams.get("reservation_id"));
+    if(!parsed.success)return reply({error:"Invalid reservation audit ID."},400);
+    id=parsed.data;
+  }
   const secret=process.env.SUPABASE_SECRET_KEY?.trim()??"";
   const key=process.env.ALPACA_API_KEY_ID?.trim()??"";
   const apiSecret=process.env.ALPACA_API_SECRET_KEY?.trim()??"";
@@ -76,7 +83,7 @@ async function handle(request:Request,release:boolean){
       "&status=eq.active&select=reservation_id,client_order_id,bot_id,symbol,status&limit=1"));
     const owner=owners[0];
     if(!owner)return reply({ok:false,reason:"No active reservation exists."},404);
-    if(release&&owner.client_order_id!==input.data.clientOrderId)
+    if(release&&owner.client_order_id!==expectedClient)
       return reply({ok:false,reason:"Order ID does not match reservation."},409);
 
     const symbol=owner.symbol;
