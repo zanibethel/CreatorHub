@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { buildDailyCryptoScanJournalRows } from "@/lib/paper-daily-crypto-scan-journal";
@@ -234,7 +235,7 @@ async function persistCounterfactuals(readiness: z.infer<typeof readinessSchema>
   return { ok:true, seedsAttempted:seeds.length, updates };
 }
 
-export async function GET(request: Request) {
+async function runPaperCron(request: Request) {
   const cronSecret = process.env.CRON_SECRET?.trim() ?? "";
   if (!cronSecret || request.headers.get("authorization") !== `Bearer ${cronSecret}`) {
     return reply({ error: "Unauthorized." }, 401);
@@ -341,3 +342,5 @@ export async function GET(request: Request) {
     counterfactualTracking,
   });
 }
+
+export const GET=withPaperCronHeartbeat({job:"flash-run",botId:"weekend-crypto-day-100",expectedMinutes:5},runPaperCron);
