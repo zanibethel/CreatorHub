@@ -243,14 +243,28 @@ async function runPaperCron(request:Request){
         const sellOpen=open.filter(o=>o.symbol===symbol&&o.side==="sell");
         const protection=auditFuseBrokerBracket({
           entry,parent,brokerPosition:current,otherBotOwnsSymbol:foreign,
-          liveSellOrders:[...sellOpen,...children] as FuseBrokerLeg[],
+          // Open-order evidence MUST come from the live venue open snapshot;
+          // appending the fetched children here would falsely prove presence.
+          liveSellOrders:sellOpen as FuseBrokerLeg[],
         });
         const entryPending=active.has(raw.status)&&filled<(shares(raw.qty??"0")??0);
         const stopOrTargetActive=children.some(c=>c.side==="sell"&&active.has(c.status));
+        const targetLegs=children.filter(c=>c.side==="sell"&&c.type==="limit");
+        if(targetLegs.length!==1||targetLegs.some(c=>shares(c.filled_qty)===null||shares(c.qty)===null))
+          throw Error("Fuse broker target partial fill quantity is missing or malformed.");
+        const takeProfitHasFills=targetLegs.some(c=>(shares(c.filled_qty)??0)>0);
+        // Inconsistent open-order snapshots are not authorization to cancel
+        // a leg that the independent broker order still reports as active.
+        if(owned>0&&children.some(c=>active.has(c.status)&&
+           !open.some(o=>o.id===c.id&&o.client_order_id===c.client_order_id))){
+          decisions.push({symbol,action:"manual-reconciliation",
+            detail:"Broker active OCO child is missing from the current venue open-order listing."});
+          continue;
+        }
         const decision=chooseFuseExitAction({
           marketOpen:clock.is_open,regularClockMinute:session.regularClockMinute,
           flattenDue,brokerQty:owned,virtualQty,entryFilledQty:filled,
-          entryPending,stopOrTargetActive,foreignSymbolOrder:foreign,
+          entryPending,stopOrTargetActive,takeProfitHasFills,foreignSymbolOrder:foreign,
           parentVerified:true,protection,
         });
         if(decision.action==="cancel-pending-entry"){
