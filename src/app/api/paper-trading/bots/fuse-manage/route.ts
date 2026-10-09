@@ -176,8 +176,9 @@ export async function GET(request:Request){
     const parentIds=new Set(entries.map(e=>e.broker_order_id).filter(Boolean));
     const orphan=open.filter(o=>o.client_order_id.startsWith("chb-pny-v")&&
       !parentIds.has(o.id)&&!entries.some(e=>fuseFlattenOrderId(e.client_order_id)===o.client_order_id));
-    if(orphan.length)decisions.push({symbol:"*",action:"manual-reconciliation",
-      detail:"Orphaned Fuse-attributed open broker order exists."});
+    if(orphan.length)return reply({ok:false,paperOnly:true,executionEnabled:false,
+      error:"Unrecognized active Fuse-tagged broker order; manual venue reconciliation required.",
+      orphanClientOrderIds:orphan.map(o=>o.client_order_id)},503);
     for(const entry of entries){
       const symbol=entry.symbol;
       try{
@@ -224,10 +225,17 @@ export async function GET(request:Request){
           parentVerified:true,protection,
         });
         if(decision.action==="cancel-pending-entry"){
+          if(["pending_cancel","pending_replace"].includes(raw.status)){
+            decisions.push({symbol,action:"awaiting-broker-parent-cancel"});continue;
+          }
           const cancel=await broker("orders/"+encodeURIComponent(raw.id),"DELETE");
           if(!cancel.ok&&cancel.status!==404)throw Error("Fuse parent cancel returned HTTP "+cancel.status);
           decisions.push({symbol,action:"entry-cancel-requested",detail:"Revalidate parent and position on next cron pass."});
         }else if(decision.action==="cancel-bracket-exits"){
+          if(children.some(c=>["pending_cancel","pending_replace"].includes(c.status))){
+            decisions.push({symbol,action:"awaiting-broker-oco-cancel",
+              detail:"Do not re-request a pending cancel or send a new sell."});continue;
+          }
           // One child cancel should cancel OCO siblings; never submit a sell
           // in the same pass. Only cancel independently fetched child ids.
           const activeChildren=children.filter(c=>c.side==="sell"&&active.has(c.status));
