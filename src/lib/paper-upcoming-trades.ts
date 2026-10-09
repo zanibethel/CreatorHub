@@ -93,7 +93,7 @@ export function buildUpcomingStockWatch(
         const reason=order&&prepared?"Prepared entry awaiting same-session revalidation.":
           journal?.blockers[0]??journal?.warnings[0]??"Assigned for bot review; no authorized order.";
         const targetIsPartial=Boolean(prepared && order.take_profit_fraction!==null && order.take_profit_fraction<1);
-        const trailingRemainder=Boolean(targetIsPartial && order.trail_remainder);
+        const trailingRemainder=Boolean(targetIsPartial && order?.trail_remainder === true);
         const planSource=prepared?"prepared-order" as const:planned?"strategy-reference" as const:"awaiting-plan" as const;
         const planState=prepared?"prepared" as const:planned?
           (journal?.blockers.length?"blocked" as const:"watching" as const):"awaiting-plan" as const;
