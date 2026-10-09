@@ -3,9 +3,9 @@ import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
 const sql=readFileSync(new URL("../supabase/migrations/20261009052000_shared_stock_symbol_reservations_phase1.sql",import.meta.url),"utf8");
 const block=(name,end)=>{
-  const start=sql.indexOf("CREATE OR REPLACE FUNCTION public."+name);
+  const start=sql.toLowerCase().indexOf("create or replace function public."+name);
   assert.ok(start>=0,"Missing function "+name);
-  const finish=sql.indexOf("END $$",start);
+  const finish=sql.toLowerCase().indexOf("end $",start);
   assert.ok(finish>start,"Missing PLPGSQL END for "+name);
   return sql.slice(start,finish+6);
 };
