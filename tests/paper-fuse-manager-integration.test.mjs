@@ -117,7 +117,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false}={}){
   };
   const route={exports:{}};
   vm.runInNewContext(js,{exports:route.exports,fetch,URL,Response,AbortSignal,
-    Number,Math,Date:FixedDate,Intl,encodeURIComponent,Array,Set,Object,process:{
+    Error,Number,Math,Date:FixedDate,Intl,encodeURIComponent,Array,Set,Object,process:{
       env:{CRON_SECRET:"fuse-test-secret",SUPABASE_SECRET_KEY:"service",
         ALPACA_API_KEY_ID:"key",ALPACA_API_SECRET_KEY:"secret"},
     },require:name=>{
