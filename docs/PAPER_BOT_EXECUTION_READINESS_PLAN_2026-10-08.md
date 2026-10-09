@@ -1103,6 +1103,70 @@ challenge/day counter is **UNSTARTED**.
 
 ---
 
+## Durable PAPER WebSocket stream server-side deployment evidence — October 9, 2026
+
+**PR [#114](https://github.com/zanibethel/CreatorHub/pull/114)** merged as
+`bbef7153ba77dc8a4861c2b0a3cc9494a123258b`.
+TypeScript, lint, PAPER test suite, production build and Vercel preview
+all passed; production deployment
+`dpl_GZUbDCieThLXRafe44cPAC7qiMjN` was independently verified
+**READY** on `creatorhub-gray.vercel.app`, alias error null.
+The additive migration `paper_trade_updates_durable` was
+successfully applied **before** deploying the new Supabase Edge
+Function `paper-trade-stream-ingest`, confirmed **ACTIVE v1**.
+
+**Security verification**:
+- `paper_broker_record_trade_updates(jsonb,text,boolean,integer)`
+  is executable by `service_role`, but **not** by `anon` or
+  `authenticated`. Both underlying private tables have RLS enabled.
+- The actual production HTTP POST probe, dispatched from Supabase
+  pg_net with no authorization token, returned **HTTP 503**
+  `PAPER stream ingest is not configured.` at
+  **2026-10-09 19:00:09 UTC**. The endpoint requires a dedicated,
+  unconfigured SHA256 ingress secret and cannot insert events
+  in this state; it is NOT a live broker stream.
+- An idempotency smoke test in an explicitly rolled-back transaction
+  verified a single private event was accepted once and a duplicate
+  reported as already received; the test left **zero** persisted
+  synthetic broker events and did not modify any broker or
+  trading ledger.
+- `paper_broker_trade_stream_status` returned
+  `connected=false`, `recently_connected=false`, no heartbeat,
+  `stored_event_count=0`. This is **correct, honest offline
+  state**, not a failed trading scheduler.
+
+**Other production checks**: all eight existing monitored PAPER
+scheduler jobs remained HTTP 200 with zero consecutive failures at
+the **19:00–19:01 UTC** observation window. Existing
+`paper_bot_broker_fills` had zero unapplied entries.
+Fuse remains at **$100.16** cash/equity with **+$0.16**
+realized P/L and consumed one-shot pilot; Pulse remains
+**$100.00** with an unclaimed pilot. Shared RXRX/Fuse and
+SNAP/Harbor reservations remain active. The only observed open
+Alpaca PAPER position was Spark's BTCUSD crypto holding with
+its associated BTC/USD sell order; **no stock trade was placed
+for this evidence work**.
+
+**Still required before real event coverage is signed off**:
+Provision a distinct ingress secret in both the Edge Function
+and a secure persistent worker host, start the actual Node 22+
+`workers/alpaca-paper-trade-updates.mjs` under a supervised
+long-lived service, observe Alpaca PAPER WebSocket authorization and
+`trade_updates` subscription acknowledgments, then prove
+reliable event ingest, heartbeat freshness, restart replay,
+and real order-event attribution. We have not accessed or
+configured the user's local Mac/Galaxy nodes here. Vercel's
+serverless routes cannot substitute for the always-on listener;
+WebSocket disconnect gaps must never be labeled complete history.
+
+This is **monitoring-only staging**, not Fuse rearm authorization
+or resolution of the historical ~1.61-second RXRX stop-cancel
+question. Do not reset pilots, release RXRX/SNAP, turn on Coil,
+or start the official challenge counter. Challenge is
+**UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
