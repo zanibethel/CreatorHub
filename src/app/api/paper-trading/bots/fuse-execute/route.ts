@@ -116,12 +116,12 @@ export async function POST(request:Request){
       return reply({error:"Alpaca PAPER broker collision/asset preflight is unavailable."},503);
     // A successful broker HTTP response alone does not prove the requested
     // symbol is the same tradable US stock; fail before consuming the pilot.
-    const asset=z.object({symbol:z.string(),class:z.literal("us_equity"),status:z.string(),tradable:z.boolean()}).parse(assetResponse.payload);
+    const asset=z.object({symbol:z.string(),class:z.string(),status:z.string(),tradable:z.boolean()}).parse(assetResponse.payload);
     const clock=z.object({is_open:z.boolean()}).parse(clockResponse.payload);
     const positions=z.array(z.object({symbol:z.string()})).parse(positionsResponse.payload);
     const open=z.array(z.object({symbol:z.string()})).parse(ordersResponse.payload);
     const virtual=z.array(z.object({symbol:z.string(),bot_id:z.string()})).parse(virtualRaw);
-    if(asset.symbol!==input.data.symbol||asset.status!=="active"||!asset.tradable||!clock.is_open)
+    if(asset.symbol!==input.data.symbol||asset.class!=="us_equity"||asset.status!=="active"||!asset.tradable||!clock.is_open)
       return reply({ok:false,action:"broker-market-closed-or-ineligible"},423);
     if(positions.length>=500||open.length>=500||virtual.length>=500)
       return reply({error:"Shared PAPER venue ownership scan incomplete; refusing new risk."},503);
