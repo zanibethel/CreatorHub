@@ -1,4 +1,5 @@
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "./paper-momentum-breakout-strategy-config";
+import { pulseFractionalQuantity, pulseEntryOrderMode } from "./paper-pulse-fractional";
 
 export type MomentumBar = { t:string; o:number; h:number; l:number; c:number; v:number };
 export type MomentumQuote = { bid:number|null; ask:number|null; timestamp:string|null };
@@ -22,6 +23,7 @@ export type MomentumLedger = {
   openPositions:number;
   dailyNewEntries:number;
   executionEnabled:boolean;
+  fractionalExecutionEnabled:boolean;
 };
 
 const positive=(value:unknown):value is number=>typeof value==="number"&&Number.isFinite(value)&&value>0;
@@ -126,6 +128,7 @@ export function evaluateMomentumBreakoutCandidate(input:{
   if(positive(ask)&&positive(maxEntry)&&ask>maxEntry)waitingOn.push("Price is beyond Pulse maximum chase distance.");
 
   let protectiveStop:number|null=null,takeProfit:number|null=null,plannedQuantity:number|null=null,plannedNotional:number|null=null,plannedRiskDollars:number|null=null,plannedRiskPct:number|null=null;
+  let fractionalReferenceQuantity:number|null=null;
   if(positive(ask)&&positive(currentAtr)&&ledger.equity>0&&ledger.buyingPower>0){
     const minDistance=ask*strategy.risk.minimumStopPct/100;
     const atrDistance=currentAtr*strategy.risk.atrStopMultiplier;
@@ -140,11 +143,14 @@ export function evaluateMomentumBreakoutCandidate(input:{
       const qtyByRisk=riskBudget/stopDistance;
       const allocationBudget=Math.min(ledger.equity*strategy.risk.maximumPositionAllocationPct/100,ledger.buyingPower);
       const qtyByAllocation=allocationBudget/ask;
-      plannedQuantity=pulseBracketWholeShareQuantity(qtyByRisk,qtyByAllocation);
+      const wholeQuantity=pulseBracketWholeShareQuantity(qtyByRisk,qtyByAllocation);
+      fractionalReferenceQuantity=pulseFractionalQuantity(qtyByRisk,qtyByAllocation,ask);
+      plannedQuantity=wholeQuantity??(ledger.fractionalExecutionEnabled?fractionalReferenceQuantity:null);
       plannedNotional=plannedQuantity===null?null:plannedQuantity*ask;
       plannedRiskDollars=plannedQuantity===null?null:plannedQuantity*stopDistance;
       plannedRiskPct=plannedRiskDollars===null?null:plannedRiskDollars/ledger.equity*100;
-      if(plannedQuantity===null)blockers.push("Pulse protected bracket entry requires at least one whole share within its existing risk and allocation caps.");
+      if(plannedQuantity===null)blockers.push("Pulse needs one affordable whole share or its independently protected fractional execution feature to be enabled.");
+      if(plannedQuantity!==null && pulseEntryOrderMode(plannedQuantity)===null)blockers.push("Pulse quantity is not supported by its protected broker order modes.");
       if(ledger.openRiskPct+(plannedRiskPct??0)>strategy.risk.maximumOpenRiskPct)blockers.push("Planned trade would exceed Pulse open-risk ceiling.");
     }
   }
@@ -165,7 +171,8 @@ export function evaluateMomentumBreakoutCandidate(input:{
     relativeVolume,
     atrPct,
     trigger,maxEntry,protectiveStop,takeProfit,
-    plannedQuantity,plannedNotional,plannedRiskDollars,plannedRiskPct,
+    plannedQuantity,plannedNotional,plannedRiskDollars,plannedRiskPct,fractionalReferenceQuantity,
+    orderMode:plannedQuantity===null?null:pulseEntryOrderMode(plannedQuantity),
     blockers,waitingOn,
     reasons:prospect.reasons,
     marketOpen:session.marketOpen,

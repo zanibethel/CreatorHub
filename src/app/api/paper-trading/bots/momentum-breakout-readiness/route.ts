@@ -35,7 +35,7 @@ const ledgerSchema=z.object({
   buying_power:z.coerce.number().finite().nullable(),
   open_planned_risk_pct:z.coerce.number().finite().nullable(),
   daily_realized_loss_pct:z.coerce.number().finite().nullable(),
-  metadata:z.object({executionEnabled:z.boolean().optional()}).passthrough(),
+  metadata:z.object({executionEnabled:z.boolean().optional(),fractionalExecutionEnabled:z.boolean().optional()}).passthrough(),
 });
 const positionSchema=z.object({bot_id:z.string(),symbol:z.string(),quantity:z.coerce.number().finite().positive()});
 const orderSchema=z.object({status:z.string(),created_at:z.string()});
@@ -118,6 +118,7 @@ export async function GET(request:Request){
     const ownPositions=positions.filter(position=>position.bot_id===strategy.botProfileId);
     const occupiedByOther=new Set(positions.filter(position=>position.bot_id!==strategy.botProfileId).map(position=>position.symbol));
     const executionEnabled=ledger.metadata.executionEnabled===true;
+    const fractionalExecutionEnabled=ledger.metadata.fractionalExecutionEnabled===true;
 
     const plans=prospects.map(row=>evaluateMomentumBreakoutCandidate({
       now,
@@ -135,7 +136,7 @@ export async function GET(request:Request){
       ledger:{
         active:ledger.status==="active",equity:ledger.equity,buyingPower:ledger.buying_power??ledger.equity,
         openRiskPct:ledger.open_planned_risk_pct??0,dailyRealizedLossPct:ledger.daily_realized_loss_pct??0,
-        openPositions:ownPositions.length,dailyNewEntries,executionEnabled,
+        openPositions:ownPositions.length,dailyNewEntries,executionEnabled,fractionalExecutionEnabled,
       },
       symbolOccupiedByOtherBot:occupiedByOther.has(row.symbol),
     })).sort((a,b)=>b.scannerScore-a.scannerScore||b.acceleration-a.acceleration||(a.spreadPct??999)-(b.spreadPct??999));
@@ -172,7 +173,8 @@ export async function GET(request:Request){
             market_snapshot:{bid:plan.bid,ask:plan.ask,spreadPct:plan.spreadPct,
               percentChange:prospects.find(row=>row.symbol===plan.symbol)?.percent_change??null},
             risk_plan:{entryTrigger:plan.trigger,maxEntryPrice:plan.maxEntry,protectiveStop:plan.protectiveStop,
-              takeProfitPrice:plan.takeProfit,plannedNotional:plan.plannedNotional,plannedRiskDollars:plan.plannedRiskDollars},
+              takeProfitPrice:plan.takeProfit,plannedNotional:plan.plannedNotional,plannedRiskDollars:plan.plannedRiskDollars,
+              fractionalReferenceQuantity:plan.fractionalReferenceQuantity,orderMode:plan.orderMode},
             blockers:plan.blockers,warnings:plan.waitingOn,
             metadata:{source:"pulse-5m-readiness",executionEnabled,paperOnly:true,
               strategyState:plan.state,selectedForSubmission:plan.selectedForSubmission},
@@ -189,7 +191,7 @@ export async function GET(request:Request){
 
     return reply({
       collectedAt:new Date(now).toISOString(),strategyId:strategy.id,strategyVersion:strategy.version,paperOnly:true,
-      executionEnabled,submissionReady:Boolean(executionEnabled&&ready[0]?.selectedForSubmission),
+      executionEnabled,fractionalExecutionEnabled,submissionReady:Boolean(executionEnabled&&ready[0]?.selectedForSubmission),
       selectedSymbol:ready[0]?.symbol??null,
       marketData:{source:quoteBatch.source,fallback:quoteBatch.fallback,providerError:quoteBatch.providerError},
       handoff,

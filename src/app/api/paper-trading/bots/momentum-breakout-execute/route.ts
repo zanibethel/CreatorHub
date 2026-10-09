@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-breakout-strategy-config";
+import { pulseEntryOrderMode, pulseFractionalQuantity } from "@/lib/paper-pulse-fractional";
 
 export const dynamic="force-dynamic";
 
@@ -11,13 +12,13 @@ const requestSchema=z.object({symbol:z.preprocess(v=>typeof v==="string"?v.trim(
 const planSchema=z.object({
   symbol:z.string(),state:z.enum(["ready","waiting","blocked"]),selectedForSubmission:z.boolean(),
   quoteAgeSeconds:z.number().finite().nonnegative().nullable(),
-  ask:z.number().finite().positive().nullable(),protectiveStop:z.number().finite().positive().nullable(),
+  ask:z.number().finite().positive().nullable(),maxEntry:z.number().finite().positive().nullable(),protectiveStop:z.number().finite().positive().nullable(),
   takeProfit:z.number().finite().positive().nullable(),plannedQuantity:z.number().finite().positive().nullable(),
   plannedNotional:z.number().finite().positive().nullable(),plannedRiskDollars:z.number().finite().nonnegative().nullable(),
   plannedRiskPct:z.number().finite().nonnegative().nullable(),
 });
 const readinessSchema=z.object({
-  paperOnly:z.literal(true),executionEnabled:z.boolean(),submissionReady:z.boolean(),plans:z.array(planSchema),
+  paperOnly:z.literal(true),executionEnabled:z.boolean(),fractionalExecutionEnabled:z.boolean(),submissionReady:z.boolean(),plans:z.array(planSchema),
 });
 const preparedSchema=z.object({
   client_order_id:z.string(),bot_id:z.literal(strategy.botProfileId),strategy_id:z.string(),strategy_version:z.coerce.number().int().positive(),
@@ -65,8 +66,51 @@ export async function POST(request:Request){
     return reply({error:"Pulse execution preview is incomplete or stale."},409);
   }
   if(!(plan.protectiveStop<plan.ask&&plan.takeProfit>plan.ask))return reply({error:"Pulse bracket prices do not surround entry."},409);
-  // Fractional bracket orders are rejected by Alpaca PAPER: verify before claiming the order.
-  if(!Number.isSafeInteger(plan.plannedQuantity)||plan.plannedQuantity<1)return reply({error:"Pulse broker-hosted brackets require a whole-share quantity within existing risk caps."},409);
+  const orderMode=pulseEntryOrderMode(plan.plannedQuantity);
+  if(!orderMode)return reply({error:"Pulse quantity is invalid for supported PAPER order modes."},409);
+  const fractional=orderMode==="fractional-simple-protected";
+  if(fractional&&!readiness.fractionalExecutionEnabled)return reply({error:"Pulse fractional stop manager is not armed."},409);
+  if(fractional){
+    // No fractional multi-leg brackets: only submit after an independent
+    // fractional DAY stop manager exists and a broker asset/preflight succeeds.
+    const bh={"APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,Accept:"application/json"};
+    const urls=[`${ALPACA_PAPER}/assets/${encodeURIComponent(parsed.symbol)}`,
+      `${ALPACA_PAPER}/clock`,
+      `${ALPACA_PAPER}/positions`,
+      `${ALPACA_PAPER}/orders?status=open&limit=500`];
+    const values=await Promise.all(urls.map(url=>fetch(url,{
+      headers:bh,cache:"no-store",signal:AbortSignal.timeout(10_000),
+    })));
+    if(values.some(response=>!response.ok))return reply({error:"Pulse fractional broker preflight is unavailable."},503);
+    const [asset,clock,positions,orders]=await Promise.all(values.map(response=>response.json())) as [
+      {fractionable?:boolean;tradable?:boolean;status?:string},{is_open?:boolean},
+      Array<{symbol?:string}>,Array<{symbol?:string;status?:string}>
+    ];
+    if(!asset.fractionable||!asset.tradable||asset.status!=="active")
+      return reply({error:"Alpaca PAPER asset does not support fractionable stock trading."},409);
+    if(!clock.is_open)return reply({error:"Pulse fractional orders require live regular-session PAPER trading."},409);
+    if(!Array.isArray(positions)||!Array.isArray(orders))
+      return reply({error:"Broker collision preflight returned malformed data."},503);
+    if(positions.some(p=>p.symbol===parsed.symbol)||orders.some(o=>o.symbol===parsed.symbol))
+      return reply({error:"Shared PAPER broker symbol already occupied by an order or position; cannot safely attribute fractional entry."},409);
+  }
+
+  // A fractional market order could exceed both the cash and risk caps on
+  // slippage. Limit the entry and shrink quantity using the worst fill price.
+  const maxLimit=plan.maxEntry===null?null:Math.floor(plan.maxEntry*100)/100;
+  const limitPrice=fractional?Math.ceil(plan.ask*100-1e-8)/100:null;
+  if(fractional&&(!(limitPrice&&maxLimit&&limitPrice<=maxLimit)||!plan.plannedNotional||
+     plan.plannedRiskDollars===null||!plan.protectiveStop||limitPrice<=plan.protectiveStop)){
+    return reply({error:"Pulse fractional DAY limit entry exceeds the authorized risk envelope."},409);
+  }
+  const effectiveQty=fractional
+    ? pulseFractionalQuantity(
+      plan.plannedRiskDollars!/(limitPrice!-plan.protectiveStop!),
+      plan.plannedNotional!/limitPrice!,limitPrice!,
+    )
+    : plan.plannedQuantity;
+  if(effectiveQty===null||effectiveQty<=0||effectiveQty>plan.plannedQuantity+0.000000001)
+    return reply({error:"Pulse fractional limit adjustment cannot preserve the existing risk caps."},409);
 
   const headers:Record<string,string>={apikey:supabaseSecret,"Content-Type":"application/json",Accept:"application/json"};
   if(supabaseSecret.startsWith("eyJ"))headers.Authorization=`Bearer ${supabaseSecret}`;
@@ -84,8 +128,8 @@ export async function POST(request:Request){
     {
       method:"PATCH",headers:{...headers,Prefer:"return=representation"},
       body:JSON.stringify({
-        status:"submitted",requested_quantity:plan.plannedQuantity,submitted_at:claimedAt,
-        metadata:{...prepared.metadata,executionMode:"paper-bracket",executionClaimedAt:claimedAt,entryReference:plan.ask,brokerProtection:"bracket"},
+        status:"submitted",requested_quantity:effectiveQty,submitted_at:claimedAt,
+        metadata:{...prepared.metadata,executionMode:fractional?"paper-fractional-simple-v1":"paper-bracket",executionClaimedAt:claimedAt,entryReference:plan.ask,limitPrice,brokerProtection:fractional?"independent-day-stop":"bracket"},
         updated_at:claimedAt,
       }),cache:"no-store",signal:AbortSignal.timeout(10_000),
     },
@@ -100,10 +144,11 @@ export async function POST(request:Request){
     const response=await fetch(`${ALPACA_PAPER}/orders`,{
       method:"POST",headers:brokerHeaders,
       body:JSON.stringify({
-        symbol:parsed.symbol,side:"buy",qty:qtyString(plan.plannedQuantity),type:"market",time_in_force:"day",extended_hours:false,
-        client_order_id:prepared.client_order_id,order_class:"bracket",
-        take_profit:{limit_price:String(roundPrice(plan.takeProfit))},
-        stop_loss:{stop_price:String(roundPrice(plan.protectiveStop))},
+        symbol:parsed.symbol,side:"buy",qty:qtyString(effectiveQty),type:fractional?"limit":"market",time_in_force:"day",extended_hours:false,
+        ...(fractional?{limit_price:String(limitPrice)}:{}),
+        client_order_id:prepared.client_order_id,order_class:fractional?"simple":"bracket",
+        ...(fractional?{}:{take_profit:{limit_price:String(roundPrice(plan.takeProfit))},
+          stop_loss:{stop_price:String(roundPrice(plan.protectiveStop))}}),
       }),
       cache:"no-store",signal:AbortSignal.timeout(10_000),
     });
@@ -143,11 +188,28 @@ export async function POST(request:Request){
     method:"PATCH",headers:{...headers,Prefer:"return=minimal"},
     body:JSON.stringify({
       broker_order_id:order.id,status:brokerStatus(order.status),
-      metadata:{...prepared.metadata,executionMode:"paper-bracket",brokerObservedStatus:order.status??"submitted",bracketAccepted:order.order_class==="bracket",takeProfitLegObserved:takeObserved,stopLossLegObserved:stopObserved,brokerLookupPending:false,protectionValidatedAt:new Date().toISOString()},
+      metadata:{...prepared.metadata,executionMode:fractional?"paper-fractional-simple-v1":"paper-bracket",brokerObservedStatus:order.status??"submitted",bracketAccepted:order.order_class==="bracket",takeProfitLegObserved:takeObserved,stopLossLegObserved:stopObserved,brokerLookupPending:false,protectionValidatedAt:fractional?null:new Date().toISOString()},
       updated_at:new Date().toISOString(),
     }),cache:"no-store",signal:AbortSignal.timeout(10_000),
   });
 
+  if(fractional){
+    // The entry may fill later. Immediate management reduces the unprotected
+    // interval; a separate one-minute cron independently retries reconciliation.
+    const cron=process.env.CRON_SECRET?.trim()??"";
+    let protection:{ok?:boolean;outcome?:unknown;error?:string}|null=null;
+    if(cron){
+      try{
+        const response=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-manage",request.url),{
+          headers:{Authorization:`Bearer ${cron}`},cache:"no-store",signal:AbortSignal.timeout(20_000),
+        });
+        protection=await response.json() as typeof protection;
+      }catch{protection={ok:false,error:"Immediate protection manager unavailable."};}
+    }
+    return reply({ok:true,paperOnly:true,symbol:parsed.symbol,executionMode:"paper-fractional-simple-v1",
+      brokerOrderId:order.id,status:brokerStatus(order.status),protectionManager:protection,
+      protectionPending:true,warning:"Simple fractional entry does not include broker OCO; a separate stop/flatten manager must confirm protection."},202);
+  }
   // An accepted entry is not proof that its protective exits exist. Fail closed and
   // surface an explicit reconciliation requirement rather than reporting success.
   const protectionVerified=nested.order_class==="bracket"&&takeObserved&&stopObserved;
