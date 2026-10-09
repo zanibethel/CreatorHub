@@ -1,11 +1,12 @@
 type CronJobKey="pulse-run"|"pulse-manage"|"fuse-run"|"fuse-manage"|"atlas-run"|"harbor-run";
 export type PaperCronInfo={job:CronJobKey;botId:string;expectedMinutes:1|5};
 
-function sanitize(value:unknown,max:number):string{
-  const s=typeof value==="string"?value:"unknown";
-  // Avoid storing tokens/URLs/order IDs, sensitive API errors or arbitrary
-  // upstream body text in the shared health table.
-  return s.replace(/[^a-zA-Z0-9 _-]/g,"_").slice(0,max)||"unknown";
+function safeAction(value:unknown,fallback:string):string{
+  // Only an explicit short machine-readable action, never an error/reason
+  // string. Arbitrary upstream errors can embed credentials or user data.
+  if(typeof value!=="string"||!/^[a-z][a-z0-9-]{0,79}$/.test(value))
+    return fallback;
+  return value;
 }
 /**
  * Wrap an EXISTING CRON_SECRET-gated PAPER runner without touching strategy
@@ -37,7 +38,7 @@ export function withPaperCronHeartbeat(
     let action=thrown?"runner-exception":response.ok?"completed":"failed";
     try {
       const obj=await response.clone().json() as Record<string,unknown>;
-      action=sanitize(obj.action??obj.reason??obj.error??action,120);
+      action=safeAction(obj.action,action);
     } catch {}
     const secret=process.env.SUPABASE_SECRET_KEY?.trim()??"";
     const url=process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()??"";
