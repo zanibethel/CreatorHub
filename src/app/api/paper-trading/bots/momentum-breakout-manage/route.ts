@@ -2,6 +2,7 @@ import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pulseCompanionClientOrderId } from "@/lib/paper-pulse-fractional";
+import { auditPulseBrokerBracket, type PulseBracketParent, type PulseBracketLeg } from "@/lib/paper-pulse-bracket-evidence";
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-breakout-strategy-config";
 
 export const dynamic="force-dynamic";
@@ -13,11 +14,13 @@ const confirmedStopStatuses=new Set(["accepted","new","partially_filled","pendin
 const orderSchema=z.object({
   client_order_id:z.string(),broker_order_id:z.string().nullable(),symbol:z.string(),
   side:z.enum(["buy","sell"]),status:z.string(),requested_quantity:z.coerce.number().nullable(),
-  protective_stop:z.coerce.number().nullable(),metadata:z.record(z.string(),z.unknown()),
+  protective_stop:z.coerce.number().nullable(),take_profit_price:z.coerce.number().nullable().optional(),
+  metadata:z.record(z.string(),z.unknown()),
 });
 type LocalOrder=z.infer<typeof orderSchema>;
 type BrokerOrder={id?:string;client_order_id?:string;symbol?:string;side?:string;
-  type?:string;status?:string;qty?:string;filled_qty?:string;stop_price?:string|null};
+  type?:string;status?:string;qty?:string;filled_qty?:string;stop_price?:string|null;
+  order_class?:string;limit_price?:string|null;legs?:BrokerOrder[]|null};
 type BrokerPosition={symbol?:string;qty?:string;qty_available?:string};
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const numeric=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)?n:null;};
@@ -171,7 +174,7 @@ async function runPaperCron(request:Request){
     // Only fractional parents need active stop-manager writes below, but a
     // stranded virtual holding or tagged PAPER buy must never be invisible.
     const allEntries=z.array(orderSchema).parse(await db(
-      `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&side=eq.buy&status=in.(submitted,partially_filled,filled)&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,metadata&order=created_at.desc&limit=60`));
+      `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&side=eq.buy&status=in.(submitted,partially_filled,filled)&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,take_profit_price,metadata&order=created_at.desc&limit=60`));
     const ownPositions=z.array(z.object({
       bot_id:z.literal(strategy.botProfileId),symbol:z.string(),quantity:z.coerce.number(),
     })).parse(await db(
@@ -191,6 +194,67 @@ async function runPaperCron(request:Request){
       return reply({ok:false,paperOnly:true,
         error:"Orphan active Pulse-tagged PAPER buy cannot be tied to an active local parent.",
         orphanClientOrderIds:orphanBuys.map(o=>o.client_order_id)},503);
+    // Whole-share bracket orders have their own Alpaca OCO exits, but must
+    // still be checked continuously. This is a READ-ONLY safety watchdog:
+    // no independent OCO cancellation/replacement or sell is authorized here.
+    const brackets=allEntries.filter(row=>row.metadata.executionMode==="paper-bracket");
+    for(const entry of brackets){
+      if(!entry.broker_order_id||!/^chb-pls-v[1-9][0-9]*-/.test(entry.client_order_id))
+        throw Error("Pulse bracket buy cannot be attributed to its broker parent.");
+      if(allEntries.filter(e=>e.symbol===entry.symbol).length!==1||
+         others.some(v=>v.symbol===entry.symbol))
+        throw Error("Pulse bracket has an ambiguous physical stock symbol owner.");
+      const physical=positions.filter(p=>p.symbol===entry.symbol);
+      const mine=ownPositions.filter(p=>p.symbol===entry.symbol);
+      if(physical.length>1||mine.length>1)
+        throw Error("Pulse bracket broker/virtual stock ownership has duplicate rows.");
+      const rawQty=physical[0]?.qty??"0";
+      if(!/^(?:0|[1-9][0-9]*)(?:\\.[0-9]+)?$/.test(rawQty))
+        throw Error("Pulse bracket physical share quantity is malformed.");
+      const shares=Number(rawQty),virtualQty=mine[0]?.quantity??0;
+      if(!Number.isSafeInteger(shares)||shares<0||!Number.isSafeInteger(virtualQty)||
+         virtualQty<0||shares!==virtualQty)
+        throw Error("Pulse bracket broker shares do not reconcile to its virtual holdings.");
+      if(shares===0){
+        if(openVenueOrders.some(o=>o.symbol===entry.symbol&&o.side==="sell"))
+          throw Error("Pulse bracket is broker-flat with an unexplained open sell.");
+        outcome.push({symbol:entry.symbol,action:"bracket-awaiting-fill-or-reconciled-flat"});
+        continue;
+      }
+      if(entry.protective_stop===null||entry.take_profit_price==null)
+        throw Error("Pulse bracket stored authorized stop/target is unavailable.");
+      const parentResponse=await broker("orders/"+encodeURIComponent(entry.broker_order_id)+"?nested=true");
+      if(!parentResponse.response.ok)
+        throw Error("Pulse broker bracket parent is unavailable for independent protection.");
+      const parent=parentResponse.payload as PulseBracketParent;
+      if(!Array.isArray(parent?.legs)||parent.legs.length!==2)
+        throw Error("Pulse broker bracket does not have two attributable exit legs.");
+      // Nested order snapshots can be stale. Fetch each exit independently.
+      const children:PulseBracketLeg[]=[];
+      for(const leg of parent.legs){
+        if(!leg?.id||typeof leg.id!=="string")
+          throw Error("Pulse broker bracket child identity is missing.");
+        const observed=await broker("orders/"+encodeURIComponent(leg.id));
+        if(!observed.response.ok)
+          throw Error("Pulse independent broker bracket child lookup failed.");
+        const child=observed.payload as PulseBracketLeg;
+        if(child.id!==leg.id||child.symbol!==entry.symbol||child.side!=="sell")
+          throw Error("Pulse independent broker bracket child ownership mismatch.");
+        children.push(child);
+      }
+      const proof=auditPulseBrokerBracket({
+        parent:{...parent,legs:children},brokerOrderId:entry.broker_order_id,
+        clientOrderId:entry.client_order_id,symbol:entry.symbol,quantity:shares,
+        authorizedStop:entry.protective_stop,authorizedTarget:entry.take_profit_price,
+      });
+      const childIds=new Set(children.map(c=>c.id));
+      const venueSells=openVenueOrders.filter(o=>o.symbol===entry.symbol&&o.side==="sell");
+      if(!proof.verified||venueSells.length!==2||
+         venueSells.some(o=>!childIds.has(o.id))||
+         children.some(c=>!venueSells.some(o=>o.id===c.id&&o.client_order_id===c.client_order_id)))
+        throw Error("Pulse bracket stop/target are not independently active and fully covering its held shares.");
+      outcome.push({symbol:entry.symbol,action:"broker-bracket-verified"});
+    }
     const entries=allEntries.filter(row=>row.metadata.executionMode==="paper-fractional-simple-v1");
     for(const entry of entries){
       const symbol=entry.symbol;
