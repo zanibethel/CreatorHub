@@ -86,7 +86,7 @@ test("active $100 comparison bots stay isolated", () => {
   }
 });
 
-test("Fuse has a versioned research strategy and remains simulation-disabled", () => {
+test("Fuse has an independent strategy with a disabled-by-default one-shot PAPER pilot", () => {
   const penny = profiles.PENNY_VOLATILITY_DAY_BOT;
   assert.equal(penny.status, "active");
   assert.equal(penny.executionState, "research");
@@ -95,7 +95,9 @@ test("Fuse has a versioned research strategy and remains simulation-disabled", (
   assert.equal(penny.universe.maximumPriceUsd, 5);
   assert.equal(penny.cadence.intradayOnly, true);
   assert.equal(penny.strategyId, fuseStrategy.FUSE_PENNY_STRATEGY_V1.id);
-  assert.equal(fuseStrategy.FUSE_PENNY_STRATEGY_V1.execution.submissionsImplemented, false);
+  assert.equal(fuseStrategy.FUSE_PENNY_STRATEGY_V1.execution.submissionsImplemented, true);
+  assert.equal(fuseStrategy.FUSE_PENNY_STRATEGY_V1.execution.executionEnabledByDefault, false);
+  assert.equal(fuseStrategy.FUSE_PENNY_STRATEGY_V1.execution.paperOnly, true);
 });
 
 test("registry includes eight separate $100 research or active challenges", () => {

@@ -1,7 +1,7 @@
-/** Research-only starting thresholds; must be calibrated with held-out intraday evidence before simulated orders are enabled. */
+/** Research thresholds remain fixed; a single PAPER pilot executor is implemented but default and production ledger switches remain OFF. */
 export const FUSE_PENNY_STRATEGY_V1 = {
   id:"penny-volatility-day-v1",version:1,botProfileId:"penny-volatility-day-100",brokerTag:"pny",
-  mode:"research-only",execution:{paperOnly:true,executionEnabledByDefault:false,submissionsImplemented:false},
+  mode:"research-only",execution:{paperOnly:true,executionEnabledByDefault:false,submissionsImplemented:true},
   intake:{minimumPriceUsd:0.08,maximumPriceUsd:5,minimumScannerVersion:3,maximumProspectAgeMinutes:20},
   market:{maximumQuoteAgeSeconds:90,maximumBarLagMinutes:12,minimumCompleted5mBars:8,
     maximumSpreadPct:1.5,maximumSpreadUnderOnePct:2.0,minimumRecentDollarVolume:25_000},

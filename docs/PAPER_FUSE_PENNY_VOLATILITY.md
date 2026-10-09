@@ -182,6 +182,54 @@ a prerequisite to changing Fuse's BUY execution switch from OFF.
 
 ---
 
+## One-entry guarded PAPER execution pilot (phase 5)
+
+**Built but DISARMED:** The independent five-minute `GET /api/paper-trading/bots/fuse-run`
+and private `POST /api/paper-trading/bots/fuse-execute` use the existing
+Supabase bot ledger. There are **two separate consent switches**:
+`metadata.executionEnabled=true` and `metadata.fusePilotEnabled=true`.
+Both are currently **OFF**; their absence/false value does not authorize an entry.
+
+When armed, Fuse selects only a fresh `research-ready` scanner observation
+whose live broker-compatible preview passes the original score, momentum,
+quote, spread, completed bars, trading-session and cash/risk gates. It
+revalidates its $100 virtual account, checks that the Alpaca PAPER asset is
+active and tradable, the broker clock is open, and the shared physical
+PAPER account has no order/position collision in that symbol. It also
+requires a healthy independent `fuse-manage` before placing any risk.
+
+A privileged SQL function `paper_fuse_claim_pilot_entry` obtains a
+row lock on the Fuse ledger, validates broker tick size, whole-share
+quantity, total notional no more than 20% of Fuse equity, and planned
+stop loss no more than 0.5% equity. It atomically stages one tagged
+`chb-pny-v1-...` paper order and records the permanently single-use
+`fusePilotClientOrderId`. Concurrent/ambiguous invocations cannot
+claim a second permit. The function is **service_role-only**.
+
+Only after that reservation does the executor submit one `DAY`
+whole-share `limit` buy with Alpaca's hosted `bracket` stop and target
+to `https://paper-api.alpaca.markets/v2`. A network timeout,
+rejection, mismatched order identity, missing bracket legs, or database
+failure consumes the permit and requires manual inspection; there is
+**no retry** that might duplicate a broker position. The response
+distinguishes accepted, filled, and broker-protected states and never
+calls mere order acceptance protective stop verification.
+
+The existing centralized `paper_bot_reconcile_broker_activity` and
+`paper_bot_apply_unapplied_fills` functions use the canonical PNY
+client order attribution and bracket parent mapping for fill-to-ledger
+accounting; this still requires an actual Alpaca PAPER end-to-end fill
+test before broader automation. The minute independent Fuse exit
+manager is active regardless of the entry switches.
+
+**Release guard:** do not set both flags TRUE or reset
+`fusePilotClientOrderId` until the migration, runner, PAPER broker
+preflight, protective manager, attribution, and shadow evidence are
+verified; the official challenge counter stays stopped.
+No live-money execution endpoint exists.
+
+---
+
 ## Release / validation
 
 1. Ensure production build compiles and all `npm run test:paper` tests pass.
