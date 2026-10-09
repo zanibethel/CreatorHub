@@ -8,7 +8,7 @@ const source=readFileSync(new URL("../src/lib/paper-shared-capital-manager.ts",i
 const code=ts.transpileModule(source,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const exports={};
 vm.runInNewContext(code,{exports,require:()=>{throw new Error("Unexpected import");}});
-const {PAPER_SHARED_CAPITAL_POLICY_V1:policy,previewSharedPaperAllocation:preview,wilsonWinRateLowerBound:wilson}=exports;
+const {PAPER_SHARED_CAPITAL_POLICY_V1:policy,previewSharedPaperAllocation:preview,wilsonWinRateLowerBound:wilson,previewSharedPaperBatch:batch}=exports;
 
 const portfolio=(patch={})=>({
   equityUsd:5000,settledCashUsd:5000,buyingPowerUsd:5000,reservedCashUsd:0,
@@ -69,7 +69,7 @@ test("already-owned or pending physical symbols cannot receive a second real-siz
     marketValueUsd:100,plannedLossUsd:3};
   assert.equal(preview(stock(),portfolio({holdings:[existing]})).state,"shadow-only");
   assert.equal(preview(stock(),portfolio({pendingEntries:[existing]})).state,"shadow-only");
-  assert.equal(preview(stock({symbol:"ACME/USD"}),portfolio({holdings:[existing]})).state,"shadow-only");
+  assert.equal(preview(stock({symbol:"acme"}),portfolio({holdings:[existing]})).state,"shadow-only");
 });
 
 test("sector concentration, open risk, and existing sleeve exposure cap further spending",()=>{
@@ -130,4 +130,32 @@ test("incomplete, malformed or zero-cost snapshots fail closed",()=>{
     symbol:"XYZ",sleeve:"stocks",concentrationGroup:"",
     marketValueUsd:100,plannedLossUsd:5,
   }]})),/Invalid portfolio exposure/);
+});
+
+test("the stronger proposal earns provisional funding before a competing bot on the same symbol",()=>{
+  const chosen=batch([
+    stock({botId:"atlas",symbol:"ACME",targetPrice:109}),
+    stock({botId:"pulse",symbol:"ACME",targetPrice:112}),
+  ],portfolio());
+  assert.equal(chosen.paperOnly,true);
+  assert.equal(chosen.brokerOrderAuthorized,false);
+  assert.equal(chosen.selectedCount,1);
+  assert.equal(chosen.shadowCount,1);
+  assert.equal(chosen.ranked[0].botId,"pulse");
+  assert.equal(chosen.ranked[0].state,"allocatable");
+  assert.equal(chosen.ranked[1].state,"shadow-only");
+  assert.equal(chosen.snapshotAfterProvisionalSelection.pendingEntries.length,1);
+  assert.equal(chosen.snapshotAfterProvisionalSelection.reservedCashUsd,
+    chosen.ranked[0].plannedNotionalUsd);
+});
+
+test("multiple batch choices cannot reuse cash, correlated capacity or risk allowances",()=>{
+  const selected=batch([
+    stock({symbol:"AA",concentrationGroup:"sector-a"}),
+    stock({symbol:"BB",concentrationGroup:"sector-b"}),
+    stock({symbol:"CC",concentrationGroup:"sector-c"}),
+  ],portfolio({settledCashUsd:1500,buyingPowerUsd:1500}));
+  assert.ok(selected.selectedCount<=1);
+  assert.ok(selected.snapshotAfterProvisionalSelection.reservedCashUsd<=500.000001);
+  assert.equal(selected.ranked.filter(r=>r.brokerOrderAuthorized).length,0);
 });
