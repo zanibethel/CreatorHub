@@ -84,8 +84,9 @@ CREATE OR REPLACE FUNCTION public.paper_stock_symbol_release_verified(
 ) RETURNS boolean
 LANGUAGE plpgsql SECURITY DEFINER SET search_path=''
 AS $$
-DECLARE v_owner public.paper_stock_symbol_reservations%rowtype;
-DECLARE v_time timestamptz;
+DECLARE
+ v_owner public.paper_stock_symbol_reservations%rowtype;
+ v_time timestamptz;
 BEGIN
  IF auth.role() IS DISTINCT FROM 'service_role' OR
     p_proof IS NULL OR jsonb_typeof(p_proof)<>'object' OR
