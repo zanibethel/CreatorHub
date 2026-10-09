@@ -7,6 +7,7 @@ export const dynamic="force-dynamic";
 
 const SUPABASE_URL=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://yufptpfiwdbzzrvhkvux.supabase.co";
 const ALPACA_PAPER="https://paper-api.alpaca.markets/v2";
+const PUBLIC_ORIGIN=process.env.CREATORHUB_PUBLIC_ORIGIN||"https://creatorhub-gray.vercel.app";
 
 const requestSchema=z.object({symbol:z.preprocess(v=>typeof v==="string"?v.trim().toUpperCase():v,z.string().regex(/^[A-Z][A-Z0-9.]{0,15}$/))}).strict();
 const planSchema=z.object({
@@ -53,7 +54,7 @@ export async function POST(request:Request){
   let parsed:z.infer<typeof requestSchema>;
   try{parsed=requestSchema.parse(await request.json());}catch{return reply({error:"A valid Pulse symbol is required."},400);}
 
-  const readinessResponse=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-readiness",request.url),{
+  const readinessResponse=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-readiness",PUBLIC_ORIGIN),{
     cache:"no-store",signal:AbortSignal.timeout(20_000),
   });
   if(!readinessResponse.ok)return reply({error:"Pulse final readiness recheck failed."},503);
@@ -69,31 +70,49 @@ export async function POST(request:Request){
   const orderMode=pulseEntryOrderMode(plan.plannedQuantity);
   if(!orderMode)return reply({error:"Pulse quantity is invalid for supported PAPER order modes."},409);
   const fractional=orderMode==="fractional-simple-protected";
-  if(fractional&&!readiness.fractionalExecutionEnabled)return reply({error:"Pulse fractional stop manager is not armed."},409);
-  if(fractional){
-    // No fractional multi-leg brackets: only submit after an independent
-    // fractional DAY stop manager exists and a broker asset/preflight succeeds.
-    const bh={"APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,Accept:"application/json"};
-    const urls=[`${ALPACA_PAPER}/assets/${encodeURIComponent(parsed.symbol)}`,
-      `${ALPACA_PAPER}/clock`,
-      `${ALPACA_PAPER}/positions`,
-      `${ALPACA_PAPER}/orders?status=open&limit=500`];
-    const values=await Promise.all(urls.map(url=>fetch(url,{
-      headers:bh,cache:"no-store",signal:AbortSignal.timeout(10_000),
-    })));
-    if(values.some(response=>!response.ok))return reply({error:"Pulse fractional broker preflight is unavailable."},503);
-    const [asset,clock,positions,orders]=await Promise.all(values.map(response=>response.json())) as [
-      {fractionable?:boolean;tradable?:boolean;status?:string},{is_open?:boolean},
-      Array<{symbol?:string}>,Array<{symbol?:string;status?:string}>
-    ];
-    if(!asset.fractionable||!asset.tradable||asset.status!=="active")
-      return reply({error:"Alpaca PAPER asset does not support fractionable stock trading."},409);
-    if(!clock.is_open)return reply({error:"Pulse fractional orders require live regular-session PAPER trading."},409);
-    if(!Array.isArray(positions)||!Array.isArray(orders))
-      return reply({error:"Broker collision preflight returned malformed data."},503);
-    if(positions.some(p=>p.symbol===parsed.symbol)||orders.some(o=>o.symbol===parsed.symbol))
-      return reply({error:"Shared PAPER broker symbol already occupied by an order or position; cannot safely attribute fractional entry."},409);
-  }
+  // Both integer brackets and fractional simple orders must participate
+  // in the SAME one-shot pilot and shared stock-symbol reservation.
+  // The existing atomic pilot RPC deliberately fails closed if disabled.
+  if(!readiness.fractionalExecutionEnabled)
+    return reply({error:"Pulse shared one-entry PAPER stock pilot is not armed."},409);
+
+  const paperHeaders={"APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,Accept:"application/json"};
+  const verifyBrokerVenue=async():Promise<{ok:true}|{ok:false;status:number;error:string}>=>{
+    try{
+      const urls=[`${ALPACA_PAPER}/assets/${encodeURIComponent(parsed.symbol)}`,
+        `${ALPACA_PAPER}/clock`,
+        `${ALPACA_PAPER}/positions`,
+        `${ALPACA_PAPER}/orders?status=open&limit=500&nested=false`];
+      const values=await Promise.all(urls.map(url=>fetch(url,{
+        headers:paperHeaders,cache:"no-store",signal:AbortSignal.timeout(10_000),
+      })));
+      if(values.some(response=>!response.ok))
+        return {ok:false,status:503,error:"Pulse broker-wide PAPER preflight is unavailable."};
+      const [asset,clock,positions,orders]=await Promise.all(values.map(response=>response.json())) as [
+        {symbol?:string;class?:string;fractionable?:boolean;tradable?:boolean;status?:string},
+        {is_open?:boolean},Array<{symbol?:string;qty?:string}>,
+        Array<{symbol?:string;status?:string;client_order_id?:string}>
+      ];
+      if(asset.symbol!==parsed.symbol||asset.class!=="us_equity"||asset.status!=="active"||
+         asset.tradable!==true||(fractional&&asset.fractionable!==true))
+        return {ok:false,status:409,error:"Alpaca PAPER asset is not independently verified for this stock order mode."};
+      if(clock.is_open!==true)
+        return {ok:false,status:409,error:"Pulse stock entry requires the active regular PAPER session."};
+      // Refuse pagination ambiguity and malformed venue rows; missing an
+      // order or position here could buy another bot's physical shares twice.
+      if(!Array.isArray(positions)||!Array.isArray(orders)||positions.length>=500||orders.length>=500||
+         positions.some(p=>typeof p?.symbol!=="string"||!p.symbol)||
+         orders.some(o=>typeof o?.symbol!=="string"||!o.symbol))
+        return {ok:false,status:503,error:"Pulse stock venue ownership scan is incomplete."};
+      if(positions.some(p=>p.symbol===parsed.symbol)||orders.some(o=>o.symbol===parsed.symbol))
+        return {ok:false,status:409,error:"Shared PAPER broker symbol is occupied; Pulse will not buy it."};
+      return {ok:true};
+    }catch{
+      return {ok:false,status:503,error:"Pulse PAPER broker preflight could not be verified."};
+    }
+  };
+  const initialVenue=await verifyBrokerVenue();
+  if(!initialVenue.ok)return reply({error:initialVenue.error},initialVenue.status);
 
   // A fractional market order could exceed both the cash and risk caps on
   // slippage. Limit the entry and shrink quantity using the worst fill price.
@@ -123,33 +142,36 @@ export async function POST(request:Request){
   if(!prepared)return reply({error:"No unclaimed Pulse prepared order exists."},409);
 
   if(fractional){
-    // Never arm the first fractional PAPER entry unless the independent stop
-    // manager can authenticate, read the broker, and reconcile prior risk.
+    // An independent protected fractional stop manager must be healthy
+    // before the irreversible, single-entry venue/ledger pilot claim.
     const cron=process.env.CRON_SECRET?.trim()??"";
     if(!cron)return reply({error:"Pulse independent stop manager is not configured."},503);
     let managerHealthy=false;
     try{
-      const manager=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-manage",request.url),{
+      const manager=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-manage",PUBLIC_ORIGIN),{
         headers:{Authorization:`Bearer ${cron}`},cache:"no-store",signal:AbortSignal.timeout(25_000),
       });
       const health=await manager.json() as {ok?:boolean;paperOnly?:boolean;marketOpen?:boolean};
       managerHealthy=manager.ok&&health.ok===true&&health.paperOnly===true&&health.marketOpen===true;
     }catch{}
-    if(!managerHealthy)return reply({error:"Pulse fractional protection manager is not healthy; refusing new risk."},503);
-
-    // Atomic, single-entry pilot. Retrying after an ambiguous DB/RPC result
-    // cannot grant a second slot. Review the first real broker fill, stop and
-    // virtual-ledger attribution before allowing more fractional submissions.
-    let reserved=false;
-    try{
-      const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/paper_pulse_claim_fractional_pilot`,{
-        method:"POST",headers,body:JSON.stringify({p_client_order_id:prepared.client_order_id}),
-        cache:"no-store",signal:AbortSignal.timeout(10_000),
-      });
-      if(response.ok)reserved=(await response.json())===true;
-    }catch{}
-    if(!reserved)return reply({error:"Pulse one-entry PAPER fractional pilot slot was not available."},423);
+    if(!managerHealthy)
+      return reply({error:"Pulse fractional protection manager is not healthy; refusing new risk."},503);
   }
+
+  // The existing service-role RPC claims the one-shot Pulse stock pilot and
+  // inserts an atomic venue-wide symbol reservation. It is required for
+  // WHOLE-SHARE brackets too. Do not add a separate unreserved buy path.
+  // Uncertain RPC results fail closed: neither the pilot nor the physical
+  // symbol can be reclaimed without the existing evidence-gated workflow.
+  let reserved=false;
+  try{
+    const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/paper_pulse_claim_fractional_pilot`,{
+      method:"POST",headers,body:JSON.stringify({p_client_order_id:prepared.client_order_id}),
+      cache:"no-store",signal:AbortSignal.timeout(10_000),
+    });
+    if(response.ok)reserved=(await response.json())===true;
+  }catch{}
+  if(!reserved)return reply({error:"Pulse shared, one-entry PAPER stock pilot slot is unavailable."},423);
 
   const claimedAt=new Date().toISOString();
   const claim=await fetch(
@@ -166,6 +188,15 @@ export async function POST(request:Request){
   if(!claim.ok)return reply({error:"Pulse order claim failed."},503);
   const claimed=z.array(preparedSchema).parse(await claim.json());
   if(claimed.length!==1)return reply({error:"Pulse prepared order was already claimed."},409);
+
+  // A venue collision can appear between the first broker scan and the
+  // atomic database claim. Re-read physical Alpaca state immediately before
+  // the actual buy POST, including for WHOLE-SHARE bracket orders.
+  // Keep the pilot/reservation claimed if this fails: never retry blindly.
+  const finalVenue=await verifyBrokerVenue();
+  if(!finalVenue.ok)
+    return reply({error:"Pulse post-claim PAPER venue preflight failed; no broker buy attempted.",
+      detail:finalVenue.error},finalVenue.status);
 
   const brokerHeaders={"APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,Accept:"application/json","Content-Type":"application/json"};
   let order:BrokerOrder|null=null; let submitError="";
@@ -229,7 +260,7 @@ export async function POST(request:Request){
     let protection:{ok?:boolean;outcome?:unknown;error?:string}|null=null;
     if(cron){
       try{
-        const response=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-manage",request.url),{
+        const response=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-manage",PUBLIC_ORIGIN),{
           headers:{Authorization:`Bearer ${cron}`},cache:"no-store",signal:AbortSignal.timeout(20_000),
         });
         protection=await response.json() as typeof protection;
