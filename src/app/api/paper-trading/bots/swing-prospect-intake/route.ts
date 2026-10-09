@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
-import { swingJournalClassification } from "@/lib/paper-swing-journal-classification";
+import { swingJournalClassification, type SwingIntakeDisposition } from "@/lib/paper-swing-journal-classification";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import {
   evaluateSwingProspectIntake,
@@ -257,7 +257,7 @@ export async function GET(request:Request){
         existingExposure:exposureSymbols.has(prospect.symbol),
       });
 
-      let qualification=disposition.eligible?"eligible":"rejected";
+      let qualification:SwingIntakeDisposition=disposition.eligible?"eligible":"rejected";
       const blockers=[...disposition.blockers];
       if(disposition.eligible&&stageSlots<=0){
         qualification="deferred";
@@ -326,7 +326,7 @@ export async function GET(request:Request){
         });
       }
 
-      const journalType=swingJournalClassification(qualification as "staged"|"eligible"|"deferred"|"rejected");
+      const journalType=swingJournalClassification(qualification);
       journalRows.push({
         bot_id:BOT_ID,
         strategy_id:strategy.id,
