@@ -12,7 +12,7 @@ vm.runInNewContext(ts.transpileModule(source,{
 const {advanceSharedShadowStudy:advance}=moduleExports;
 
 const blank=(patch={})=>({
-  decisionAt:"2026-10-09T14:00:00Z",status:"watching",
+  decisionAt:"2026-10-09T13:59:59Z",status:"watching",
   referenceEntry:100,protectiveStop:97,plannedTarget:109,
   hypotheticalQuantity:6,estimatedRoundTripCostPct:0.2,
   assumedEntry:null,assumedExit:null,entryAt:null,exitAt:null,lastBarAt:null,
@@ -85,7 +85,7 @@ test("gap beyond reference price does not invent a market entry",()=>{
 });
 test("expiration does not invent a trade close or realized profit",()=>{
  const result=advance(blank(),[],{
-   completedThrough:"2026-10-10T14:00:00Z",expiresAt:"2026-10-10T00:00:00Z",
+   completedThrough:"2026-10-10T14:00:00Z",expiresAt:"2026-10-10T00:00:00Z",verifiedCoverageThroughCutoff:true,
  });
  assert.equal(result.study.status,"expired");
  assert.equal(result.study.firstOutcome,"never-triggered");
@@ -106,4 +106,20 @@ test("capital-only declines seed PAPER-isolated unfilled studies, not broker P&L
  assert.match(sql,/broker_order_authorized=false/);
  assert.match(sql,/REVOKE ALL ON public\.paper_shared_shadow_studies FROM PUBLIC,anon,authenticated/);
  assert.match(sql,/SECURITY INVOKER SET search_path=''/);
+});
+
+test("no market-data coverage never expires an unobserved opportunity",()=>{
+ const unobserved=advance(blank(),[],{
+ completedThrough:"2026-10-10T14:00:00Z",expiresAt:"2026-10-10T00:00:00Z",
+ verifiedCoverageThroughCutoff:false,
+ });
+ assert.equal(unobserved.study.status,"watching");
+ assert.equal(unobserved.changed,false);
+});
+test("a candle opened at the exact decision instant is not retroactively tradable",()=>{
+ const state=blank({decisionAt:"2026-10-09T14:00:00Z"});
+ const result=advance(state,[bar("2026-10-09T14:00:00Z",100,110,99,108)],
+ {completedThrough:"2026-10-09T14:05:00Z"});
+ assert.equal(result.study.assumedEntry,null);
+ assert.equal(result.changed,false);
 });
