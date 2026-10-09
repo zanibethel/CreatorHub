@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
+import { swingJournalClassification } from "@/lib/paper-swing-journal-classification";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import {
   evaluateSwingProspectIntake,
@@ -325,16 +326,17 @@ export async function GET(request:Request){
         });
       }
 
+      const journalType=swingJournalClassification(qualification as "staged"|"eligible"|"deferred"|"rejected");
       journalRows.push({
         bot_id:BOT_ID,
         strategy_id:strategy.id,
         strategy_version:strategy.version,
-        event_type:"prospect-intake",
+        event_type:journalType.eventType,
         symbol:prospect.symbol,
         asset_class:"stock",
         occurred_at:collectedAt,
         score:prospect.score,
-        qualification,
+        qualification:journalType.qualification,
         component_scores:prospect.score_components,
         market_snapshot:{
           price:prospect.price,
@@ -352,6 +354,7 @@ export async function GET(request:Request){
         metadata:{
           scannerId:prospect.scanner_id,
           scannerVersion:prospect.scanner_version,
+          intakeDisposition:qualification,
           prospectLastSeenAt:prospect.last_seen_at,
           scannerReasons:prospect.reasons,
           scannerSourceFlags:prospect.source_flags,
