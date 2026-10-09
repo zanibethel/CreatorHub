@@ -222,6 +222,28 @@ the scheduler test green.
 
 ---
 
+## Harbor actual PAPER intake journal repair — October 9, 2026
+
+Production authenticated Vercel cron evidence exposed an invalid journal
+insert **after** Harbor completed prospect evaluation. Harbor had used
+`event_type='prospect-intake'` and qualification values such as
+`staged`, `eligible`, `deferred`, and `rejected` that conflict with
+`paper_bot_journal` CHECK constraints.
+
+New intake journal normalization stores `candidate`/`rejected` events,
+and `qualified`/`watch`/`unqualified` qualifications. The complete
+original intake disposition remains available as
+`metadata.intakeDisposition` so research can distinguish staged,
+deferred, eligible and rejected signals. **No orders are manufactured or
+risk gates weakened**; submission remains controlled by Harbor's existing
+broker-checked guarded executor.
+
+G0 for Harbor can be signed off only when a **post-deployment** authenticated
+cron heartbeat records HTTP 200. A passing test or successful deployment
+alone does not prove its live journal write.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
