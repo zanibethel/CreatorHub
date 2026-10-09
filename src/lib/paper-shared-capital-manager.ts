@@ -242,3 +242,72 @@ export function previewSharedPaperAllocation(
     capitalLimitUsd:round(capitalLimitUsd),limitingFactors,
   };
 }
+
+export type SharedCapitalBatchPreview = {
+  paperOnly: true;
+  brokerOrderAuthorized: false;
+  ranked: SharedCapitalPreview[];
+  selectedCount: number;
+  shadowCount: number;
+  snapshotAfterProvisionalSelection: SharedPortfolioSnapshot;
+};
+
+/**
+ * Compare competing merit-qualified proposals in a single virtual portfolio.
+ * Ranking uses conservative strategy-specific historical EV where established,
+ * otherwise net reward/risk, never incomparable scanner scores. Selections
+ * reserve simulated cash in this returned snapshot ONLY (no database writes).
+ */
+export function previewSharedPaperBatch(
+  candidates: SharedCapitalCandidate[],
+  snapshot: SharedPortfolioSnapshot,
+): SharedCapitalBatchPreview {
+  validateSnapshot(snapshot);
+  if (!Array.isArray(candidates) || candidates.length > 50)
+    throw new Error("Invalid batch: at most 50 proposals.");
+  const ordered = candidates.map((candidate,index) => ({
+    candidate,index,reference:previewSharedPaperAllocation(candidate,snapshot),
+  })).sort((a,b) => {
+    const tier = (x: SharedCapitalPreview) =>
+      x.state === "rejected" ? 0 : x.expectedNetR === null ? 1 : 2;
+    return tier(b.reference)-tier(a.reference) ||
+      (b.reference.expectedNetR ?? b.reference.netRewardRisk) -
+      (a.reference.expectedNetR ?? a.reference.netRewardRisk) ||
+      a.index-b.index;
+  });
+  const working: SharedPortfolioSnapshot = {
+    ...snapshot,
+    holdings:[...snapshot.holdings],
+    pendingEntries:[...snapshot.pendingEntries],
+  };
+  const ranked: SharedCapitalPreview[] = [];
+  const seen = new Set<string>();
+  for(const {candidate} of ordered){
+    const uniqueKey = candidate.botId + ":" + canonicalSymbol(candidate.symbol);
+    if(seen.has(uniqueKey)){
+      const base = previewSharedPaperAllocation(candidate,working);
+      ranked.push({...base,state:"shadow-only",quantity:0,plannedNotionalUsd:0,
+        plannedLossUsd:0,plannedNetTargetRewardUsd:0,
+        reasons:[...base.reasons,"Repeated signal within the same decision batch."]});
+      continue;
+    }
+    seen.add(uniqueKey);
+    const decision = previewSharedPaperAllocation(candidate,working);
+    ranked.push(decision);
+    if(decision.state === "allocatable"){
+      working.pendingEntries.push({
+        symbol:candidate.symbol,sleeve:candidate.sleeve,
+        concentrationGroup:candidate.concentrationGroup,
+        marketValueUsd:decision.plannedNotionalUsd,
+        plannedLossUsd:decision.plannedLossUsd,
+      });
+      working.reservedCashUsd += decision.plannedNotionalUsd;
+    }
+  }
+  return {
+    paperOnly:true,brokerOrderAuthorized:false,ranked,
+    selectedCount:ranked.filter(x=>x.state==="allocatable").length,
+    shadowCount:ranked.filter(x=>x.state==="shadow-only").length,
+    snapshotAfterProvisionalSelection:working,
+  };
+}
