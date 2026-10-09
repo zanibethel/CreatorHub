@@ -7,6 +7,8 @@ export const dynamic="force-dynamic";
 const API="https://paper-api.alpaca.markets/v2";
 const URL=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://yufptpfiwdbzzrvhkvux.supabase.co";
 const activeStatuses=new Set(["accepted","new","partially_filled","pending_new","accepted_for_bidding","held","pending_cancel","pending_replace"]);
+// A stop being canceled or replaced is NOT verified broker protection.
+const confirmedStopStatuses=new Set(["accepted","new","partially_filled","pending_new","accepted_for_bidding","held"]);
 const orderSchema=z.object({
   client_order_id:z.string(),broker_order_id:z.string().nullable(),symbol:z.string(),
   side:z.enum(["buy","sell"]),status:z.string(),requested_quantity:z.coerce.number().nullable(),
@@ -188,6 +190,13 @@ export async function GET(request:Request){
         if(!buy?.id){outcome.push({symbol,action:"broker-buy-unconfirmed"});continue;}
         if(buy.client_order_id!==entry.client_order_id||buy.symbol!==symbol||buy.side!=="buy")
           throw Error("Entry broker attribution mismatch.");
+        if(buy.status==="pending_cancel"){
+          outcome.push({symbol,action:"awaiting-partial-entry-cancel"});continue;
+        }
+        if(buy.status==="pending_replace"){
+          outcome.push({symbol,action:"manual-reconciliation",
+            detail:"Entry replacement pending; cannot prove final fill quantity."});continue;
+        }
         let qtyFilled=numeric(buy.filled_qty)??0;
         if(qtyFilled<=0) {
           if(flattenDue&&activeStatuses.has(buy.status??"")){
@@ -238,7 +247,11 @@ export async function GET(request:Request){
         const localStops=z.array(orderSchema).parse(await db(
           `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&client_order_id=eq.${encodeURIComponent(stopId)}&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,metadata&limit=1`));
         const localStop=localStops[0];
-        const stopActive=currentStop&&activeStatuses.has(currentStop.status??"");
+        if(currentStop&&["pending_cancel","pending_replace"].includes(currentStop.status??"")){
+          outcome.push({symbol,action:"stop-outcome-unconfirmed",
+            detail:"Alpaca protective stop is canceling/replacing; no verified active protection."});continue;
+        }
+        const stopActive=currentStop&&confirmedStopStatuses.has(currentStop.status??"");
         // A confirmed 4xx rejection may leave no broker order to look up.
         // Remember that terminal local result across minute-level cron runs.
         const stopRejectedWithoutBroker=!currentStop&&localStop?.status==="rejected";
