@@ -1,3 +1,27 @@
+## One-entry Alpaca PAPER fractional pilot
+
+Pulse's fractional route requires three independent conditions *before* a broker buy:
+1. Its normal quantitative scanner/readiness checks and unchanged allocation/risk limits must pass.
+2. Its separate authenticated manager must return a healthy, open-market PAPER broker status.
+3. Supabase RPC `paper_pulse_claim_fractional_pilot` must atomically reserve the one-and-only pilot slot on the Pulse virtual ledger. Only service-role credentials can call this RPC.
+
+The first accepted fractional attempt leaves
+`paper_bot_ledgers.metadata.fractionalPilotClientOrderId` persisted, intentionally
+blocking all subsequent fractional pilot orders until a manual review and
+explicit reset after actual broker reconciliation. A timed-out or rejected
+broker attempt may also leave the slot reserved; this is fail-closed by design.
+No code path infers that a test passing means a broker fill or stop occurred.
+
+**Pilot activation** requires separately setting
+`paper_bot_ledgers.metadata.fractionalExecutionEnabled=true`. The PR does
+not do so. Once activated, Pulse's regular live scanner can issue **at most
+one** qualifying broker PAPER fractional entry with a max 25% virtual equity
+allocation and 0.5% planned loss. It never forces an entry merely to test.
+
+Do not start the official challenge counter as part of this pilot.
+
+---
+
 ## Fractional PAPER protective-manager hardening
 
 The five broker-response integration scenarios now explicitly verify:
