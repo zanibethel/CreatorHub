@@ -6,7 +6,7 @@ import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-
 export const dynamic="force-dynamic";
 const API="https://paper-api.alpaca.markets/v2";
 const URL=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://yufptpfiwdbzzrvhkvux.supabase.co";
-const activeStatuses=new Set(["accepted","new","partially_filled","pending_new","accepted_for_bidding","held"]);
+const activeStatuses=new Set(["accepted","new","partially_filled","pending_new","accepted_for_bidding","held","pending_cancel","pending_replace"]);
 const orderSchema=z.object({
   client_order_id:z.string(),broker_order_id:z.string().nullable(),symbol:z.string(),
   side:z.enum(["buy","sell"]),status:z.string(),requested_quantity:z.coerce.number().nullable(),
@@ -200,6 +200,10 @@ export async function GET(request:Request){
         if(activeStatuses.has(buy.status??"")){
           if(buy.status==="pending_cancel"){
             outcome.push({symbol,action:"awaiting-partial-entry-cancel"});continue;
+          }
+          if(buy.status==="pending_replace"){
+            outcome.push({symbol,action:"manual-reconciliation",
+              detail:"Entry replacement pending; cannot prove final fill quantity."});continue;
           }
           const cancel=await broker(`orders/${encodeURIComponent(buy.id)}`,"DELETE");
           if(!cancel.response.ok&&cancel.response.status!==404){
