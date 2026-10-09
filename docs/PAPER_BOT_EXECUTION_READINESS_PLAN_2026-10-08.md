@@ -39,6 +39,49 @@ complete until that live broker evidence has been archived.
 
 ---
 
+## Phase 1 — Shared stock-symbol reservation (October 9, 2026)
+
+The shared Alpaca PAPER venue nets physical shares by symbol, even when
+CreatorHub bots keep separate virtual $100 ledgers. The first common
+reservation protocol is **limited to Pulse and Fuse**, the two armed
+one-entry stock PAPER pilots:
+
+- A service-role-only `paper_stock_symbol_claim` function atomically takes
+  the same transaction-scoped PostgreSQL advisory lock for a candidate
+  symbol, checks for existing PAPER virtual positions and unresolved stock
+  orders, and creates one **durable, uniquely keyed active reservation**
+  recording bot, client order ID and physical stock symbol.
+- Both existing Pulse and Fuse pilot RPCs acquire this reservation **in
+  their existing atomic ledger-locked transaction** before giving approval
+  to submit a PAPER buy. Failure consumes **neither** permit and sends
+  **no** broker order.
+- This reservation does **not expire automatically** and there is no
+  public or automatic release RPC. A broker timeout, stop, canceled entry
+  or unknown fill cannot silently make the stock available to another
+  bot. A documented manual broker/virtual-ledger reconciliation is
+  required before implementing explicit release.
+- This is additive to current Alpaca open-order/position checks and all
+  current bot-specific risk, stop, score and quote requirements. It changes
+  no execution switch, stop/target price, bot cash allocation or official
+  challenge counter.
+
+**Important scope limitation:** Atlas, Harbor, Coil and any other bots
+must join this exact venue-wide protocol before G1 can be checked off.
+They can still trade outside this table at present; the reservation
+provides mutual exclusion **between Pulse and Fuse only**. Until all
+stock bots participate, broker live collision checks and manual
+monitoring remain necessary. Do not describe this as a fully completed
+cross-bot venue lock.
+
+**Acceptance follow-up:** Confirm production SQL migration and restricted
+permissions, demonstrate that two valid Pilot claim transactions for the
+same symbol cannot both succeed (in a rolled-back test), then integrate
+other stock executors carefully without loosening existing risk gates.
+An actual PAPER trade and eventual documented release are independent
+open gates.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
