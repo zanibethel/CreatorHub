@@ -256,7 +256,8 @@ async function runPaperCron(request:Request){
         // Inconsistent open-order snapshots are not authorization to cancel
         // a leg that the independent broker order still reports as active.
         if(owned>0&&children.some(c=>active.has(c.status)&&
-           !open.some(o=>o.id===c.id&&o.client_order_id===c.client_order_id))){
+           !open.some(o=>o.id===c.id&&o.client_order_id===c.client_order_id&&
+             !["pending_cancel","pending_replace"].includes(o.status)&&active.has(o.status)))){
           decisions.push({symbol,action:"manual-reconciliation",
             detail:"Broker active OCO child is missing from the current venue open-order listing."});
           continue;
