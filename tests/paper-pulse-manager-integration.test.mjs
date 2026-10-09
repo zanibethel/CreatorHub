@@ -92,7 +92,7 @@ function fixture(){
     AbortSignal,Response,Uint8Array,Object,Set,
     process:{env:{CRON_SECRET:"test-cron-key",ALPACA_API_KEY_ID:"test-paper",ALPACA_API_SECRET_KEY:"fake",SUPABASE_SECRET_KEY:"test-service"}},
     require:module=>{
-      if(module==="next/server")return {NextResponse:{json:reply}};
+      if(module==="next/server")return {NextResponse:{json:(body,init={})=>Response.json(body,{status:init.status??200,headers:init.headers})}};
       if(module==="zod")return {z};
       if(module==="@/lib/paper-pulse-fractional")return helper;
       if(module==="@/lib/paper-momentum-breakout-strategy-config")
