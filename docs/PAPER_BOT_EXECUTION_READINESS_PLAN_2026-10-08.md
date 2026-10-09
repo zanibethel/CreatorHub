@@ -166,6 +166,38 @@ test or code deployment as a completed broker release.
 
 ---
 
+## Phase 4 — Persistent runner and protection-manager health (October 9, 2026)
+
+The application now writes sanitized, non-trading operational heartbeats to
+`paper_bot_cron_health` for six existing CRON_SECRET-protected stock jobs:
+
+| Bot | Runner | Cadence | Risk/stop manager | Cadence |
+|---|---|---|---|---|
+| Pulse | `pulse-run` | every 5 minutes weekdays | `pulse-manage` | every minute weekdays |
+| Fuse | `fuse-run` | every 5 minutes weekdays | `fuse-manage` | every minute weekdays |
+| Atlas | `atlas-run` | every minute weekdays | Existing strategy protection | Separate audit |
+| Harbor | `harbor-run` | every 5 minutes weekdays | Broker bracket protection | Separate audit |
+
+Each completion records the job identity, bot, observed response status,
+safe action code, execution time, latest success/failure and consecutive
+failures. A `vercel-cron/` user agent is recorded as *informational source
+evidence* alongside the protected token; the user agent alone is not proof
+of Vercel identity. Unauthorized requests do not write records.
+
+The heartbeat is deliberately additive: a failed telemetry write **never
+retries an execution** or changes the broker result, risk policy, order,
+virtual balance or trading permissions. The recorder function and table
+are service-role-only. Failure details are reduced to HTTP code so broker
+errors/secrets are not persisted.
+
+**G0 remains pending** until live post-deployment heartbeats show each
+scheduled route actually completed using Vercel cron, with acceptable
+durations and no uninvestigated failure state. Fresh candidate journals
+alone are not evidence that the protective manager ran. There is no
+new trade task, no forced purchase and no challenge counter start.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
