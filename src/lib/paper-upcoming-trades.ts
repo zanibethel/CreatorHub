@@ -18,7 +18,7 @@ export type UpcomingJournal = {
 export type UpcomingStagedOrder = {
   bot_id:string;symbol:string;status:string;side:string;
   entry_trigger:number|null;protective_stop:number|null;take_profit_price:number|null;
-  requested_notional:number|null;expires_at:string|null;created_at:string;
+  requested_notional:number|null;take_profit_fraction:number|null;trail_remainder:boolean;expires_at:string|null;created_at:string;
 };
 export type UpcomingHeldPosition={bot_id:string;symbol:string;quantity:number};
 export type UpcomingStock = {
@@ -27,6 +27,7 @@ export type UpcomingStock = {
   planSource:"prepared-order"|"strategy-reference"|"awaiting-plan";
   planState:"prepared"|"watching"|"blocked"|"awaiting-plan";
   entryPrice:number|null;stopPrice:number|null;targetPrice:number|null;
+  targetIsPartial:boolean;trailingRemainder:boolean;
   referenceNotional:number|null;netRewardRisk:number|null;
   allocatorState:"rejected"|"shadow-only"|"allocatable"|null;
   allocatorBudgetUsd:number|null;
@@ -91,6 +92,8 @@ export function buildUpcomingStockWatch(
           journal.blockers.length===0&&journal.warnings.length===0;
         const reason=order&&prepared?"Prepared entry awaiting same-session revalidation.":
           journal?.blockers[0]??journal?.warnings[0]??"Assigned for bot review; no authorized order.";
+        const targetIsPartial=Boolean(prepared && order.take_profit_fraction!==null && order.take_profit_fraction<1);
+        const trailingRemainder=Boolean(targetIsPartial && order.trail_remainder);
         const planSource=prepared?"prepared-order" as const:planned?"strategy-reference" as const:"awaiting-plan" as const;
         const planState=prepared?"prepared" as const:planned?
           (journal?.blockers.length?"blocked" as const:"watching" as const):"awaiting-plan" as const;
@@ -128,6 +131,7 @@ export function buildUpcomingStockWatch(
           assignedBotName:names[id]??id,
           planSource,planState,entryPrice:planned?entry:null,
           stopPrice:planned?stop:null,targetPrice:planned?target:null,
+          targetIsPartial,trailingRemainder,
           referenceNotional:planned?notional:null,
           netRewardRisk:planned?netRewardRisk:null,allocatorState,allocatorBudgetUsd,allocatorReasons,
           quoteFresh,quoteAt,planCheckedAt:journal?.occurred_at??order?.created_at??null,reason,
@@ -143,6 +147,7 @@ export function buildUpcomingStockWatch(
         reviewingBots:p.assigned_bot_ids.map(id=>names[id]??id),
         planSource:lead.planSource,planState:lead.planState,
         entryPrice:lead.entryPrice,stopPrice:lead.stopPrice,targetPrice:lead.targetPrice,
+        targetIsPartial:lead.targetIsPartial,trailingRemainder:lead.trailingRemainder,
         referenceNotional:lead.referenceNotional,netRewardRisk:lead.netRewardRisk,
         allocatorState:lead.allocatorState,allocatorBudgetUsd:lead.allocatorBudgetUsd,
         allocatorReasons:lead.allocatorReasons,paperOrderAuthorized:false as const,
