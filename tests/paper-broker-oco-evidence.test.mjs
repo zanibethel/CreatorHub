@@ -41,8 +41,8 @@ test("collector preserves exact private order cancel/update timestamps and paren
   const stop=brokerActivity.orders.find(x=>x.brokerOrderId==="stop-rxrx");
   assert.equal(stop.attributionClientOrderId,id);
   assert.equal(stop.parentBrokerOrderId,"parent-rxrx");
-  assert.equal(stop.canceledAt,"2026-10-09T16:31:40.895Z");
-  assert.equal(stop.updatedAt,"2026-10-09T16:31:40.895Z");
+  assert.equal(stop.canceledAt,"2026-10-09T16:31:40.895316177Z");
+  assert.equal(stop.updatedAt,"2026-10-09T16:31:40.895316588Z");
   assert.equal(stop.replacedAt,null);
   assert.equal(brokerActivity.orders.find(x=>x.brokerOrderId==="target-rxrx").canceledAt,null);
   assert.doesNotMatch(JSON.stringify(report),/stop-rxrx|parent-rxrx|brokerCanceledAt|canceledAt/);
