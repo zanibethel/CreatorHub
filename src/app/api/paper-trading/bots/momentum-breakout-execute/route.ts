@@ -122,6 +122,35 @@ export async function POST(request:Request){
   const prepared=z.array(preparedSchema).parse(await preparedResponse.json())[0];
   if(!prepared)return reply({error:"No unclaimed Pulse prepared order exists."},409);
 
+  if(fractional){
+    // Never arm the first fractional PAPER entry unless the independent stop
+    // manager can authenticate, read the broker, and reconcile prior risk.
+    const cron=process.env.CRON_SECRET?.trim()??"";
+    if(!cron)return reply({error:"Pulse independent stop manager is not configured."},503);
+    let managerHealthy=false;
+    try{
+      const manager=await fetch(new URL("/api/paper-trading/bots/momentum-breakout-manage",request.url),{
+        headers:{Authorization:`Bearer ${cron}`},cache:"no-store",signal:AbortSignal.timeout(25_000),
+      });
+      const health=await manager.json() as {ok?:boolean;paperOnly?:boolean;marketOpen?:boolean};
+      managerHealthy=manager.ok&&health.ok===true&&health.paperOnly===true&&health.marketOpen===true;
+    }catch{}
+    if(!managerHealthy)return reply({error:"Pulse fractional protection manager is not healthy; refusing new risk."},503);
+
+    // Atomic, single-entry pilot. Retrying after an ambiguous DB/RPC result
+    // cannot grant a second slot. Review the first real broker fill, stop and
+    // virtual-ledger attribution before allowing more fractional submissions.
+    let reserved=false;
+    try{
+      const response=await fetch(`${SUPABASE_URL}/rest/v1/rpc/paper_pulse_claim_fractional_pilot`,{
+        method:"POST",headers,body:JSON.stringify({p_client_order_id:prepared.client_order_id}),
+        cache:"no-store",signal:AbortSignal.timeout(10_000),
+      });
+      if(response.ok)reserved=(await response.json())===true;
+    }catch{}
+    if(!reserved)return reply({error:"Pulse one-entry PAPER fractional pilot slot was not available."},423);
+  }
+
   const claimedAt=new Date().toISOString();
   const claim=await fetch(
     `${SUPABASE_URL}/rest/v1/paper_bot_orders?client_order_id=eq.${encodeURIComponent(prepared.client_order_id)}&status=eq.prepared&broker_order_id=is.null`,
