@@ -4,3 +4,6 @@ out/
 .env*
 !.env.example
 *.log
+
+# Private Alpaca PAPER trade-update spool: never commit broker event data.
+.paper-stream-spool/
