@@ -67,6 +67,35 @@ The trigger is best-effort and may miss a diagnostic row on a database error;
 the existing ingested trade events and heartbeat remain authoritative.
 No earlier history is reconstructed.
 
+## First physical screen-off acceptance — PASS (October 9, 2026)
+
+The owner reported the Samsung Galaxy S10 screen was off throughout the
+observed period. Independently queried production Supabase accepted-heartbeat
+history at **2026-10-09 22:52:35.994 UTC** (17:52 Central):
+
+- First history heartbeat **22:25:52.986431 UTC**, last **22:52:33.589575 UTC**:
+  **26.68 minutes** of captured accepted reports, exceeding the 20-minute criterion.
+- **75** actual service-role-ingested heartbeat history rows.
+- **25.355 seconds** longest server-accepted heartbeat gap; **0** gaps >75 seconds.
+- **0** disconnected reports, **0** connection transitions, **0** worker session changes,
+  and **1** distinct worker session.
+- At **22:52:41.223 UTC**, private status view reported
+  `monitor_state='connected_and_delivering'`,
+  `heartbeat_age_seconds=7.63`, and `connected=true`.
+- **0** genuine Alpaca trade-update events stored in the dedicated Galaxy
+  stream at this point. This is not a failure; broker lifecycle event capture
+  awaits natural qualified PAPER trade activity.
+
+**Signoff scope:** Screen-off survival of repeated authenticated accepted
+heartbeats **PASSED**. This does not independently prove subsecond continuous
+Alpaca WebSocket connectivity, nor does it certify Wi-Fi-loss recovery,
+reboot restart, delivery of a genuine fill event, or the unsigned-APK
+upgrade process. Physical user statement establishes the screen was off;
+the backend establishes the detailed heartbeat evidence. No trading orders,
+ledger changes, broker credentials, feature toggles, bot rearming or
+challenge-clock start occurred. **Next device checks:** Wi-Fi interruption
+and recovery, then reboot recovery.
+
 ## Device acceptance tests (owner operates the physical phone)
 For each test, record **before and after** timestamps from the private view, app notification state, and any coverage gap. Never share broker key, ingest token or sensitive screenshots.
 
