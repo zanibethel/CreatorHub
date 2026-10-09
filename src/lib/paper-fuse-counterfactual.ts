@@ -54,7 +54,7 @@ export function buildFuseArchivedShadowSeeds(
   observations:FuseArchivedObservation[], collectedAt:string, sessionDate:string,
 ) {
   const now=Date.parse(collectedAt);
-  if(!Number.isFinite(now)||!/^\\d{4}-\\d{2}-\\d{2}$/.test(sessionDate))return [];
+  if(!Number.isFinite(now)||!/^\d{4}-\d{2}-\d{2}$/.test(sessionDate))return [];
   const selected=new Set<string>();
   return [...observations].sort((a,b)=>Date.parse(a.evaluatedAt)-Date.parse(b.evaluatedAt))
     .flatMap(row=>{
