@@ -5,6 +5,8 @@ import { FUSE_PENNY_STRATEGY_V1 as cfg } from "@/lib/paper-fuse-strategy-config"
 
 export const dynamic="force-dynamic";
 const DB_URL=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://yufptpfiwdbzzrvhkvux.supabase.co";
+// Do not follow a protected Vercel invocation host for the readiness chain.
+const PUBLIC_ORIGIN=process.env.CREATORHUB_PUBLIC_ORIGIN||"https://creatorhub-gray.vercel.app";
 const planSchema=z.object({
   symbol:z.string(),readiness:z.string(),blockers:z.array(z.string()),
   quoteAgeSeconds:z.number().nullable(),bid:z.number().nullable(),ask:z.number().nullable(),
@@ -29,7 +31,7 @@ export async function GET(request:Request){
   if(dbKey.startsWith("eyJ"))headers.Authorization="Bearer "+dbKey;
   try{
     const [readyResponse,ledgerResponse]=await Promise.all([
-      fetch(new URL("/api/paper-trading/bots/fuse-readiness",request.url),{
+      fetch(new URL("/api/paper-trading/bots/fuse-readiness",PUBLIC_ORIGIN),{
         cache:"no-store",signal:AbortSignal.timeout(30_000),
       }),
       fetch(DB_URL+"/rest/v1/paper_bot_ledgers?bot_id=eq."+
