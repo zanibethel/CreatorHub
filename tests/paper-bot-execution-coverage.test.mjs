@@ -16,10 +16,10 @@ const automated = [
   { name:"Flash", id:"weekend-crypto-day-100", runner:"weekend-crypto-run", executor:"weekend-crypto-execute", readiness:"weekend-crypto-readiness", cadence:"*/5 * * * *" },
   { name:"Pulse", id:"momentum-breakout-100", runner:"momentum-breakout-run", executor:"momentum-breakout-execute", readiness:"momentum-breakout-readiness", cadence:"*/5 * * * 1-5" },
   { name:"Spark", id:"crypto-ignition-100", runner:"crypto-ignition-run", executor:"crypto-ignition-execute", readiness:"crypto-ignition-readiness", cadence:"*/5 * * * *" },
+  { name:"Fuse", id:"penny-volatility-day-100", runner:"fuse-run", executor:"fuse-execute", readiness:"fuse-readiness", cadence:"*/5 * * * 1-5" },
 ];
 
 const research = [
-  { name:"Fuse", id:"penny-volatility-day-100", readiness:"fuse-readiness", cadence:"*/5 * * * 1-5" },
   { name:"Orbit", id:"crypto-swing-100", readiness:"crypto-swing-readiness", cadence:"*/15 * * * *" },
   { name:"Coil", id:"squeeze-breakout-100", readiness:"squeeze-breakout-readiness", cadence:"*/5 * * * 1-5" },
 ];
@@ -92,4 +92,18 @@ test("Atlas runs five-minute audits plus isolated stock and crypto PAPER manager
   assert.match(crypto,/time_in_force:"gtc"/);
   assert.doesNotMatch(stock,/https:\/\/api\.alpaca\.markets/);
   assert.doesNotMatch(crypto,/https:\/\/api\.alpaca\.markets/);
+});
+
+test("Fuse's scheduled pilot remains doubly disarmed and SQL allows at most one PAPER buy",()=>{
+  const root="src/app/api/paper-trading/bots/";
+  const runner=read(root+"fuse-run/route.ts");
+  const executor=read(root+"fuse-execute/route.ts");
+  const config=read("src/lib/paper-fuse-strategy-config.ts");
+  assert.match(runner,/metadata\.executionEnabled!==true/);
+  assert.match(runner,/metadata\.fusePilotEnabled!==true/);
+  assert.match(executor,/paper_fuse_claim_pilot_entry/);
+  assert.match(executor,/fuse-manage/);
+  assert.match(config,/executionEnabledByDefault:false/);
+  assert.ok(exists("supabase/migrations/20261009013200_fuse_atomic_paper_pilot.sql"));
+  assert.ok(cronPaths.includes("/api/paper-trading/bots/fuse-readiness"));
 });
