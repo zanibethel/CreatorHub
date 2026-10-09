@@ -25,6 +25,9 @@ export type PaperBrokerActivity = {
     averageFillPrice: number | null;
     submittedAt: string | null;
     filledAt: string | null;
+    canceledAt: string | null;
+    replacedAt: string | null;
+    updatedAt: string | null;
   }>;
   fills: Array<{
     fillActivityId: string;
@@ -47,6 +50,12 @@ const number = (v: unknown) => {
   return Number.isFinite(n) ? n : null;
 };
 const time = (v: unknown) => typeof v === "string" && Number.isFinite(Date.parse(v)) ? new Date(v).toISOString() : null;
+// Broker order cancellation is subsecond-sensitive: Date.toISOString()
+// rounds to milliseconds and destroys the actual REST nanosecond evidence.
+// Preserve the original validated UTC string in the PRIVATE ledger feed.
+const brokerTime = (v: unknown) => typeof v === "string" &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(v) &&
+  Number.isFinite(Date.parse(v)) ? v : null;
 const rows = (v: unknown) => {
   if (!Array.isArray(v)) throw new Error("Unexpected provider response.");
   return v.map(object);
@@ -122,6 +131,9 @@ export async function collectPaperReport(key: string, secret: string, fetcher: t
           averageFillPrice: number(order.filled_avg_price),
           submittedAt: time(order.submitted_at),
           filledAt: time(order.filled_at),
+          canceledAt: brokerTime(order.canceled_at),
+          replacedAt: brokerTime(order.replaced_at),
+          updatedAt: brokerTime(order.updated_at),
         });
         const parent = convert(root, rootClientOrderId, null);
         const legs = Array.isArray(root.legs)
@@ -150,7 +162,7 @@ export async function collectPaperReport(key: string, secret: string, fetcher: t
         price: number(f.price),
         cumulativeQuantity: number(f.cum_qty),
         leavesQuantity: number(f.leaves_qty),
-        transactionTime: time(f.transaction_time),
+        transactionTime: brokerTime(f.transaction_time),
       })).filter(f => f.fillActivityId && f.brokerOrderId && taggedOrderIds.has(f.brokerOrderId));
     } catch {
       errors.brokerAttribution = "Tagged broker fills could not be parsed.";

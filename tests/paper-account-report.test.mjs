@@ -118,6 +118,12 @@ test('authorized collection saves only the sanitized snapshot while reconciling 
     if (url.includes('paper_report_state')) return json([{cron_token_hash:hash}]);
     if (url.endsWith('paper_report_claim_refresh')) return json(true);
     if (url.endsWith('paper_bot_reconcile_broker_activity')) {reconciled = JSON.parse(options.body); return json({ordersSeen:1,fillsAdded:1});}
+    if (url.endsWith('paper_bot_record_order_lifecycle_evidence')) {
+      const body=JSON.parse(options.body);
+      assert.ok(Array.isArray(body.p_orders));
+      assert.ok(body.p_collected_at);
+      return json(1);
+    }
     if (url.endsWith('paper_bot_link_prepared_orders')) return json(1);
     if (url.endsWith('paper_bot_apply_unapplied_fills')) return json({fillsApplied:1,botsUpdated:['default-diverse']});
     if (url.endsWith('paper_bot_finalize_trade_metrics')) return json({tradesFinalized:0});
@@ -193,4 +199,28 @@ test('account polling refreshes every 15 seconds, pauses when hidden and aborts 
   cleanup();assert.equal(activeSignal.aborted,true);assert.equal(tick,null);assert.equal(visibility,null);
   pendingResolve(json({snapshot:null,status:'pending'}));
   await new Promise(resolve=>setImmediate(resolve));
+});
+
+
+test('failure of supplemental broker timestamp RPC never blocks financial fill reconciliation',async()=>{
+  let applied=false,saved;
+  const run=handler.createHandler(env,(url,options)=>{
+    if(url.startsWith('https://paper-api'))return alpaca(url);
+    if(url.includes('paper_report_state'))return json([{cron_token_hash:hash}]);
+    if(url.endsWith('paper_report_claim_refresh'))return json(true);
+    if(url.endsWith('paper_bot_reconcile_broker_activity'))return json({ordersSeen:1,fillsAdded:1});
+    if(url.endsWith('paper_bot_record_order_lifecycle_evidence'))return new Response('',{status:503});
+    if(url.endsWith('paper_bot_link_prepared_orders'))return json(1);
+    if(url.endsWith('paper_bot_apply_unapplied_fills')){applied=true;return json({fillsApplied:1});}
+    if(url.endsWith('paper_bot_finalize_trade_metrics'))return json({tradesFinalized:0});
+    if(url.includes('paper_bot_positions?select=symbol,asset_class'))return json([]);
+    if(url.endsWith('paper_bot_mark_to_market'))return json({botsMarked:0});
+    if(url.endsWith('paper_report_save_snapshot')){saved=JSON.parse(options.body);return new Response(null,{status:204});}
+    throw Error('Unexpected fixture request: '+url);
+  });
+  const response=await run(scheduledRequest());
+  assert.equal(response.status,200);
+  assert.equal((await response.json()).partial,true);
+  assert.equal(applied,true);
+  assert.match(saved.p_payload.errors.brokerLifecycle,/unavailable/);
 });
