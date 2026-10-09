@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import { evaluateFuseCandidate, fuseSession, type FuseBar } from "@/lib/paper-fuse-readiness";
-import { buildFuseShadowSeeds } from "@/lib/paper-fuse-counterfactual";
+import { buildFuseShadowSeeds, buildFuseArchivedShadowSeeds } from "@/lib/paper-fuse-counterfactual";
 import { advancePaperCounterfactual, counterfactualPatch, type PaperCounterfactualState } from "@/lib/paper-counterfactual";
 import { FUSE_PENNY_STRATEGY_V1 as cfg } from "@/lib/paper-fuse-strategy-config";
 
@@ -28,6 +28,15 @@ const barSchema=z.object({
 });
 const historicalSchema=z.object({symbol:z.string(),shadow_score:z.coerce.number().finite().nullable(),matched_count:z.coerce.number().int().nonnegative()});
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
+const archivedObservationSchema=z.object({
+  symbol:z.string(),strategy_version:z.coerce.number().int(),evaluated_at:z.string(),
+  readiness:z.string(),fuse_score:z.coerce.number().finite(),
+  blockers:z.array(z.string()),warnings:z.array(z.string()),
+  trade_plan:z.object({entryPrice:z.coerce.number().nullable(),stopPrice:z.coerce.number().nullable(),
+    exitPrice:z.coerce.number().nullable()}).passthrough(),
+  market_snapshot:z.object({lastCompletedBarAt:z.string().nullable(),
+    quoteAgeSeconds:z.coerce.number().nullable(),spreadPct:z.coerce.number().nullable()}).passthrough(),
+});
 const shadowRowSchema=z.object({
   id:z.coerce.number().int().positive(),setup_key:z.string(),bot_id:z.string(),strategy_id:z.string().nullable(),
   strategy_version:z.coerce.number().int().nullable(),symbol:z.string(),asset_class:z.string(),
@@ -82,9 +91,13 @@ export async function GET(request:Request) {
     const now=Date.now();
     const cronSecret=process.env.CRON_SECRET?.trim()??"";
     const isCron=Boolean(cronSecret && request.headers.get("authorization")===`Bearer ${cronSecret}`);
-    const activeShadow=z.array(shadowRowSchema).parse(isCron
-      ? await db(`paper_bot_counterfactuals?bot_id=eq.${cfg.botProfileId}&status=in.(watching,triggered)&select=*&order=decision_at.asc&limit=30`)
-      : []);
+    const [activeShadowRaw, archivedRaw]=isCron?await Promise.all([
+      db(`paper_bot_counterfactuals?bot_id=eq.${cfg.botProfileId}&status=in.(watching,triggered)&select=*&order=decision_at.asc&limit=30`),
+      db(`paper_fuse_observations?bot_id=eq.${cfg.botProfileId}&strategy_version=eq.${cfg.version}&readiness=eq.research-ready&evaluated_at=gte.${encodeURIComponent(new Date(now-30*3600_000).toISOString())}&select=symbol,strategy_version,evaluated_at,readiness,fuse_score,blockers,warnings,trade_plan,market_snapshot&order=evaluated_at.asc&limit=250`),
+    ]):[[],[]];
+    const activeShadow=z.array(shadowRowSchema).parse(activeShadowRaw);
+    const archived=z.array(archivedObservationSchema).parse(archivedRaw)
+      .filter(row=>nyDate(Date.parse(row.evaluated_at))===nyDate(now));
     const cutoff=encodeURIComponent(new Date(now-36*3600_000).toISOString());
     const freshCutoff=encodeURIComponent(new Date(now-3*3600_000).toISOString());
     const [prospectsRaw,ledgerRaw,positionsRaw,ordersRaw,historicalRaw]=await Promise.all([
@@ -102,12 +115,15 @@ export async function GET(request:Request) {
     const orders=z.array(orderSchema).parse(ordersRaw);
     const historical=z.array(historicalSchema).parse(historicalRaw);
     const historicalBySymbol=new Map(historical.map(row=>[row.symbol,row]));
-    const symbols=[...new Set([...prospects.map(row=>row.symbol),...activeShadow.map(row=>row.symbol)])];
+    const symbols=[...new Set([...prospects.map(row=>row.symbol),
+      ...activeShadow.map(row=>row.symbol),...archived.map(row=>row.symbol)])];
     const quoteBatch=await fetchPreferredStockQuotes(symbols);
     const bars:Record<string,FuseBar[]>={};
     if(symbols.length) {
       const query=new URLSearchParams({symbols:symbols.join(","),timeframe:"5Min",
-        start:new Date(now-9*3600_000).toISOString(),end:new Date(now).toISOString(),
+        // A late-day research replay must include the original morning signal.
+        // Bar selection below still excludes every premarket/previous-day candle.
+        start:new Date(now-16*3600_000).toISOString(),end:new Date(now).toISOString(),
         limit:"10000",sort:"asc",feed:"iex"});
       const response=await fetch(`${ALPACA_DATA}/v2/stocks/bars?${query}`,{
         headers:{"APCA-API-KEY-ID":alpacaKey,"APCA-API-SECRET-KEY":alpacaSecret,Accept:"application/json"},
@@ -189,7 +205,22 @@ export async function GET(request:Request) {
     if(isCron){
       try{
         const headers={...dbHeaders,"Content-Type":"application/json"};
-        const seeds=buildFuseShadowSeeds(plans,new Date(now).toISOString(),nyDate(now));
+        const capturedAt=new Date(now).toISOString(), sessionKey=nyDate(now);
+        const archivedSeeds=buildFuseArchivedShadowSeeds(archived.map(row=>({
+          symbol:row.symbol,evaluatedAt:row.evaluated_at,strategyVersion:row.strategy_version,
+          readiness:row.readiness,fuseScore:row.fuse_score,blockers:row.blockers,warnings:row.warnings,
+          lastCompletedBarAt:row.market_snapshot.lastCompletedBarAt,
+          plan:row.trade_plan,quoteAgeSeconds:row.market_snapshot.quoteAgeSeconds,
+          spreadPct:row.market_snapshot.spreadPct,
+        })),capturedAt,sessionKey);
+        const freshSeeds=buildFuseShadowSeeds(plans,capturedAt,sessionKey);
+        const keys=new Set<string>();
+        // Original recorded decision takes priority over a newer signal on
+        // the same symbol/session; never backdate prices from a future quote.
+        const seeds=[...archivedSeeds,...freshSeeds].filter(seed=>{
+          if(keys.has(seed.setup_key))return false;
+          keys.add(seed.setup_key);return true;
+        });
         if(seeds.length){
           const response=await fetch(`${SUPABASE_URL}/rest/v1/paper_bot_counterfactuals?on_conflict=setup_key`,{
             method:"POST",headers:{...headers,Prefer:"resolution=ignore-duplicates,return=representation"},
