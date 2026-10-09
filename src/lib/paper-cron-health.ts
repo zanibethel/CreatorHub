@@ -41,7 +41,7 @@ export function withPaperCronHeartbeat(
       action=safeAction(obj.action,action);
     } catch {}
     const secret=process.env.SUPABASE_SECRET_KEY?.trim()??"";
-    const url=process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()??"";
+    const url=process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()||"https://yufptpfiwdbzzrvhkvux.supabase.co";
     if(secret&&url){
       try{
         const headers:Record<string,string>={apikey:secret,Accept:"application/json",
