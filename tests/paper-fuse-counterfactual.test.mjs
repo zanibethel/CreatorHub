@@ -15,7 +15,7 @@ function load(path, imports={}) {
   return exports;
 }
 const config=load("../src/lib/paper-fuse-strategy-config.ts");
-const {buildFuseShadowSeeds}=load("../src/lib/paper-fuse-counterfactual.ts",{
+const {buildFuseShadowSeeds,buildFuseArchivedShadowSeeds}=load("../src/lib/paper-fuse-counterfactual.ts",{
   "./paper-fuse-strategy-config":config,
 });
 function plan(overrides={}) {
