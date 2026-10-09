@@ -544,6 +544,63 @@ PAPER monitoring tests and build; the Vercel preview check passed.
 
 ---
 
+## Pulse remaining-stop-quantity protection correction — October 9, 2026
+
+**PR [#101](https://github.com/zanibethel/CreatorHub/pull/101)** merged
+as `a5aae41edb831817d24fbe507061052558f7583c`. GitHub
+CI passed TypeScript, lint, PAPER monitoring tests and production build,
+plus the Vercel preview check. Deployment
+`dpl_ABiYMpnrzma7Pd27cZ1dNgtD5JRv` was independently confirmed
+**READY** at the `creatorhub-gray.vercel.app` production alias
+on **2026-10-09 15:35:23 UTC** (no alias error).
+
+**Exact safety defects repaired:**
+
+- The one-minute Pulse fractional stop manager previously compared
+  the *original* broker sell stop order quantity with the current broker
+  position, without subtracting the already executed `filled_qty`.
+  A partially filled stop could therefore be mislabeled
+  `broker-stop-verified` despite the unfilled remainder being insufficient
+  to cover current holdings. It now verifies
+  `remaining = stop.qty - stop.filled_qty`, rejects missing/malformed,
+  negative or overfilled quantities, and requires remaining sell shares
+  to cover current attributed PAPER shares. Uncertain evidence produces
+  `manual-reconciliation`, **not** a new duplicate protective sell.
+- The whole-share Pulse bracket executor previously stamped
+  `protectionValidatedAt` whenever broker nested order leg IDs existed,
+  regardless of leg state, remaining quantity or stop/target prices.
+  A new read-only bracket evidence audit verifies the broker parent
+  ID/client ID, exact symbol/side/order class, stop and target active
+  statuses, both legs' remaining unfilled quantities and authorized
+  prices before assigning that timestamp or returning protection success.
+  A leg merely existing is not enough evidence.
+- New regression tests cover valid and undercovered partially filled
+  stops, missing/malformed filled quantities, canceled/pending-cancel
+  broker exits, unfilled quantity shortages, price downgrades and
+  inconsistent parent identities.
+
+**Observed after deployment:** real Vercel cron heartbeat for
+`pulse-manage` on **2026-10-09 15:36:02 UTC** recorded
+**HTTP 200**, action `completed`, zero consecutive failures and source
+`vercel-cron-agent`. Real `pulse-run` at **15:35:46 UTC** recorded
+**HTTP 200**, action `none`, zero consecutive failures. This verifies
+the patched routes execute in production, **not** that the new evidence
+branches have encountered a natural broker fill.
+
+**Open first-trade gates:** Pulse and Fuse need their first naturally
+qualified PAPER stock entry with independently observed actual broker
+fill, active protective stop/target, partial-fill handling, safe exit,
+exact ledger fee/P&L attribution and follow-on checks. A broker stop
+snapshot alone is not ongoing protection. Harbor's earlier unresolved
+SNAP reservation remains held pending separately approved release.
+
+No PAPER order was created or canceled for this verification, no live
+trading was enabled, no one-shot pilot was reset, no scoring threshold,
+risk limit or $100 virtual capital allocation changed. Official
+challenge counter remains **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
