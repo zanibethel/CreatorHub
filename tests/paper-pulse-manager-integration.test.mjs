@@ -23,6 +23,7 @@ function fixture(){
     cancels:[], brokerQty:"0.5", available:"0.5",entry:entry(),
     rejectStop:false,timeoutStop:false,foreignOrder:false,
     partialEntry:false,parentCanceled:false,entryStatusOverride:null,
+    noActiveEntry:false,orphanTaggedBuy:false,virtualRows:[],
   };
   const getOrder=id=>{
     if(id===entryId)return {id:"PULSEBUY",client_order_id:entryId,symbol:"SOXS",side:"buy",type:"limit",
@@ -38,10 +39,10 @@ function fixture(){
     const u=new URL(url);
     const method=options.method??"GET";
     if(u.hostname.endsWith("supabase.co")){
-      if(u.pathname.endsWith("/paper_bot_positions"))return reply([]);
+      if(u.pathname.endsWith("/paper_bot_positions"))return reply(state.virtualRows);
       if(!u.pathname.endsWith("/paper_bot_orders"))throw Error("Unexpected DB path: "+u.pathname);
       if(method==="GET"){
-        if(u.searchParams.has("side"))return reply([state.entry]);
+        if(u.searchParams.has("side"))return reply(state.noActiveEntry?[]:[state.entry]);
         const id=(u.searchParams.get("client_order_id")??"").replace(/^eq\./,"");
         return reply(state.rows.has(id)?[state.rows.get(id)]:[]);
       }
@@ -69,6 +70,9 @@ function fixture(){
       if(state.partialEntry&&!state.parentCanceled)active.push(getOrder(entryId));
       if(state.foreignOrder)active.push({id:"OTHER-BOT-ORDER",client_order_id:"chb-hbr-v1-abc-12345678",
         symbol:"SOXS",side:"sell",status:"new"});
+      if(state.orphanTaggedBuy)active.push({id:"ORPHAN-PLS-BUY",
+        client_order_id:"chb-pls-v1-orphan-12345678",
+        symbol:"SOXS",side:"buy",status:"new"});
       return reply(active);
     }
     if(u.pathname==="/v2/orders:by_client_order_id"){
@@ -304,4 +308,39 @@ test("Pulse never infers zero filled stop shares from missing or malformed broke
     assert.ok(check.body.outcome.some(x=>x.action==="manual-reconciliation"));
     assert.equal(state.posted.length,1);
   }
+});
+
+test("Pulse manager fails closed when a virtual stock position no longer has an active attributed buy parent",async()=>{
+  const {state,run}=fixture();
+  state.noActiveEntry=true;
+  state.virtualRows=[{bot_id:"momentum-breakout-100",symbol:"SOXS",quantity:0.5}];
+  const res=await run();
+  assert.equal(res.status,503,JSON.stringify(res.body));
+  assert.match(res.body.error,/lack an active broker-attributed buy parent/);
+  assert.deepEqual(res.body.orphanVirtualSymbols,["SOXS"]);
+  assert.equal(state.posted.length,0);
+  assert.equal(state.cancels.length,0);
+});
+
+test("Pulse manager catches a venue-level tagged orphan buy before strategy protection actions",async()=>{
+  const {state,run}=fixture();
+  state.noActiveEntry=true;
+  state.orphanTaggedBuy=true;
+  const res=await run();
+  assert.equal(res.status,503,JSON.stringify(res.body));
+  assert.match(res.body.error,/Orphan active Pulse-tagged PAPER buy/);
+  assert.equal(res.body.orphanClientOrderIds[0],"chb-pls-v1-orphan-12345678");
+  assert.equal(state.posted.length,0);
+  assert.equal(state.cancels.length,0);
+});
+
+test("Pulse manager recognizes valid whole-share bracket ownership without trying to manage fractional stops",async()=>{
+  const {state,run}=fixture();
+  state.entry.metadata.executionMode="paper-bracket";
+  state.virtualRows=[{bot_id:"momentum-breakout-100",symbol:"SOXS",quantity:2}];
+  const res=await run();
+  assert.equal(res.status,200,JSON.stringify(res.body));
+  assert.equal(res.body.entries,0);
+  assert.equal(state.posted.length,0);
+  assert.equal(state.cancels.length,0);
 });
