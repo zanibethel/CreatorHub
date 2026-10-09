@@ -138,6 +138,7 @@ export async function GET(request:Request){
     return response.json();
   };
 
+  let failedStage="prerequisites";
   try{
     const [ledgerRaw,prospectsRaw,positionsRaw,ordersRaw,clockRaw]=await Promise.all([
       readDb(`paper_bot_ledgers?select=status,equity,buying_power,metadata&bot_id=eq.${BOT_ID}&limit=1`),
@@ -171,6 +172,7 @@ export async function GET(request:Request){
     }
 
     const symbols=[...new Set(prospects.map(row=>row.symbol))];
+    failedStage="quotes";
     const liveQuotes=await fetchPreferredStockQuotes(symbols);
 
     const completedEndDate=new Date(now);
@@ -179,6 +181,7 @@ export async function GET(request:Request){
     const historyStart=new Date(now-60*86_400_000).toISOString();
     const barsBySymbol:Record<string,SwingProspectBar[]>={};
 
+    failedStage="daily-bars";
     for(let index=0;index<symbols.length;index+=35){
       const batch=symbols.slice(index,index+35);
       const url=new URL("/v2/stocks/bars",ALPACA_DATA);
@@ -214,6 +217,7 @@ export async function GET(request:Request){
     const dispositions:Record<string,unknown>[]=[];
     let stageSlots=Math.max(0,strategy.cadence.maximumOpenPositions-ownReservedSlots);
 
+    failedStage="evaluation-and-staging";
     for(const prospect of prospects){
       const quote=liveQuotes.quotes[prospect.symbol];
       const freshSpreadPct=quote?.bid!=null&&quote?.ask!=null&&quote.bid>0&&quote.ask>=quote.bid
@@ -364,6 +368,7 @@ export async function GET(request:Request){
       });
     }
 
+    failedStage="journaling";
     if(journalRows.length) await writeDb("paper_bot_journal",journalRows);
 
     return reply({
@@ -377,6 +382,6 @@ export async function GET(request:Request){
       dispositions,
     });
   }catch(error){
-    return reply({error:error instanceof Error?error.message:"Swing prospect intake failed."},503);
+    return reply({error:error instanceof Error?error.message:"Swing prospect intake failed.",failedStage},503);
   }
 }

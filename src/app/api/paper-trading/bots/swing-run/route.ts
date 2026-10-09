@@ -45,9 +45,15 @@ async function runPaperCron(request:Request){
     );
     intakeResult=await intakeResponse.json().catch(()=>({error:"Prospect intake returned an invalid response."}));
     if(!intakeResponse.ok){
+      // Error stages are controlled literals supplied by the intake route.
+      // Record the stage in sanitized cron health without persisting the
+      // provider's raw response or any secrets.
+      const diagnostic=z.object({
+        failedStage:z.enum(["prerequisites","quotes","daily-bars","evaluation-and-staging","journaling"]),
+      }).safeParse(intakeResult);
       return reply({
         ok:false,
-        action:"intake-error",
+        action:diagnostic.success?"intake-"+diagnostic.data.failedStage+"-error":"intake-upstream-error",
         intakeStatus:intakeResponse.status,
         intake:intakeResult,
       },502);

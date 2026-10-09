@@ -198,6 +198,30 @@ new trade task, no forced purchase and no challenge counter start.
 
 ---
 
+## Scheduler evidence and targeted repair — October 9, 2026
+
+Production heartbeat monitoring captured six distinct Vercel cron jobs.
+Atlas, Pulse runner, Pulse stop manager, and Fuse exit manager returned
+HTTP 200. Fuse's entry runner repeatedly returned HTTP 503; Harbor's
+runner repeatedly returned HTTP 502 at intake, **without broker buys**.
+This proves scheduler invocation but **does not** complete all G0 checks.
+
+Patch: Fuse now calls its read-only execution preview and guarded
+executor through the stable `creatorhub-gray.vercel.app` public alias,
+not the incoming deployment-specific request URL. Harbor's prospect
+intake emits an allowlisted dependency stage on failure
+(`prerequisites`, `quotes`, `daily-bars`,
+`evaluation-and-staging`, `journaling`). The Harbor scheduler
+records that stage as an operational health action without putting
+raw broker errors or secrets in the telemetry table.
+
+**Still open:** observe the next deployed Fuse/Harbor cron cycles
+and confirm genuine HTTP 200 before checking G0. Do not force a buy,
+weaken selection rules or reset either one-entry pilot merely to make
+the scheduler test green.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
