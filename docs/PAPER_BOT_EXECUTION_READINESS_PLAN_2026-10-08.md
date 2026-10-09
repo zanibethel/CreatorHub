@@ -82,6 +82,47 @@ open gates.
 
 ---
 
+## Phase 2 — Atlas and Harbor join the shared STOCK symbol lock (October 9, 2026)
+
+The common Supabase `paper_stock_symbol_claim` service-role-only function
+now admits **Pulse, Fuse, Atlas and Harbor** as participants. All four
+use one durable uniqueness constraint on the active physical PAPER stock
+symbol, and stock entries reserve that symbol before their broker POST.
+
+- **Atlas:** the existing `paper_atlas_bind_order` RPC reserves a stock
+  symbol in the same transaction as binding the funded Atlas order.
+  Its **crypto** binding remains separately supported and unaffected.
+  The Atlas stock runner additionally verifies its active reservation
+  and checks current broker positions/open orders before both an initial
+  and a resumed PAPER stock buy.
+- **Harbor:** newly prepared prospect buys use canonical `chb-sw3`
+  attribution IDs. Its executor now uses service-role-only
+  `paper_swing_claim_prepared_with_symbol` to atomically claim the
+  prepared order and physical symbol. It rechecks Alpaca PAPER open
+  orders and positions after the claim, before any bracket entry POST.
+  Historical staged IDs and past orders are not rewritten.
+- **Pulse/Fuse:** current atomic one-shot pilot claims are unchanged;
+  they participate in the same unique active-stock-symbol reservation.
+
+**Conservative behavior:** a broker timeout or ambiguous submission
+leaves the physical symbol reserved even if the bot-specific order/pool
+record is released. There is **no automated reservation release** yet.
+This avoids accidental re-use of potentially unprotected shares, but
+manual review is needed before later stock entries in the same symbol.
+
+**Remaining for G1:** integrate Coil and any additional independent stock
+entry routes; implement a strictly evidenced release workflow after broker
+and separate virtual bot ledger agree on zero remaining exposure; then
+complete a real PAPER multi-bot collision and reconciliation audit.
+Passing mock tests and a database uniqueness constraint do not prove
+every execution route is covered or all cron jobs have run successfully.
+
+This phase changes no trading thresholds, $100 virtual allocations,
+execution flag or challenge start counter; it never enables live-money
+trading.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
