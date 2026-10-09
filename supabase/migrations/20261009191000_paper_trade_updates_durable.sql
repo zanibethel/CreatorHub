@@ -113,12 +113,12 @@ BEGIN
     nullif(item->>'positionQuantity','')::numeric,
     nullif(item->>'executionId',''),nullif(item->>'brokerEventId',''),
     coalesce(item->'details','{}'::jsonb)
-  FROM jsonb_array_elements(p_events) AS item
+  FROM jsonb_array_elements(p_events) AS e(item)
   ON CONFLICT (event_hash) DO NOTHING;
   GET DIAGNOSTICS v_inserted=ROW_COUNT;
   SELECT max(event_at) INTO v_max_event
   FROM public.paper_broker_trade_updates
-  WHERE event_hash IN (SELECT item->>'eventHash' FROM jsonb_array_elements(p_events) AS item);
+  WHERE event_hash IN (SELECT item->>'eventHash' FROM jsonb_array_elements(p_events) AS e(item));
 
   UPDATE public.paper_broker_trade_stream_health
   SET worker_session_id=p_worker_session_id,
@@ -196,12 +196,12 @@ GRANT SELECT ON public.paper_broker_trade_stream_status TO service_role;
     nullif(item->>'positionQuantity','')::numeric,
     nullif(item->>'executionId',''),nullif(item->>'brokerEventId',''),
     coalesce(item->'details','{}'::jsonb)
-  FROM jsonb_array_elements(p_events) AS item
+  FROM jsonb_array_elements(p_events) AS e(item)
   ON CONFLICT (event_hash) DO NOTHING;
   GET DIAGNOSTICS v_inserted=ROW_COUNT;
   SELECT max(event_at) INTO v_max_event
   FROM public.paper_broker_trade_updates
-  WHERE event_hash IN (SELECT item->>'eventHash' FROM jsonb_array_elements(p_events) AS item);
+  WHERE event_hash IN (SELECT item->>'eventHash' FROM jsonb_array_elements(p_events) AS e(item));
 
   UPDATE public.paper_broker_trade_stream_health
   SET worker_session_id=p_worker_session_id,
