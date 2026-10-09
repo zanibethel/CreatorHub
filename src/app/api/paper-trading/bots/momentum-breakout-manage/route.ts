@@ -249,6 +249,9 @@ async function runPaperCron(request:Request){
       });
       const childIds=new Set(children.map(c=>c.id));
       const venueSells=openVenueOrders.filter(o=>o.symbol===entry.symbol&&o.side==="sell");
+      const ownedVenueIds=new Set([entry.broker_order_id,...children.map(c=>c.id)]);
+      if(openVenueOrders.some(o=>o.symbol===entry.symbol&&!ownedVenueIds.has(o.id)))
+        throw Error("Pulse bracket stock symbol has a foreign or unrecognized live broker order.");
       if(!proof.verified||venueSells.length!==2||
          venueSells.some(o=>!childIds.has(o.id))||
          children.some(c=>!venueSells.some(o=>o.id===c.id&&o.client_order_id===c.client_order_id)))
