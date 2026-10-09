@@ -32,7 +32,7 @@ function validNumber(s:unknown):number|null {
 }
 function isActive(leg:FuseBrokerLeg){return active.has(leg.status??"");}
 function legQty(leg:FuseBrokerLeg) {
-  const requested=validNumber(leg.qty),filled=validNumber(leg.filled_qty??"0");
+  const requested=validNumber(leg.qty),filled=validNumber(leg.filled_qty);
   return requested===null||filled===null||filled>requested?null:requested-filled;
 }
 
