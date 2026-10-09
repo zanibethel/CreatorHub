@@ -194,7 +194,16 @@ export async function GET(request:Request){
         const stopId=pulseCompanionClientOrderId(entry.client_order_id,"stop");
         if(!stopId)throw Error("Invalid stop attribution.");
         const currentStop=await byClient(stopId);
+        const localStops=z.array(orderSchema).parse(await db(
+          `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&client_order_id=eq.${encodeURIComponent(stopId)}&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,metadata&limit=1`));
+        const localStop=localStops[0];
         const stopActive=currentStop&&activeStatuses.has(currentStop.status??"");
+        // A confirmed 4xx rejection may leave no broker order to look up.
+        // Remember that terminal local result across minute-level cron runs.
+        const stopRejectedWithoutBroker=!currentStop&&localStop?.status==="rejected";
+        if(!currentStop&&localStop&&!stopRejectedWithoutBroker&&localStop.status!=="prepared"){
+          outcome.push({symbol,action:"stop-outcome-unconfirmed"});continue;
+        }
         if(stopActive){
           const stopQty=numeric(currentStop.qty)??0;
           const stopAt=numeric(currentStop.stop_price);
@@ -217,7 +226,8 @@ export async function GET(request:Request){
         // An expired, rejected, or canceled DAY stop cannot be silently
         // recreated using the same idempotency key. Flatten the remaining
         // position rather than pretending it is still protected.
-        const priorStopTerminal=currentStop&&["expired","rejected","canceled","filled","replaced"].includes(currentStop.status??"");
+        const priorStopTerminal=stopRejectedWithoutBroker||
+          (currentStop&&["expired","rejected","canceled","filled","replaced"].includes(currentStop.status??""));
         if(stopActive&&flattenDue){
           const cancel=await broker(`orders/${encodeURIComponent(currentStop.id!)}`,"DELETE");
           if(!cancel.response.ok&&cancel.response.status!==404){
