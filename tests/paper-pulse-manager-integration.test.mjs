@@ -10,6 +10,9 @@ const helperSource=readFileSync(new URL("../src/lib/paper-pulse-fractional.ts",i
 const compile=s=>ts.transpileModule(s,{compilerOptions:{module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022}}).outputText;
 const helper={};
 vm.runInNewContext(compile(helperSource),{exports:helper,Math,Number,Date});
+const bracket={};
+const bracketSource=readFileSync(new URL("../src/lib/paper-pulse-bracket-evidence.ts",import.meta.url),"utf8");
+vm.runInNewContext(compile(bracketSource),{exports:bracket,Math,Number,Set});
 const entryId="chb-pls-v1-muztbl5e-7067a59cc7444711be620d3a";
 const entry=()=>({
   client_order_id:entryId,broker_order_id:"PULSEBUY",symbol:"SOXS",side:"buy",
@@ -24,8 +27,23 @@ function fixture(){
     rejectStop:false,timeoutStop:false,foreignOrder:false,
     partialEntry:false,parentCanceled:false,entryStatusOverride:null,
     noActiveEntry:false,orphanTaggedBuy:false,virtualRows:[],
+    bracketIssue:null,
   };
+  const bracketLegs=()=>[
+    {id:"BRACKET-STOP",client_order_id:"broker-bracket-stop",symbol:"SOXS",
+      side:"sell",type:"stop",status:state.bracketIssue==="canceled"?"canceled":"new",
+      qty:state.bracketIssue==="undercovered"?"1":"2",filled_qty:"0",stop_price:"32.15"},
+    {id:"BRACKET-TARGET",client_order_id:"broker-bracket-target",symbol:"SOXS",
+      side:"sell",type:"limit",status:"new",
+      qty:"2",filled_qty:"0",limit_price:state.bracketIssue==="bad-target"?"33.00":"34.50"},
+  ];
   const getOrder=id=>{
+    if(id==="BRACKET-STOP")return bracketLegs()[0];
+    if(id==="BRACKET-TARGET")return bracketLegs()[1];
+    if(id===entryId&&state.entry.metadata.executionMode==="paper-bracket")
+      return {id:"PULSEBUY",client_order_id:entryId,symbol:"SOXS",side:"buy",
+        type:"market",order_class:"bracket",status:"filled",qty:"2",filled_qty:"2",
+        legs:state.bracketIssue==="missing-leg"?bracketLegs().slice(0,1):bracketLegs()};
     if(id===entryId)return {id:"PULSEBUY",client_order_id:entryId,symbol:"SOXS",side:"buy",type:"limit",
       status:state.entryStatusOverride??(state.partialEntry?(state.parentCanceled?"canceled":"partially_filled"):"filled"),
       qty:"0.5",filled_qty:state.partialEntry&&!state.parentCanceled?"0.25":"0.5"};
@@ -67,6 +85,8 @@ function fixture(){
     if(u.pathname==="/v2/positions")return reply([{symbol:"SOXS",qty:state.brokerQty,qty_available:state.available}]);
     if(u.pathname==="/v2/orders"&&method==="GET"){
       const active=[...state.orders.values()].filter(o=>["new","accepted","held","partially_filled"].includes(o.status));
+      if(state.entry.metadata.executionMode==="paper-bracket")
+        active.push(...bracketLegs().filter(o=>["new","accepted","held","partially_filled"].includes(o.status)));
       if(state.partialEntry&&!state.parentCanceled)active.push(getOrder(entryId));
       if(state.foreignOrder)active.push({id:"OTHER-BOT-ORDER",client_order_id:"chb-hbr-v1-abc-12345678",
         symbol:"SOXS",side:"sell",status:"new"});
@@ -75,6 +95,10 @@ function fixture(){
         symbol:"SOXS",side:"buy",status:"new"});
       return reply(active);
     }
+    if(u.pathname==="/v2/orders/PULSEBUY"&&state.entry.metadata.executionMode==="paper-bracket")
+      return reply(getOrder(entryId));
+    if(u.pathname==="/v2/orders/BRACKET-STOP")return reply(getOrder("BRACKET-STOP"));
+    if(u.pathname==="/v2/orders/BRACKET-TARGET")return reply(getOrder("BRACKET-TARGET"));
     if(u.pathname==="/v2/orders:by_client_order_id"){
       const order=getOrder(u.searchParams.get("client_order_id"));
       return order?reply(order):reply({message:"not found"},404);
@@ -118,6 +142,7 @@ function fixture(){
       if(module==="next/server")return {NextResponse:{json:(body,init={})=>Response.json(body,{status:init.status??200,headers:init.headers})}};
       if(module==="zod")return {z};
       if(module==="@/lib/paper-pulse-fractional")return helper;
+      if(module==="@/lib/paper-pulse-bracket-evidence")return bracket;
       if(module==="@/lib/paper-momentum-breakout-strategy-config")
         return {MOMENTUM_BREAKOUT_STRATEGY_V1:{botProfileId:"momentum-breakout-100",id:"stock-momentum-breakout-v1",version:1}};
       if(module==="@/lib/paper-cron-health")return {withPaperCronHeartbeat:(_info,handler)=>handler};
@@ -334,13 +359,46 @@ test("Pulse manager catches a venue-level tagged orphan buy before strategy prot
   assert.equal(state.cancels.length,0);
 });
 
-test("Pulse manager recognizes valid whole-share bracket ownership without trying to manage fractional stops",async()=>{
+test("Pulse watchdog independently verifies two live, fully covering whole-share bracket legs without broker writes",async()=>{
   const {state,run}=fixture();
   state.entry.metadata.executionMode="paper-bracket";
+  state.entry.requested_quantity=2;
+  state.entry.take_profit_price=34.50;
+  state.brokerQty="2";state.available="0";
   state.virtualRows=[{bot_id:"momentum-breakout-100",symbol:"SOXS",quantity:2}];
   const res=await run();
   assert.equal(res.status,200,JSON.stringify(res.body));
+  assert.ok(res.body.outcome.some(x=>x.action==="broker-bracket-verified"));
   assert.equal(res.body.entries,0);
+  assert.equal(state.posted.length,0);
+  assert.equal(state.cancels.length,0);
+});
+
+test("Pulse watchdog fails closed on canceled, missing, undercovered or mispriced bracket exits",async()=>{
+  for(const issue of ["canceled","missing-leg","undercovered","bad-target"]){
+    const {state,run}=fixture();
+    state.entry.metadata.executionMode="paper-bracket";
+    state.entry.requested_quantity=2;
+    state.entry.take_profit_price=34.50;
+    state.brokerQty="2";state.available="0";
+    state.virtualRows=[{bot_id:"momentum-breakout-100",symbol:"SOXS",quantity:2}];
+    state.bracketIssue=issue;
+    const res=await run();
+    assert.equal(res.status,503,issue+" "+JSON.stringify(res.body));
+    assert.match(res.body.error,/bracket|broker/i);
+    assert.equal(state.posted.length,0);
+    assert.equal(state.cancels.length,0);
+  }
+});
+
+test("Pulse bracket watchdog stops when physical shares are not in the bot virtual ledger",async()=>{
+  const {state,run}=fixture();
+  state.entry.metadata.executionMode="paper-bracket";
+  state.entry.requested_quantity=2;
+  state.entry.take_profit_price=34.50;
+  state.brokerQty="2";
+  const res=await run();
+  assert.equal(res.status,503,JSON.stringify(res.body));
   assert.equal(state.posted.length,0);
   assert.equal(state.cancels.length,0);
 });
