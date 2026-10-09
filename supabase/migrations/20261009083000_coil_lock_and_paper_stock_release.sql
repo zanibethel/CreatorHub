@@ -17,6 +17,13 @@ BEGIN
   SELECT broker_tag INTO v_tag
   FROM public.paper_bot_ledgers
   WHERE bot_id=p_bot_id AND status='active';
+  -- Coil is readiness-only today. A future executor may claim only after
+  -- its separate risk/execution approval explicitly arms the bot.
+  IF p_bot_id='squeeze-breakout-100' AND NOT EXISTS(
+    SELECT 1 FROM public.paper_bot_ledgers
+      WHERE bot_id=p_bot_id AND status='active'
+        AND metadata->>'executionEnabled'='true'
+  ) THEN RETURN false; END IF;
   IF v_tag IS NULL OR p_client_order_id !~
      ('^chb-'||v_tag||'-v[1-9][0-9]*-[a-z0-9]+-[a-z0-9]{6,24}$') THEN
     RETURN false;
