@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import RotatingPortfolioReport, { REPORT_VIEWS, type ReportView } from "./RotatingPortfolioReport";
+import UpcomingTradesCard from "./UpcomingTradesCard";
 import useMarketMonitor from "./useMarketMonitor";
 import useAccountReport from "./useAccountReport";
 import useSharedWatchlist from "./useSharedWatchlist";
@@ -130,7 +131,10 @@ export default function PaperTradingLab() {
       {botLedgerError ? <p role="status" className={styles.error}>Challenge ledger: {botLedgerError}</p> : null}
     </div>
     <div className={styles.stage} onFocusCapture={() => setRotating(false)} onPointerDown={() => setRotating(false)}>
-      <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} accountReport={accountReport} accountError={accountError} watchlist={watchlist} />
+      <div className={view === "portfolio" ? styles.reportWithUpcoming : styles.reportOnly}>
+        {view === "portfolio" ? <UpcomingTradesCard compact /> : null}
+        <RotatingPortfolioReport view={view} snapshot={snapshot} stocks={stocks} crypto={crypto} onSetup={openSettings} accountReport={accountReport} accountError={accountError} watchlist={watchlist} />
+      </div>
       <TradingSponsorCard links={links} index={sponsorIndex} onSetup={openSettings} />
     </div>
     <footer className={styles.footer}><span role="status" title={feedError || storageError || monitorLabel}>{feedError ? `${monitorLabel}: ${feedError}` : storageError || `${monitorLabel} · read-only report`}</span><span>{REPORT_VIEWS.findIndex(([id]) => id === view) + 1}/{REPORT_VIEWS.length} · {rotating ? "Rotates every 12s" : "Paused"}</span></footer>

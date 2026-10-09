@@ -33,6 +33,7 @@ import useWeekendCryptoReadiness from "./useWeekendCryptoReadiness";
 import useFastBotReadiness from "./useFastBotReadiness";
 import usePaperSignalDesk from "./usePaperSignalDesk";
 import PaperSignalPipeline from "./PaperSignalPipeline";
+import UpcomingTradesCard from "./UpcomingTradesCard";
 import styles from "./PaperTradingLab.module.css";
 
 type FastTradeCandidate = {
@@ -889,6 +890,7 @@ export default function PaperBotLab() {
       : null}
 
     {view === "portfolio" ? <div className={styles.portfolioDashboard}>
+      <div className={styles.portfolioDashboardFull}><UpcomingTradesCard /></div>
       <div className={styles.portfolioDashboardFull}>
         <PaperSignalPipeline
           botName={botShortName(profile)}
