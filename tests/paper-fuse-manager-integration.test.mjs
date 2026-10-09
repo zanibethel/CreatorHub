@@ -34,7 +34,7 @@ const js=ts.transpileModule(source,{compilerOptions:{
 }}).outputText;
 const fixedTime=Date.parse("2026-10-08T19:45:00Z");
 class FixedDate extends Date {static now(){return fixedTime;}}
-function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false,unavailable=false,pnyChildren=false,pnyOrphan=false,ocoGap=false,missingOpenStop=false}={}){
+function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false,unavailable=false,pnyChildren=false,pnyOrphan=false,ocoGap=false,missingOpenStop=false,pendingWithoutLegs=false}={}){
   const events=[],orders=new Map();
   let canceled=false,flattenCount=0,parentCanceled=false;
   const entry={client_order_id:CLIENT,symbol:"NVD",side:"buy",
@@ -48,7 +48,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=fal
     status:parentCanceled?"canceled":parentPending?"partially_filled":"filled",
     type:"limit",order_class:"bracket",time_in_force:"day",
     qty:"5",filled_qty:parentPending?"0":"5",
-    legs:[stop(),target()]});
+    legs:pendingWithoutLegs?[]:[stop(),target()]});
   const sellId=exit.fuseFlattenOrderId(CLIENT);
   const asJson=(data,status=200)=>Response.json(data,{status});
   const fetch=async(input,opt={})=>{
@@ -84,7 +84,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=fal
     if(url.pathname==="/v2/positions")return asJson(parentPending?[]:
       [{symbol:"NVD",qty:ocoGap?"3":"5",qty_available:canceled&&!unavailable?"5":"0"}]);
     if(url.pathname==="/v2/orders"&&method==="GET"){
-      const pending=[...(canceled?[]:ocoGap?[target()]:missingOpenStop?[target()]:[stop(),target()]),
+      const pending=[...(canceled||pendingWithoutLegs?[]:ocoGap?[target()]:missingOpenStop?[target()]:[stop(),target()]),
         ...(pnyOrphan?[{id:"ORPHAN",client_order_id:CLIENT+"-unknown",
           symbol:"NVD",side:"sell",type:"stop",status:"new"}]:[]),
         ...(foreign?[{id:"OTHER",client_order_id:"foreign",symbol:"NVD",
@@ -240,4 +240,13 @@ test("Fuse does not trust independently fetched bracket legs as proof they still
   assert.match(result.body.decisions[0].detail,/missing from the current venue/);
   assert.equal(a.getCanceled(),false);
   assert.equal(a.getFlattenCount(),0);
+});
+
+test("Fuse unfilled bracket parent can await Alpaca exit legs before broker activation",async()=>{
+  const a=setup({parentPending:true,pendingWithoutLegs:true});
+  const result=await a.run();
+  assert.equal(result.status,200,JSON.stringify(result.body));
+  assert.equal(result.body.decisions[0].action,"entry-cancel-requested");
+  assert.equal(a.getFlattenCount(),0);
+  assert.equal(a.getCanceled(),false);
 });
