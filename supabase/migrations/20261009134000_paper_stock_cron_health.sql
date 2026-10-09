@@ -29,8 +29,9 @@ create or replace function public.paper_bot_record_cron_health(
 ) returns boolean
 language plpgsql security definer set search_path=''
 as $$
-declare v_now timestamptz:=pg_catalog.now();
-declare v_failure boolean;
+declare
+ v_now timestamptz:=pg_catalog.now();
+ v_failure boolean;
 begin
  if auth.role() is distinct from 'service_role'
     or p_job_key not in ('pulse-run','pulse-manage','fuse-run','fuse-manage','atlas-run','harbor-run')
