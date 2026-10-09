@@ -122,8 +122,8 @@ export function auditFuseBrokerBracket(input:{
   }
   const expectedChildIds=new Set([stop.id,target.id].filter(Boolean));
   if(expectedChildIds.size!==2||
-     !liveSellOrders.some(o=>o.id===stop.id&&o.client_order_id===stop.client_order_id)||
-     !liveSellOrders.some(o=>o.id===target.id&&o.client_order_id===target.client_order_id)||
+     !liveSellOrders.some(o=>o.id===stop.id&&o.client_order_id===stop.client_order_id&&isActive(o))||
+     !liveSellOrders.some(o=>o.id===target.id&&o.client_order_id===target.client_order_id&&isActive(o))||
      liveSellOrders.some(o=>o.symbol===entry.symbol&&o.side==="sell"&&isActive(o)&&!expectedChildIds.has(o.id))){
     issues.push("Open Alpaca sell orders cannot be reconciled exactly to the bracket children.");
   }
