@@ -71,6 +71,10 @@ export function buildFuseArchivedShadowSeeds(
         ![trigger,stop,target,max].every(n=>Number.isFinite(n)&&n>0)||
         !(stop<trigger&&trigger<=max&&target>trigger))return [];
       selected.add(row.symbol);
+      // Historical OHLC bars conceal intrabar sequencing. Exclude the whole
+      // five-minute candle containing the decision, even if it was partly
+      // after the signal. The observed prior candle is retained as metadata.
+      const decisionBucket=new Date(Math.floor(evaluated/300_000)*300_000).toISOString();
       return [{
         setup_key:`fuse:${strategy.id}:v${strategy.version}:${sessionDate}:${row.symbol}`,
         bot_id:strategy.botProfileId,strategy_id:strategy.id,strategy_version:strategy.version,
@@ -78,8 +82,9 @@ export function buildFuseArchivedShadowSeeds(
         decision_state:"ready",decision_at:row.evaluatedAt,session_key:sessionDate,status:"watching",
         score:row.fuseScore,trigger_price:trigger,max_entry_price:max,
         protective_stop:stop,planned_take_profit:target,
-        last_bar_at:row.lastCompletedBarAt,blockers:[],warnings:row.warnings,
+        last_bar_at:decisionBucket,blockers:[],warnings:row.warnings,
         metadata:{source:"fuse-archived-research-shadow-v1",paperOnly:true,researchOnly:true,
+          originalLastCompletedBarAt:row.lastCompletedBarAt,decisionBucketExcluded:true,
           replayedObservation:true,brokerOrderPlaced:false,executedTrade:false,
           trackingPolicy:"first-research-ready-setup-per-symbol-per-eastern-session",
           quoteAgeSeconds:row.quoteAgeSeconds,spreadPct:row.spreadPct},
