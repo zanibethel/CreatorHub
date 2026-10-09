@@ -166,7 +166,7 @@ export async function POST(request:Request){
     const match=submitted&&submitted.client_order_id===clientId&&
       submitted.symbol===input.data.symbol&&submitted.side==="buy"&&
       submitted.type==="limit"&&submitted.order_class==="bracket";
-    let observed=match?submitted:null;
+    const observed=match?submitted:null;
     if(!match&&submitted)brokerError="Alpaca broker order identity/format failed verification.";
     let nested=observed;
     if(observed){
