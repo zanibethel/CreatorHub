@@ -12,6 +12,7 @@ export const dynamic = "force-dynamic";
 
 const BOT_ID = "three-trade-weekly-swing-100";
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://yufptpfiwdbzzrvhkvux.supabase.co";
+const PUBLIC_ORIGIN=process.env.CREATORHUB_PUBLIC_ORIGIN||"https://creatorhub-gray.vercel.app";
 
 const requestSchema = z.object({
   symbol: z.preprocess(
@@ -167,7 +168,7 @@ export async function POST(request: Request) {
     }
   };
 
-  const readinessUrl = new URL("/api/paper-trading/bots/swing-readiness", request.url);
+  const readinessUrl = new URL("/api/paper-trading/bots/swing-readiness", PUBLIC_ORIGIN);
   const readinessResponse = await fetch(readinessUrl, {
     cache: "no-store",
     headers: { "x-paper-execution-recheck": "1" },
@@ -196,6 +197,10 @@ export async function POST(request: Request) {
   }
 
   if (!preview) return reply({ error: "No execution preview is available for this plan." }, 409);
+  // Defense in depth: reject a stale or malformed fractional preview BEFORE
+  // the irreversible local order and shared-symbol reservation claim.
+  if (!Number.isSafeInteger(preview.quantity) || preview.quantity < 1)
+    return reply({error:"PAPER whole-share bracket sizing is unavailable; fractional bracket not attempted."},423);
 
   const preparedRaw = await db(
     `paper_bot_orders?select=client_order_id,bot_id,strategy_id,strategy_version,symbol,asset_class,side,status,broker_order_id,metadata&bot_id=eq.${BOT_ID}&symbol=eq.${parsedBody.symbol}&side=eq.buy&status=eq.prepared&broker_order_id=is.null&order=created_at.asc&limit=1`

@@ -27,13 +27,15 @@ const execution = load("../src/lib/paper-swing-execution.ts", {
 
 test("swing execution sizing respects the 1% planned-loss ceiling", () => {
   const preview = execution.buildSwingExecutionPreview({
-    symbol: "QQQ",
-    ask: 755.5,
-    protectiveStop: 726.87,
+    symbol: "SNAP",
+    ask: 6.2,
+    protectiveStop: 5.8,
     equity: 100,
     buyingPower: 100,
   });
   assert.equal(preview.paperOnly, true);
+  assert.equal(preview.quantity,2);
+  assert.ok(Number.isInteger(preview.quantity));
   assert.ok(preview.plannedRiskDollars <= 1.000001);
   assert.ok(preview.plannedRiskPct <= 1.000001);
   assert.ok(preview.allocationPct <= 30.000001);
@@ -43,9 +45,9 @@ test("swing execution sizing respects the 1% planned-loss ceiling", () => {
 
 test("allocation cap can become the tighter sizing constraint", () => {
   const preview = execution.buildSwingExecutionPreview({
-    symbol: "MSFT",
-    ask: 500,
-    protectiveStop: 499,
+    symbol: "XPEV",
+    ask: 9.5,
+    protectiveStop: 9.45,
     equity: 100,
     buyingPower: 100,
   });
@@ -96,9 +98,9 @@ test("paper execution guard requires same-session selection and a fresh open mar
 
 test("broker request is a day market bracket with hosted stop and target", () => {
   const preview = execution.buildSwingExecutionPreview({
-    symbol: "NVDA",
-    ask: 238.4,
-    protectiveStop: 220.62,
+    symbol: "SNAP",
+    ask: 6.2,
+    protectiveStop: 5.8,
     equity: 100,
     buyingPower: 100,
   });
@@ -111,8 +113,25 @@ test("broker request is a day market bracket with hosted stop and target", () =>
   assert.equal(request.time_in_force, "day");
   assert.equal(request.extended_hours, false);
   assert.equal(request.side, "buy");
+  assert.equal(request.qty, "2");
   assert.ok(Number(request.qty) > 0);
   assert.ok(Number(request.take_profit_limit_price) > preview.entryReference);
   assert.ok(Number(request.stop_loss_stop_price) < preview.entryReference);
   assert.equal(execution.SWING_PAPER_BROKER_HOST, "https://paper-api.alpaca.markets");
+});
+
+test("high-price shares are research-only when one whole share exceeds Harbor $100 allocation",()=>{
+  assert.throws(()=>execution.buildSwingExecutionPreview({
+    symbol:"QQQ",ask:755.5,protectiveStop:726.87,equity:100,buyingPower:100,
+  }),/whole share/i);
+});
+test("never construct an Alpaca multi-leg PAPER bracket with fractional shares",()=>{
+  const safe=execution.buildSwingExecutionPreview({
+    symbol:"SNAP",ask:6.2,protectiveStop:5.8,equity:100,buyingPower:100,
+  });
+  assert.throws(()=>execution.buildAlpacaSwingBracketRequest({...safe,quantity:1.5},
+    "chb-sw3-v1-fixture1-abcdefgh"),/Fractional PAPER brackets are unsupported/);
+  const route=readFileSync(new URL("../src/app/api/paper-trading/bots/swing-readiness/route.ts",import.meta.url),"utf8");
+  assert.match(route,/selectedForSubmission: false, referencePlan/);
+  assert.match(route,/plansWithExecution\.some\(p=>p\.selectedForSubmission && p\.executionPreview!==null\)/);
 });
