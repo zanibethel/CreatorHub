@@ -107,7 +107,7 @@ export async function GET(request:Request){
       await db("paper_bot_orders?on_conflict=client_order_id","POST",{
         client_order_id:id,bot_id:cfg.botProfileId,strategy_id:cfg.id,
         strategy_version:cfg.version,symbol:entry.symbol,asset_class:"stock",
-        side:"sell",status:"prepared",requested_quantity:quantity,pool_id:"day",
+        side:"sell",status:"prepared",broker_order_id:null,requested_quantity:quantity,pool_id:"day",
         metadata:{paperOnly:true,reason:"fuse-emergency-or-session-close",
           parentClientOrderId:entry.client_order_id,
           manualRetryRequiredOnAmbiguity:true},
