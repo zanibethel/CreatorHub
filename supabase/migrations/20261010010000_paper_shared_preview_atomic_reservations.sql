@@ -80,17 +80,17 @@ BEGIN
     RETURN jsonb_build_object('state',v_old.decision_state,'decisionKey',p_decision_key,
       'reasons',v_old.reasons,'idempotent',true,'paperOnly',true,'brokerOrderAuthorized',false);
   END IF;
-  IF jsonb_typeof(p_proposal->'quantity')<>'number'
-     OR jsonb_typeof(p_proposal->'entryPrice')<>'number'
-     OR jsonb_typeof(p_proposal->'stopPrice')<>'number'
-     OR jsonb_typeof(p_proposal->'targetPrice')<>'number'
-     OR jsonb_typeof(p_proposal->'roundTripCostPct')<>'number'
-     OR jsonb_typeof(p_proposal->'strategyQualified')<>'boolean'
-     OR jsonb_typeof(p_proposal->'freshQuote')<>'boolean'
-     OR jsonb_typeof(p_proposal->'marketSessionEligible')<>'boolean'
-     OR jsonb_typeof(p_proposal->'brokerProtectionSupported')<>'boolean'
-     OR jsonb_typeof(p_proposal->'speculative')<>'boolean'
-     OR p_proposal->'paperOnly'<>'true'::jsonb THEN
+  IF jsonb_typeof(p_proposal->'quantity') IS DISTINCT FROM 'number'
+     OR jsonb_typeof(p_proposal->'entryPrice') IS DISTINCT FROM 'number'
+     OR jsonb_typeof(p_proposal->'stopPrice') IS DISTINCT FROM 'number'
+     OR jsonb_typeof(p_proposal->'targetPrice') IS DISTINCT FROM 'number'
+     OR jsonb_typeof(p_proposal->'roundTripCostPct') IS DISTINCT FROM 'number'
+     OR jsonb_typeof(p_proposal->'strategyQualified') IS DISTINCT FROM 'boolean'
+     OR jsonb_typeof(p_proposal->'freshQuote') IS DISTINCT FROM 'boolean'
+     OR jsonb_typeof(p_proposal->'marketSessionEligible') IS DISTINCT FROM 'boolean'
+     OR jsonb_typeof(p_proposal->'brokerProtectionSupported') IS DISTINCT FROM 'boolean'
+     OR jsonb_typeof(p_proposal->'speculative') IS DISTINCT FROM 'boolean'
+     OR p_proposal->'paperOnly' IS DISTINCT FROM 'true'::jsonb THEN
     RAISE EXCEPTION 'Incomplete or untrusted PAPER preview inputs.';
   END IF;
   v_bot := p_proposal->>'botId';
@@ -106,8 +106,8 @@ BEGIN
   IF v_bot IS NULL OR length(v_bot) NOT BETWEEN 1 AND 64
     OR v_symbol IS NULL OR length(v_symbol) NOT BETWEEN 1 AND 32
     OR v_symbol !~ '^[[:alnum:]_/.-]+$'
-    OR v_asset NOT IN ('stock','etf','crypto')
-    OR v_sleeve NOT IN ('stocks','swing','crypto')
+    OR v_asset IS NULL OR v_asset NOT IN ('stock','etf','crypto')
+    OR v_sleeve IS NULL OR v_sleeve NOT IN ('stocks','swing','crypto')
     OR (v_asset='crypto')<>(v_sleeve='crypto')
     OR v_group IS NULL OR length(v_group) NOT BETWEEN 1 AND 80
     OR v_quantity<=0 OR v_quantity<>trunc(v_quantity,9)
@@ -233,7 +233,7 @@ BEGIN
    RAISE EXCEPTION 'Preview-only scenario required.';
  END IF;
  IF p_proof IS NULL OR jsonb_typeof(p_proof)<>'object'
- OR p_proof->'confirmedNoBrokerOrder'<>'true'::jsonb
+ OR p_proof->'confirmedNoBrokerOrder' IS DISTINCT FROM 'true'::jsonb
  OR coalesce(length(p_proof->>'reason'),0)<8 THEN
    RAISE EXCEPTION 'Explicit simulated no-broker release proof is required.';
  END IF;
