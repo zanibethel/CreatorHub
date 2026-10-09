@@ -27,6 +27,7 @@ const load=(path,imports={})=>{
 const normal=load("../supabase/functions/paper-trade-stream-ingest/normalize.ts");
 const handler=load("../supabase/functions/paper-trade-stream-ingest/handler.ts",{"./normalize.ts":normal});
 const migration=source("../supabase/migrations/20261009191000_paper_trade_updates_durable.sql");
+const heartbeatHistoryMigration=source("../supabase/migrations/20261009223500_paper_broker_heartbeat_history.sql");
 const rawToken="a".repeat(64),hash=createHash("sha256").update(rawToken).digest("hex");
 const session="12345678-1234-4321-8123-123456789abc";
 const endpoint="https://ingest.test";
@@ -108,6 +109,24 @@ test("append-only event database and private health enforce service-only access 
   assert.match(migration,/last_heartbeat_at>now\(\)-interval '75 seconds'/);
   assert.doesNotMatch(migration,/UPDATE public\.paper_bot_ledgers|DELETE FROM public\.paper_bot_positions|place_stock_order/);
 });
+test("Galaxy accepted-heartbeat evidence history is private, gap-aware, retained and non-trading",()=>{
+  const sql=heartbeatHistoryMigration;
+  assert.match(sql,/CREATE TABLE public\.paper_broker_trade_stream_heartbeat_history/);
+  assert.match(sql,/ENABLE ROW LEVEL SECURITY/);
+  assert.match(sql,/REVOKE ALL ON public\.paper_broker_trade_stream_heartbeat_history[\s\S]*?FROM PUBLIC,anon,authenticated/);
+  assert.match(sql,/GRANT SELECT,INSERT,DELETE ON public\.paper_broker_trade_stream_heartbeat_history[\s\S]*?TO service_role/);
+  assert.match(sql,/AFTER UPDATE OF last_heartbeat_at/);
+  assert.match(sql,/OLD\.last_heartbeat_at/);
+  assert.match(sql,/NEW\.last_heartbeat_at/);
+  assert.match(sql,/worker_session_id/);
+  assert.match(sql,/session_changed/);
+  assert.match(sql,/connection_transition/);
+  assert.match(sql,/gap_seconds/);
+  assert.match(sql,/interval '14 days'/);
+  assert.match(sql,/EXCEPTION WHEN OTHERS THEN[\s\S]*?NULL;/);
+  assert.doesNotMatch(sql,/UPDATE public\.paper_bot_ledgers|DELETE FROM public\.paper_bot_positions|INSERT INTO public\.paper_bot_broker_orders|paper_api\.alpaca/);
+});
+
 test("PAPER stream worker uses only fixed PAPER websocket and pinned private ingest origin",()=>{
   assert.equal(PAPER_WS,"wss://paper-api.alpaca.markets/stream");
   assert.match(PAPER_INGEST,/\/functions\/v1\/paper-trade-stream-ingest$/);

@@ -20,6 +20,53 @@ FROM public.paper_broker_trade_stream_status;
 - `reconnect_count` in the original alpha APK resets on successful subscription. The **source fix** preserves per-service-session reconnects, but it is not running until an updated APK is signed and installed. Reboot/new process starts a new session and resets the local counter; a zero value never proves perfect uninterrupted uptime.
 - No artificially generated broker fills or order placements are allowed to test `stored_event_count`. Count may remain zero legitimately.
 
+## Private accepted-heartbeat history (new server-only audit)
+
+The status view only shows the *latest* successful report. The service-role-only
+`paper_broker_trade_stream_heartbeat_history` table now stores **each accepted
+heartbeat** with server-side time, reported connection state, seconds since the
+previous accepted report, any change in Android worker session, and any
+connected/disconnected transition. No Alpaca secrets, event payloads, order
+submissions, balances or bot execution controls are stored. The first row's gap
+is measured against the prior health-row timestamp, not an invented historical
+series. Rows older than 14 days are pruned on a subsequent day of activity.
+
+Use only the Supabase project SQL editor / authorized service-role connection:
+
+```sql
+SELECT count(*) AS heartbeats,
+       min(observed_at) AS first_at,
+       max(observed_at) AS last_at,
+       max(gap_seconds) AS worst_gap_seconds,
+       count(*) FILTER (WHERE gap_seconds > 75) AS gaps_over_75_seconds,
+       count(*) FILTER (WHERE NOT connected) AS reported_broker_disconnects,
+       count(*) FILTER (WHERE session_changed) AS worker_session_changes
+FROM public.paper_broker_trade_stream_heartbeat_history
+WHERE observed_at >= now() - interval '25 minutes';
+```
+
+For **screen-off acceptance**, mark the time of screen lock, keep phone
+untouched and charging for at least 20 minutes, then compare records spanning
+that period; require at least 20 minutes of captured span, no gap >75 seconds,
+no broker-disconnected state, and no unexpected worker-session change. A
+passing sample supports continuous *accepted monitoring reports*, not
+subsecond broker socket coverage or proof that future alerts always work.
+
+For the **network interruption**, check the historical row immediately after
+recovery for a gap >75 seconds / reported disconnect or session change. A
+phone that falls back to cellular data may have no server-observed gap. A gap
+is a monitoring-evidence interruption, never proof that broker activity was
+absent during it.
+
+For **reboot**, the new accepted records should show a different worker
+session and subsequent fresh connected reports. The original alpha APK
+still resets the reconnect counter; do not interpret 0 as perfect uptime.
+There is no background testing performed by ChatGPT: a physical owner
+must lock the screen, interrupt connectivity and reboot the handset.
+The trigger is best-effort and may miss a diagnostic row on a database error;
+the existing ingested trade events and heartbeat remain authoritative.
+No earlier history is reconstructed.
+
 ## Device acceptance tests (owner operates the physical phone)
 For each test, record **before and after** timestamps from the private view, app notification state, and any coverage gap. Never share broker key, ingest token or sensitive screenshots.
 
