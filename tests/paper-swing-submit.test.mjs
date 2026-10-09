@@ -45,34 +45,34 @@ function route(fetcher, extraEnv={}) {
   });
 }
 
-const request=(body={symbol:"QQQ"},supplied=token)=>new Request("https://app.test/api/paper-trading/bots/swing-execute",{
+const request=(body={symbol:"SNAP"},supplied=token)=>new Request("https://app.test/api/paper-trading/bots/swing-execute",{
   method:"POST",
   headers:{"content-type":"application/json","x-paper-swing-execution-token":supplied},
   body:JSON.stringify(body),
 });
 
 const preview={
-  symbol:"QQQ",quantity:0.03,estimatedNotional:22.65,entryReference:755,
-  stopLoss:727,takeProfit:811,plannedRiskDollars:0.84,plannedRiskPct:0.84,
-  allocationPct:22.65,orderClass:"bracket",orderType:"market",timeInForce:"day",paperOnly:true,
+  symbol:"SNAP",quantity:2,estimatedNotional:12.4,entryReference:6.2,
+  stopLoss:5.8,takeProfit:7,plannedRiskDollars:0.8,plannedRiskPct:0.8,
+  allocationPct:12.4,orderClass:"bracket",orderType:"market",timeInForce:"day",paperOnly:true,
 };
 
 const readiness=enabled=>({
   collectedAt:"2026-10-05T13:40:00Z",paperOnly:true,executionEnabled:enabled,
   submissionReady:enabled,marketClockAvailable:true,
-  plans:[{symbol:"QQQ",state:"ready",selectedForSubmission:true,quoteAgeSeconds:2,executionPreview:preview}],
+  plans:[{symbol:"SNAP",state:"ready",selectedForSubmission:true,quoteAgeSeconds:2,executionPreview:preview}],
 });
 
 const prepared={
   client_order_id:"chb-sw3-v1-abc123-fixture09",bot_id:"three-trade-weekly-swing-100",
-  strategy_id:"three-trade-weekly-swing-v1",strategy_version:1,symbol:"QQQ",
+  strategy_id:"three-trade-weekly-swing-v1",strategy_version:1,symbol:"SNAP",
   asset_class:"etf",side:"buy",status:"prepared",broker_order_id:null,metadata:{requiresRevalidation:true},
 };
 
 test("unauthorized swing execution does not touch storage or broker", async()=>{
   let calls=0;
   const api=route(()=>{calls++;throw new Error("must not fetch");});
-  const response=await api.POST(request({symbol:"QQQ"},"bad"));
+  const response=await api.POST(request({symbol:"SNAP"},"bad"));
   assert.equal(response.status,401);
   assert.equal(calls,0);
 });
@@ -99,8 +99,8 @@ test("successful request claims once and submits a PAPER bracket", async()=>{
     if(target.includes("database.test/rest/v1/rpc/paper_swing_claim_prepared_with_symbol") && method==="POST") {
       const body=JSON.parse(options.body);
       assert.equal(body.p_client_order_id,prepared.client_order_id);
-      assert.equal(body.p_symbol,"QQQ");
-      return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:0.03}});
+      assert.equal(body.p_symbol,"SNAP");
+      return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:2}});
     }
     if(target==="https://paper-api.alpaca.markets/v2/positions" && method==="GET") return Response.json([]);
     if(target==="https://paper-api.alpaca.markets/v2/orders?status=open&limit=500&nested=false" && method==="GET") return Response.json([]);
@@ -108,18 +108,18 @@ test("successful request claims once and submits a PAPER bracket", async()=>{
       const body=JSON.parse(options.body);
       assert.equal(body.order_class,"bracket");
       assert.equal(body.side,"buy");
-      assert.equal(body.symbol,"QQQ");
-      assert.equal(body.take_profit.limit_price,"811");
-      assert.equal(body.stop_loss.stop_price,"727");
-      return Response.json({id:"private-parent",client_order_id:prepared.client_order_id,status:"accepted",order_class:"bracket",symbol:"QQQ",side:"buy",type:"market"});
+      assert.equal(body.symbol,"SNAP");
+      assert.equal(body.take_profit.limit_price,"7");
+      assert.equal(body.stop_loss.stop_price,"5.8");
+      return Response.json({id:"private-parent",client_order_id:prepared.client_order_id,status:"accepted",order_class:"bracket",symbol:"SNAP",side:"buy",type:"market"});
     }
     if(target.includes("/v2/orders/private-parent?nested=true")) {
       return Response.json({
         id:"private-parent",client_order_id:prepared.client_order_id,status:"accepted",order_class:"bracket",
-        symbol:"QQQ",side:"buy",type:"market",
+        symbol:"SNAP",side:"buy",type:"market",
         legs:[
-          {id:"private-tp",client_order_id:"auto-tp",side:"sell",type:"limit",symbol:"QQQ"},
-          {id:"private-stop",client_order_id:"auto-stop",side:"sell",type:"stop",symbol:"QQQ"},
+          {id:"private-tp",client_order_id:"auto-tp",side:"sell",type:"limit",symbol:"SNAP"},
+          {id:"private-stop",client_order_id:"auto-stop",side:"sell",type:"stop",symbol:"SNAP"},
         ],
       });
     }
@@ -165,8 +165,8 @@ test("ambiguous broker submission is journaled without exposing broker identifie
     if(target.includes("database.test/rest/v1/rpc/paper_swing_claim_prepared_with_symbol") && method==="POST") {
       const body=JSON.parse(options.body);
       assert.equal(body.p_client_order_id,prepared.client_order_id);
-      assert.equal(body.p_symbol,"QQQ");
-      return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:0.03}});
+      assert.equal(body.p_symbol,"SNAP");
+      return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:2}});
     }
     if(target==="https://paper-api.alpaca.markets/v2/positions" && method==="GET") return Response.json([]);
     if(target==="https://paper-api.alpaca.markets/v2/orders?status=open&limit=500&nested=false" && method==="GET") return Response.json([]);
@@ -208,8 +208,8 @@ test("Harbor holds the one-shot order claim and skips PAPER buy on broker collis
     const target=String(url),method=options.method??"GET";
     if(target.includes("/swing-readiness"))return Response.json(readiness(true));
     if(target.includes("database.test/rest/v1/paper_bot_orders")&&method==="GET")return Response.json([prepared]);
-    if(target.includes("/rpc/paper_swing_claim_prepared_with_symbol"))return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:0.03}});
-    if(target.endsWith("/v2/positions")&&method==="GET")return Response.json([{symbol:"QQQ",qty:"1"}]);
+    if(target.includes("/rpc/paper_swing_claim_prepared_with_symbol"))return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:2}});
+    if(target.endsWith("/v2/positions")&&method==="GET")return Response.json([{symbol:"SNAP",qty:"1"}]);
     if(target.includes("/v2/orders?status=open")&&method==="GET")return Response.json([]);
     if(target.endsWith("/v2/orders")&&method==="POST")posts++;
     throw Error("Unexpected call "+target);
@@ -217,4 +217,21 @@ test("Harbor holds the one-shot order claim and skips PAPER buy on broker collis
   const response=await api.POST(request());
   assert.equal(response.status,503);
   assert.equal(posts,0);
+});
+
+test("Harbor rejects fractional bracket previews before any SQL claim or broker trade",async()=>{
+  let writes=0;
+  const invalid={
+    ...readiness(true),
+    plans:[{...readiness(true).plans[0],executionPreview:{...preview,quantity:2.25288651}}],
+  };
+  const api=route((url,options={})=>{
+    if(String(url).includes("/swing-readiness"))return Response.json(invalid);
+    writes++;
+    throw Error("Fractional bracket must never reach storage or broker: "+url);
+  });
+  const response=await api.POST(request());
+  assert.equal(response.status,423);
+  assert.match((await response.json()).error,/fractional bracket/i);
+  assert.equal(writes,0);
 });
