@@ -31,7 +31,8 @@ function mount(path,fetch){
   return exports;
 }
 function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=false,
-  reserve=true,brokerReject=false,brokerTimeout=false,wrongBroker=false}={}){
+  reserve=true,brokerReject=false,brokerTimeout=false,wrongBroker=false,
+  previewArmed=true}={}){
   const counts={entryPosts:0,reservations:0,patches:0,preview:0,manager:0};
   const positions=collision?[{symbol:"NVD",qty:"4"}]:[];
   const reply=(x,status=200)=>Response.json(x,{status});
@@ -45,7 +46,8 @@ function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=
     if(u.pathname.endsWith("/fuse-execution-preview")){
       counts.preview++;
       return reply({paperOnly:true,researchOnly:true,
-        brokerOrdersSubmitted:false,executionEnabled:false,submissionReady:false,
+        brokerOrdersSubmitted:false,executionEnabled:previewArmed,pilotEnabled:previewArmed,
+        pilotClaimed:false,pilotArmed:previewArmed,submissionReady:false,
         plans:[{symbol:"NVD",fuseScore:84,readiness:eligible?"research-ready":"waiting",
           eligible,order:eligible?{symbol:"NVD",qty:5,limitPrice:3.50,
             stopPrice:3.43,takeProfitPrice:3.54,plannedNotional:17.5,plannedLoss:0.35}:null}]});
@@ -166,4 +168,13 @@ test("Fuse auto-run is dormant until both switches and never submits direct Alpa
   assert.doesNotMatch(runner,/paper-api\.alpaca\.markets|method:"DELETE"/);
   const cfg=JSON.parse(readFileSync(new URL("../vercel.json",import.meta.url),"utf8"));
   assert.ok(cfg.crons.some(x=>x.path==="/api/paper-trading/bots/fuse-run"&&x.schedule==="*/5 * * * 1-5"));
+});
+
+test("Fuse executor refuses when ledger pilot becomes disarmed between first and second reads",async()=>{
+  const x=scenario({previewArmed:false});
+  const r=await x.run();
+  assert.equal(r.status,423);
+  assert.equal(r.body.action,"pilot-no-longer-armed");
+  assert.equal(x.counts.reservations,0);
+  assert.equal(x.counts.entryPosts,0);
 });

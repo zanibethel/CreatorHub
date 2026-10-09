@@ -22,7 +22,8 @@ const orderSchema=z.object({
 });
 const previewSchema=z.object({
   paperOnly:z.literal(true),researchOnly:z.literal(true),
-  brokerOrdersSubmitted:z.literal(false),executionEnabled:z.literal(false),
+  brokerOrdersSubmitted:z.literal(false),executionEnabled:z.boolean(),
+  pilotEnabled:z.boolean(),pilotClaimed:z.boolean(),pilotArmed:z.boolean(),
   submissionReady:z.literal(false),
   plans:z.array(z.object({
     symbol:z.string(),readiness:z.string(),fuseScore:z.number(),
@@ -89,6 +90,8 @@ export async function POST(request:Request){
     });
     if(!previewResponse.ok)return reply({error:"Current Fuse signal preview unavailable."},503);
     const preview=previewSchema.parse(await previewResponse.json());
+    if(preview.executionEnabled!==true||preview.pilotArmed!==true)
+      return reply({ok:false,action:"pilot-no-longer-armed"},423);
     const chosen=preview.plans.find(row=>row.symbol===input.data.symbol);
     if(!chosen||!chosen.eligible||chosen.readiness!=="research-ready"||!chosen.order||
       chosen.fuseScore<cfg.scoring.readyScore)

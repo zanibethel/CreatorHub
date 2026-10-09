@@ -46,11 +46,16 @@ export async function GET(request:Request){
       symbol:plan.symbol,readiness:plan.readiness,fuseScore:plan.fuseScore,
       ...fuseBracketPreview(plan,{equity:ledger.equity,buyingPower:ledger.buying_power??ledger.equity}),
     }));
+    const executionEnabled=ledger.metadata.executionEnabled===true;
+    const pilotEnabled=ledger.metadata.fusePilotEnabled===true;
+    const pilotClaimed=typeof ledger.metadata.fusePilotClientOrderId==="string";
+    const pilotArmed=executionEnabled&&pilotEnabled&&!pilotClaimed;
     return reply({
       paperOnly:true,researchOnly:true,brokerOrdersSubmitted:false,
-      // NOTE: A broker-valid order draft is NOT permission to trade.
-      executionEnabled:false,submissionReady:false,
-      executionActivationRequired:true,assetAndOrderCollisionPreflightRequired:true,
+      // The preview never submits orders, but its activation state must
+      // accurately reflect the ledger to avoid a misleading dashboard.
+      executionEnabled,pilotEnabled,pilotClaimed,pilotArmed,submissionReady:false,
+      executionActivationRequired:!pilotArmed,assetAndOrderCollisionPreflightRequired:true,
       protectedExitManagerRequired:true,
       ledger:{equity:ledger.equity,buyingPower:ledger.buying_power??ledger.equity},
       eligiblePreviewCount:evaluations.filter(row=>row.eligible).length,
