@@ -53,6 +53,21 @@ export function privateFrame(frame){
       "replaced_at","filled_at","cancel_requested_at","replaces","replaced_by"]),
   }};
 }
+export function makeOrderedProcessor(processFrame,onFailure){
+  let pending=Promise.resolve(),broken=false;
+  return {
+    push(value){
+      pending=pending.then(async()=>{
+        if(!broken)await processFrame(value);
+      }).catch(error=>{
+        broken=true;
+        onFailure(error);
+      });
+      return pending;
+    },
+    drain(){return pending;},
+  };
+}
 export async function acquireWorkerLock(dir){
   await mkdir(dir,{recursive:true,mode:0o700});
   const path=join(dir,".paper-trade-stream.lock");
@@ -140,41 +155,38 @@ export async function run(config=requirePaperConfig()){
       socket=new WebSocket(PAPER_WS);
       socket.binaryType="arraybuffer";
       let failure=null;
-      // The browser-style message event callback is not awaited by WebSocket.
-      // Serialize each async disk write before acting on the next frame; do
-      // not let two overlapping callbacks reorder fills and cancellations.
-      let pending=Promise.resolve();
+      // The WebSocket event dispatcher does not await asynchronous callbacks:
+      // queue received frames so every disk write finishes in arrival order.
+      const processor=makeOrderedProcessor(async event=>{
+        const data=typeof Blob!=="undefined"&&event.data instanceof Blob?
+          await event.data.arrayBuffer():event.data;
+        for(const frame of parseFrames(data)){
+          if(frame?.stream==="authorization"){
+            if(frame.data?.status!=="authorized")throw Error("PAPER broker stream auth failed.");
+            socket.send(JSON.stringify({action:"listen",data:{streams:["trade_updates"]}}));
+          }else if(frame?.stream==="listening"){
+            if(!frame.data?.streams?.includes("trade_updates"))
+              throw Error("Alpaca PAPER trade_updates subscription not acknowledged.");
+            connected=true;void sync(true);
+            log("SUBSCRIBED","Alpaca PAPER trade_updates; no order mutation permissions used.");
+          }else if(frame?.stream==="trade_updates"){
+            if(!connected)throw Error("Trade event arrived before PAPER subscription acknowledgment.");
+            await persistFrame(config.dir,frame);
+            void sync();
+          }
+        }
+      },error=>{
+        failure=error;connected=false;socket.close();
+      });
       await new Promise(done=>{
         socket.addEventListener("open",()=>{
           socket.send(JSON.stringify({action:"auth",key:config.key,secret:config.secret}));
         });
-        socket.addEventListener("message",event=>{
-          pending=pending.then(async()=>{
-            const data=typeof Blob!=="undefined"&&event.data instanceof Blob?
-              await event.data.arrayBuffer():event.data;
-            for(const frame of parseFrames(data)){
-              if(frame?.stream==="authorization"){
-                if(frame.data?.status!=="authorized")throw Error("PAPER broker stream auth failed.");
-                socket.send(JSON.stringify({action:"listen",data:{streams:["trade_updates"]}}));
-              }else if(frame?.stream==="listening"){
-                if(!frame.data?.streams?.includes("trade_updates"))
-                  throw Error("Alpaca PAPER trade_updates subscription not acknowledged.");
-                connected=true;void sync(true);
-                log("SUBSCRIBED","Alpaca PAPER trade_updates; no order mutation permissions used.");
-              }else if(frame?.stream==="trade_updates"){
-                if(!connected)throw Error("Trade event arrived before PAPER subscription acknowledgment.");
-                await persistFrame(config.dir,frame);
-                void sync();
-              }
-            }
-          }).catch(error=>{
-            failure=error;connected=false;socket.close();
-          });
-        });
+        socket.addEventListener("message",event=>void processor.push(event));
         socket.addEventListener("error",()=>{failure??=Error("PAPER WebSocket transport error.");});
         socket.addEventListener("close",()=>{connected=false;done();});
       });
-      await pending;
+      await processor.drain();
       if(failure)log("STREAM_DISCONNECTED",failure.message);
     }catch(error){connected=false;log("STREAM_FAILURE",error.message);}
     void sync(true);
