@@ -1,4 +1,4 @@
-type CronJobKey="pulse-run"|"pulse-manage"|"fuse-run"|"fuse-manage"|"atlas-run"|"harbor-run";
+type CronJobKey="pulse-run"|"pulse-manage"|"fuse-run"|"fuse-manage"|"atlas-run"|"harbor-run"|"flash-run"|"spark-run";
 export type PaperCronInfo={job:CronJobKey;botId:string;expectedMinutes:1|5};
 
 function safeAction(value:unknown,fallback:string):string{

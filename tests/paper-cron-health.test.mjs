@@ -109,3 +109,48 @@ test("cron heartbeat uses the configured project Supabase fallback if public URL
   assert.ok(h.calls[0].url.startsWith("https://yufptpfiwdbzzrvhkvux.supabase.co/rest/v1/rpc/"),
     "must write operational heartbeat to the same configured database as the trading routes");
 });
+
+
+test("Flash and Spark cron health uses one authenticated wrapper each and 24/7 five-minute schedules",()=>{
+  const cases=[
+    ["weekend-crypto-run","flash-run","weekend-crypto-day-100"],
+    ["crypto-ignition-run","spark-run","crypto-ignition-100"],
+  ];
+  const vercel=JSON.parse(readFileSync(new URL("../vercel.json",import.meta.url),"utf8"));
+  const shared=readFileSync(new URL("../src/lib/paper-cron-health.ts",import.meta.url),"utf8");
+  const migration=readFileSync(new URL("../supabase/migrations/20261009151100_paper_crypto_cron_health.sql",import.meta.url),"utf8");
+  for(const [route,job,bot] of cases){
+    const code=readFileSync(new URL("../src/app/api/paper-trading/bots/"+route+"/route.ts",import.meta.url),"utf8");
+    assert.match(code,new RegExp('export const GET=withPaperCronHeartbeat\\(\\{job:"'+job+'",botId:"'+bot+'",expectedMinutes:5\\},runPaperCron\\)'));
+    assert.match(code,/async function runPaperCron/);
+    assert.match(code,/request\.headers\.get\("authorization"\)/);
+    assert.equal(vercel.crons.find(x=>x.path==="/api/paper-trading/bots/"+route)?.schedule,"*/5 * * * *");
+    assert.ok(shared.includes('"'+job+'"'));
+    assert.ok(migration.includes("'"+job+"'"));
+    assert.ok(migration.includes("('"+job+"','"+bot+"',5)"));
+  }
+  assert.match(migration,/drop constraint paper_bot_cron_health_job_key_check/);
+  assert.match(migration,/add constraint paper_bot_cron_health_job_key_check/);
+  assert.match(migration,/revoke all on function public\.paper_bot_record_cron_health/);
+  assert.match(migration,/grant execute on function public\.paper_bot_record_cron_health.+ to service_role/);
+  assert.doesNotMatch(migration,/update public\.paper_bot_orders|update public\.paper_bot_positions|insert into public\.paper_bot_orders/i);
+});
+test("crypto cron wrapper keeps actions, errors and no-duplicate failure semantics",async()=>{
+  for(const [job,bot] of [["flash-run","weekend-crypto-day-100"],["spark-run","crypto-ignition-100"]]){
+    const h=harness();let invoked=0;
+    const info={job,botId:bot,expectedMinutes:5};
+    const wrapped=h.wrap(info,async()=>{invoked++;return Response.json({
+      ok:false,action:"manager-error",result:{credential:"sensitive"},
+    },{status:502});});
+    const result=await wrapped(request());
+    assert.equal(result.status,502);
+    assert.equal(invoked,1);
+    assert.equal(h.calls.length,1);
+    assert.equal(h.calls[0].body.p_job_key,job);
+    assert.equal(h.calls[0].body.p_bot_id,bot);
+    assert.equal(h.calls[0].body.p_source,"vercel-cron-agent");
+    assert.equal(h.calls[0].body.p_action,"manager-error");
+    assert.equal(h.calls[0].body.p_error,"runner-http-502");
+    assert.ok(!JSON.stringify(h.calls[0]).includes("sensitive"));
+  }
+});

@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { advancePaperCounterfactual, counterfactualPatch, type PaperCounterfactualState } from "@/lib/paper-counterfactual";
@@ -110,7 +111,7 @@ async function persistCounterfactuals(readiness:z.infer<typeof readinessSchema>)
   return {ok:true,seeds:seeds.length,updates};
 }
 
-export async function GET(request:Request){
+async function runPaperCron(request:Request){
   const cronSecret=process.env.CRON_SECRET?.trim()??"";
   if(!cronSecret||request.headers.get("authorization")!==`Bearer ${cronSecret}`)return reply({error:"Unauthorized."},401);
   const token=process.env.PAPER_CRYPTO_IGNITION_EXECUTION_TOKEN?.trim()??"";
@@ -147,3 +148,5 @@ export async function GET(request:Request){
   }
   return reply({ok:true,action:"execute",symbol:readiness.selectedSymbol,execution,counterfactualTracking});
 }
+
+export const GET=withPaperCronHeartbeat({job:"spark-run",botId:"crypto-ignition-100",expectedMinutes:5},runPaperCron);
