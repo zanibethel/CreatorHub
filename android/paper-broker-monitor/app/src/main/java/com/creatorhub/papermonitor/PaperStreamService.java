@@ -43,7 +43,7 @@ public final class PaperStreamService extends Service {
         if(!spool.exists()&&!spool.mkdirs())status="Storage unavailable";
         client=new OkHttpClient.Builder().pingInterval(20,TimeUnit.SECONDS)
                 .connectTimeout(15,TimeUnit.SECONDS).readTimeout(0,TimeUnit.SECONDS)
-                .callTimeout(15,TimeUnit.SECONDS).build();
+                .callTimeout(0,TimeUnit.SECONDS).build();
         NotificationManager mgr=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);
         mgr.createNotificationChannel(new NotificationChannel(CHANNEL,"PAPER broker monitoring",NotificationManager.IMPORTANCE_LOW));
         startForeground(1128,notification("Starting PAPER monitor"));
@@ -104,10 +104,10 @@ public final class PaperStreamService extends Service {
                 serial.execute(()->receive(bytes.utf8()));
             }
             @Override public void onClosed(WebSocket ws,int code,String reason){
-                serial.execute(()->disconnect("Socket closed; coverage gap"));
+                serial.execute(()->{if(socket==ws)disconnect("Socket closed; coverage gap");});
             }
             @Override public void onFailure(WebSocket ws,Throwable problem,Response response){
-                serial.execute(()->disconnect("Socket failed; coverage gap"));
+                serial.execute(()->{if(socket==ws)disconnect("Socket failed; coverage gap");});
             }
         });
     }
@@ -197,7 +197,9 @@ public final class PaperStreamService extends Service {
                .put("reconnects",reconnects).put("events",events);
             Request req=new Request.Builder().url(INGEST).addHeader("x-paper-stream-token",keys[2])
                 .post(RequestBody.create(body.toString(),MediaType.get("application/json"))).build();
-            try(Response res=client.newCall(req).execute()){
+            Call call=client.newCall(req);
+            call.timeout().timeout(12,TimeUnit.SECONDS);
+            try(Response res=call.execute()){
                 if(!res.isSuccessful())throw new IOException("Private ingestion unavailable (HTTP "+res.code()+")");
                 ResponseBody responseBody=res.body();
                 if(responseBody==null)throw new IOException("Missing receipt");
@@ -223,7 +225,7 @@ public final class PaperStreamService extends Service {
         long pause=Math.min(60000,1000L*(1L<<Math.min(reconnects,6)));
         nextConnect=System.currentTimeMillis()+pause;
         status="Reconnecting";detail=reason;display();
-        if(socket!=null){socket.cancel();socket=null;}
+        if(socket!=null){WebSocket prior=socket;socket=null;prior.cancel();}
         flush(true); // explicitly report offline when delivery is available
     }
     @Override public void onDestroy(){
