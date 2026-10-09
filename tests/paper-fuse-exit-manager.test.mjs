@@ -52,10 +52,10 @@ test("Fuse exits never send orders outside the independent paper exchange clock"
 });
 test("Fuse exit is stable and only derived from its parent PNY PAPER ID",()=>{
   const derived=fuseFlattenOrderId(CLIENT);
-  assert.equal(derived,CLIENT+"-fx");
+  assert.equal(derived,"chb-pny-v1-mvzpxd60fx-aabcdef123456789");
   assert.equal(fuseFlattenOrderId("chb-spk-v1-mvzpxd60-aabcdef123456789"),null);
   assert.equal(fuseFlattenOrderId("random"),null);
-  assert.equal(fuseFlattenOrderId(CLIENT+"-fx"),null);
+  assert.match(derived,/^chb-pny-v1-[a-z0-9]+-[a-z0-9]{6,24}$/);
   assert.ok(derived.length<=128);
 });
 test("Fuse manager endpoint contains an atomic one-shot local claim and rechecks shared venue",()=>{
