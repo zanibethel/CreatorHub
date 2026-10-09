@@ -119,6 +119,8 @@ export async function POST(request:Request){
     const virtual=z.array(z.object({symbol:z.string(),bot_id:z.string()})).parse(virtualRaw);
     if(asset.status!=="active"||!asset.tradable||!clock.is_open)
       return reply({ok:false,action:"broker-market-closed-or-ineligible"},423);
+    if(positions.length>=500||open.length>=500||virtual.length>=500)
+      return reply({error:"Shared PAPER venue ownership scan incomplete; refusing new risk."},503);
     if(positions.some(x=>x.symbol===input.data.symbol)||open.some(x=>x.symbol===input.data.symbol)||
       virtual.some(x=>x.symbol===input.data.symbol))
       return reply({error:"Shared PAPER broker or virtual bot already owns this symbol."},409);
@@ -143,6 +145,30 @@ export async function POST(request:Request){
     });
     if(!reserve.ok||await reserve.json().catch(()=>false)!==true)
       return reply({error:"Atomic Fuse one-entry PAPER pilot reservation rejected; no broker submission."},423);
+
+    // Recheck the SHARED physical venue after the persistent SQL claim, just
+    // before placing risk. Other bots use their own reservation protocols.
+    // This does not make other strategies atomically coordinated, but closes
+    // the gap from preflight to broker POST and fails closed on uncertainty.
+    const [finalPositions,finalOpen]=await Promise.all([
+      broker("positions"),broker("orders?status=open&limit=500&nested=false"),
+    ]);
+    if(!finalPositions.ok||!finalOpen.ok)
+      return reply({ok:false,paperOnly:true,clientOrderId:clientId,
+        action:"pilot-reserved-broker-recheck-unavailable",
+        warning:"Single-use pilot is reserved. No order sent; do not retry without review."},503);
+    const positionCheck=z.array(z.object({symbol:z.string()})).safeParse(finalPositions.payload);
+    const orderCheck=z.array(z.object({symbol:z.string()})).safeParse(finalOpen.payload);
+    if(!positionCheck.success||!orderCheck.success||
+      positionCheck.data.length>=500||orderCheck.data.length>=500)
+      return reply({ok:false,paperOnly:true,clientOrderId:clientId,
+        action:"pilot-reserved-broker-recheck-incomplete",
+        warning:"Single-use pilot is reserved. No order sent."},503);
+    if(positionCheck.data.some(x=>x.symbol===input.data.symbol)||
+      orderCheck.data.some(x=>x.symbol===input.data.symbol))
+      return reply({ok:false,paperOnly:true,clientOrderId:clientId,
+        action:"pilot-reserved-symbol-collision",
+        warning:"A competing Alpaca position/order appeared. No new buy submitted."},409);
 
     // DB order is already claimed and attributable BEFORE first broker POST.
     // This broker call must never be retried, even after a timeout.
