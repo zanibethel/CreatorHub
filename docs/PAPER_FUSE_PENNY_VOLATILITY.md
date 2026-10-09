@@ -108,6 +108,40 @@ remains **research-only**.
 
 ---
 
+## Private broker protection auditor (phase 3, read-only)
+
+The private `GET /api/paper-trading/bots/fuse-bracket-audit` requires
+`Authorization: Bearer <CRON_SECRET>` and accesses the Alpaca PAPER
+venue only. It reads Fuse's own tagged entry records, all virtual-bot
+positions, the broker's positions and open orders, the broker-hosted
+parent bracket, and independently fetched stop/target children.
+
+If an attributed entry has filled shares, the auditor demands:
+- One verifiable Alpaca DAY-limit `bracket` buy matching the Fuse
+  client ID, parent broker order ID and symbol
+- Exactly one active broker stop and one active take-profit sell
+- Broker stop and target no worse than the stored risk plan
+- Both remaining exit quantities matching the broker position
+- No extra sell orders or another bot claiming the same physical
+  broker symbol
+- Exact reconciliation between the broker's physical share holding
+  and Fuse's separate virtual ledger, including orphan detection
+
+A malformed parent, rejected/canceled/missing bracket leg, unmatched
+holding, duplicate physical symbol claim or orphaned tagged broker
+order returns a fail-closed result (HTTP 503 for actionable faults).
+The endpoint never creates, cancels or adjusts a broker order and
+never mutates Supabase. It reports `protectiveManagementImplemented:
+false` so it cannot be mistaken for automated exit control.
+
+**Not yet authorized:** broker order submission, active protection
+repair, emergency flattening, opening/closing auction handling,
+halt recovery, end-of-day cancellation and exit, broker-fills to
+ledger lifecycle and activation. Fuse's PAPER execution flag
+remains OFF until those components pass actual PAPER venue tests.
+
+---
+
 ## Release / validation
 
 1. Ensure production build compiles and all `npm run test:paper` tests pass.
