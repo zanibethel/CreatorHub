@@ -45,7 +45,8 @@ function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=
     if(u.pathname.endsWith("/fuse-execution-preview")){
       counts.preview++;
       return reply({paperOnly:true,researchOnly:true,
-        brokerOrdersSubmitted:false,executionEnabled:false,submissionReady:false,
+        brokerOrdersSubmitted:false,executionEnabled:true,pilotEnabled:true,
+        pilotClaimed:false,pilotArmed:true,submissionReady:false,
         plans:[{symbol:"NVD",fuseScore:84,readiness:eligible?"research-ready":"waiting",
           eligible,order:eligible?{symbol:"NVD",qty:5,limitPrice:3.50,
             stopPrice:3.43,takeProfitPrice:3.54,plannedNotional:17.5,plannedLoss:0.35}:null}]});
