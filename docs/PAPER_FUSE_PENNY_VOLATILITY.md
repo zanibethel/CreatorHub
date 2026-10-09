@@ -142,6 +142,46 @@ remains OFF until those components pass actual PAPER venue tests.
 
 ---
 
+## Independent emergency exit manager (phase 4, PAPER only)
+
+The private `GET /api/paper-trading/bots/fuse-manage` runs at most
+once per minute on weekdays under `CRON_SECRET`. It is independent of
+Fuse's BUY switch; even if entries are disabled, any **independently
+attributed and reconciled** leftover PAPER exposure still needs exits.
+
+- Requires the live Alpaca PAPER market clock, the New York regular session,
+  exactly one tagged Fuse parent per symbol and matching physical/virtual
+  whole-share quantities; refuses symbols owned by another bot.
+- The broker-hosted bracket exits remain in place until their risk coverage
+  is independently verified or the 3:40 p.m. ET flatten window begins.
+- A partially filled/open buy is canceled **first**, before any independent
+  sell can be considered. Alpaca may cancel linked OCO children when one
+  bracket order is canceled; the manager always waits for fresh broker state.
+- If a filled position needs emergency closing or time-based flattening,
+  cancel the attributable OCO child first. Never sell in the same invocation
+  that requests cancellation. A later invocation independently verifies
+  **zero open symbol orders** and an unchanged physical/virtual position.
+- The separate broker PAPER market DAY sell has a deterministic child
+  `client_order_id`, a locally atomically claimed `prepared → submitted`
+  transition, a broker client-order lookup and **no retry after ambiguous
+  acceptance**. A 4xx rejection remains terminal for operator review.
+- Lack of independent attribution, unexpected partially held shares,
+  overlapping bot ownership, unconfirmed cancellations or order outcomes
+  result in a fail-closed management report, never an optimistic fill.
+- No real-money endpoint exists, no simulated fill is invented, and no
+  virtual-ledger P/L is changed by the manager. The existing broker fill
+  reconciliation pipeline remains responsible for accounting.
+
+**Limitations:** A market DAY sell may fail due to a halt, insufficient
+shares, insufficient time before the close, rejected broker order, or
+rapid market moves. There is no guarantee of a position being flat by 4 p.m.
+The manager cannot safely infer ownership when broker and virtual ledgers
+disagree; those cases require manual reconciliation. Full end-to-end
+verification of broker lifecycle, partial fills and accounting remains
+a prerequisite to changing Fuse's BUY execution switch from OFF.
+
+---
+
 ## Release / validation
 
 1. Ensure production build compiles and all `npm run test:paper` tests pass.
