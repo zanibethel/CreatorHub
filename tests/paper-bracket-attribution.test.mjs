@@ -51,6 +51,9 @@ test("bracket child legs inherit the tagged parent bot attribution", async () =>
   assert.equal(stop.attributionClientOrderId,parentClient);
   assert.equal(stop.parentBrokerOrderId,"parent-bracket-id");
   assert.equal(stop.clientOrderId,"alpaca-auto-stop");
+  assert.equal(stop.canceledAt,null);
+  assert.equal(stop.replacedAt,null);
+  assert.equal(stop.updatedAt,null);
   assert.equal(brokerActivity.fills.length,1);
   assert.equal(brokerActivity.fills[0].brokerOrderId,"stop-child");
 });
