@@ -11,7 +11,7 @@ on:
       - ".github/workflows/paper-monitor-apk.yml"
   workflow_dispatch:
 permissions:
-  contents: read
+  contents: write
 jobs:
   build-apk:
     runs-on: ubuntu-latest
@@ -46,3 +46,21 @@ jobs:
           path: android/paper-broker-monitor/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 30
+      - name: Publish one-time direct-download alpha APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          # Do not silently replace the original test-signing identity.
+          # Replacing an Android APK with another debug signature can require
+          # uninstalling the app, which would erase buffered broker events.
+          if gh release view galaxy-paper-monitor-alpha >/dev/null 2>&1; then
+            echo "Alpha release already exists; preserving its original signing identity."
+          else
+            cp android/paper-broker-monitor/app/build/outputs/apk/debug/app-debug.apk CreatorHub-PAPER-Monitor-alpha.apk
+            gh release create galaxy-paper-monitor-alpha CreatorHub-PAPER-Monitor-alpha.apk \
+              --target "$GITHUB_SHA" \
+              --title "CreatorHub PAPER Monitor - Android alpha" \
+              --notes "Standalone PAPER-only broker-monitor companion for Samsung Galaxy. Development-signed alpha APK; NOT validated on device, not connected to Supabase until dedicated ingestion token SHA-256 is configured. Installing does not enable trading. Never uninstall while broker events are awaiting delivery." \
+              --prerelease
+          fi
