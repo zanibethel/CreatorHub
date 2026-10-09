@@ -1,3 +1,5 @@
+> **Current execution status (October 8, 2026 evening CT):** Fuse is **no longer research-only in code**. Its dual-flagged, one-shot Alpaca PAPER entry pilot, protective exit manager and venue-collision protections have been implemented and armed; no Fuse broker order or fill is confirmed. Earlier phase descriptions below are historical. See the [current BigOrders execution readiness checklist](PAPER_BOT_EXECUTION_READINESS_PLAN_2026-10-08.md) before treating the pilot as fully verified. The official challenge counter remains unstarted.
+
 # Fuse — penny volatility intraday v1 (research only)
 
 - Owner: `penny-volatility-day-100`, codename **Fuse**, broker attribution `pny`
