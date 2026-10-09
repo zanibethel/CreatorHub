@@ -35,7 +35,7 @@ test("Fuse public read-only execution preview never recurses through protected d
     }});
   const result=await exports.GET(new Request(
     "https://creatorhub-protected-deployment.vercel.app/api/paper-trading/bots/fuse-execution-preview"));
-  assert.equal(result.status,200,await result.text());
+  assert.equal(result.status,200);
   const body=await result.json();
   assert.equal(body.paperOnly,true);
   assert.equal(body.brokerOrdersSubmitted,false);
