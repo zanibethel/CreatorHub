@@ -286,7 +286,7 @@ export function previewSharedPaperBatch(
     const uniqueKey = candidate.botId + ":" + canonicalSymbol(candidate.symbol);
     if(seen.has(uniqueKey)){
       const base = previewSharedPaperAllocation(candidate,working);
-      ranked.push({...base,state:"shadow-only",quantity:0,plannedNotionalUsd:0,
+      ranked.push({...base,state:base.state === "rejected" ? "rejected" : "shadow-only",quantity:0,plannedNotionalUsd:0,
         plannedLossUsd:0,plannedNetTargetRewardUsd:0,
         reasons:[...base.reasons,"Repeated signal within the same decision batch."]});
       continue;
