@@ -7,6 +7,8 @@ import type { FuseBracketOrder } from "@/lib/paper-fuse-bracket";
 export const dynamic="force-dynamic";
 const DB=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://yufptpfiwdbzzrvhkvux.supabase.co";
 const PAPER="https://paper-api.alpaca.markets/v2";
+// Protected deployment hosts must not be reused for internal PAPER preflight calls.
+const PUBLIC_ORIGIN=process.env.CREATORHUB_PUBLIC_ORIGIN||"https://creatorhub-gray.vercel.app";
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const requestSchema=z.object({symbol:z.string().regex(/^[A-Z][A-Z0-9.]{0,15}$/)}).strict();
 const ledgerSchema=z.object({
@@ -85,7 +87,7 @@ export async function POST(request:Request){
 
     // Research signals are never converted from a historical observation.
     // Re-fetch a current independently computed live readiness preview.
-    const previewResponse=await fetch(new URL("/api/paper-trading/bots/fuse-execution-preview",request.url),{
+    const previewResponse=await fetch(new URL("/api/paper-trading/bots/fuse-execution-preview",PUBLIC_ORIGIN),{
       cache:"no-store",signal:AbortSignal.timeout(35000),
     });
     if(!previewResponse.ok)return reply({error:"Current Fuse signal preview unavailable."},503);
@@ -112,12 +114,14 @@ export async function POST(request:Request){
     ]);
     if(!assetResponse.ok||!clockResponse.ok||!positionsResponse.ok||!ordersResponse.ok)
       return reply({error:"Alpaca PAPER broker collision/asset preflight is unavailable."},503);
-    const asset=z.object({status:z.string(),tradable:z.boolean()}).parse(assetResponse.payload);
+    // A successful broker HTTP response alone does not prove the requested
+    // symbol is the same tradable US stock; fail before consuming the pilot.
+    const asset=z.object({symbol:z.string(),class:z.string(),status:z.string(),tradable:z.boolean()}).parse(assetResponse.payload);
     const clock=z.object({is_open:z.boolean()}).parse(clockResponse.payload);
     const positions=z.array(z.object({symbol:z.string()})).parse(positionsResponse.payload);
     const open=z.array(z.object({symbol:z.string()})).parse(ordersResponse.payload);
     const virtual=z.array(z.object({symbol:z.string(),bot_id:z.string()})).parse(virtualRaw);
-    if(asset.status!=="active"||!asset.tradable||!clock.is_open)
+    if(asset.symbol!==input.data.symbol||asset.class!=="us_equity"||asset.status!=="active"||!asset.tradable||!clock.is_open)
       return reply({ok:false,action:"broker-market-closed-or-ineligible"},423);
     if(positions.length>=500||open.length>=500||virtual.length>=500)
       return reply({error:"Shared PAPER venue ownership scan incomplete; refusing new risk."},503);
@@ -126,7 +130,7 @@ export async function POST(request:Request){
       return reply({error:"Shared PAPER broker or virtual bot already owns this symbol."},409);
 
     // The minute manager MUST independently be available before new risk.
-    const healthResponse=await fetch(new URL("/api/paper-trading/bots/fuse-manage",request.url),{
+    const healthResponse=await fetch(new URL("/api/paper-trading/bots/fuse-manage",PUBLIC_ORIGIN),{
       headers:{Authorization:"Bearer "+cron},cache:"no-store",signal:AbortSignal.timeout(25000),
     });
     const health=await healthResponse.json().catch(()=>null) as

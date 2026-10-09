@@ -33,8 +33,10 @@ function mount(path,fetch){
 function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=false,
   reserve=true,brokerReject=false,brokerTimeout=false,wrongBroker=false,
   previewArmed=true,postClaimCollision=false,postClaimOpenOrder=false,
-  brokerRecheckUnavailable=false}={}){
+  brokerRecheckUnavailable=false,requestUrl="https://creatorhub-gray.vercel.app/api/paper-trading/bots/fuse-execute",
+  brokerAssetClass="us_equity",brokerAssetSymbol="NVD"}={}){
   const counts={entryPosts:0,reservations:0,patches:0,preview:0,manager:0,positionReads:0,orderReads:0};
+  const internalOrigins=[];
   const positions=collision?[{symbol:"NVD",qty:"4"}]:[];
   const reply=(x,status=200)=>Response.json(x,{status});
   const fetch=async(address,options={})=>{
@@ -46,6 +48,7 @@ function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=
     if(u.pathname.endsWith("/paper_bot_positions"))return reply([]);
     if(u.pathname.endsWith("/fuse-execution-preview")){
       counts.preview++;
+      internalOrigins.push(u.origin);
       return reply({paperOnly:true,researchOnly:true,
         brokerOrdersSubmitted:false,executionEnabled:previewArmed,pilotEnabled:previewArmed,
         pilotClaimed:false,pilotArmed:previewArmed,submissionReady:false,
@@ -55,6 +58,7 @@ function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=
     }
     if(u.pathname.endsWith("/fuse-manage")){
       counts.manager++;
+      internalOrigins.push(u.origin);
       return reply({ok:manager,paperOnly:true,marketOpen:true,flattenDue:false,managedEntries:0},
         manager?200:503);
     }
@@ -72,7 +76,7 @@ function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=
     }
     if(u.hostname==="paper-api.alpaca.markets"){
       if(u.pathname==="/v2/clock")return reply({is_open:true});
-      if(u.pathname==="/v2/assets/NVD")return reply({status:"active",tradable:true});
+      if(u.pathname==="/v2/assets/NVD")return reply({symbol:brokerAssetSymbol,class:brokerAssetClass,status:"active",tradable:true});
       if(u.pathname==="/v2/positions"){
         counts.positionReads++;
         if(counts.positionReads>=2&&brokerRecheckUnavailable)return reply({message:"unavailable"},503);
@@ -109,11 +113,11 @@ function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=
   };
   const exe=mount("../src/app/api/paper-trading/bots/fuse-execute/route.ts",fetch);
   const run=async(authorization="Bearer test-cron")=>{
-    const response=await exe.POST({url:"https://creatorhub-gray.vercel.app/api/paper-trading/bots/fuse-execute",
+    const response=await exe.POST({url:requestUrl,
       headers:{get:k=>k==="authorization"?authorization:null},json:async()=>({symbol:"NVD"})});
     return {status:response.status,body:await response.json()};
   };
-  return {run,counts,fetch};
+  return {run,counts,fetch,internalOrigins};
 }
 test("Fuse execution requires cron authentication before any broker reads",async()=>{
   const x=scenario(),r=await x.run("invalid");
@@ -214,4 +218,22 @@ test("Fuse SQL reservation rejects competing open orders and virtual positions f
   assert.match(sql,/other_order\.bot_id<>v_ledger\.bot_id/);
   assert.match(sql,/other_order\.status in \('prepared','submitted','partially_filled'\)/);
   assert.match(sql,/grant execute on function public\.paper_fuse_claim_pilot_entry.+to service_role/);
+});
+
+test("Fuse executable PAPER preflight uses stable public origin even when invoked from protected deployment",async()=>{
+  const x=scenario({requestUrl:"https://creatorhub-preview-protected.vercel.app/api/paper-trading/bots/fuse-execute"});
+  const r=await x.run();
+  assert.equal(r.status,202,JSON.stringify(r.body));
+  assert.deepEqual(x.internalOrigins,[
+    "https://creatorhub-gray.vercel.app","https://creatorhub-gray.vercel.app",
+  ]);
+  assert.equal(x.counts.reservations,1);
+});
+test("Fuse refuses a mismatched broker stock identity before claiming PAPER risk",async()=>{
+  for(const settings of [{brokerAssetClass:"crypto"},{brokerAssetSymbol:"ANOTHER"}]){
+    const x=scenario(settings),r=await x.run();
+    assert.equal(r.status,423,JSON.stringify(r.body));
+    assert.equal(x.counts.reservations,0);
+    assert.equal(x.counts.entryPosts,0);
+  }
 });
