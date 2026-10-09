@@ -84,7 +84,9 @@ test("Fuse replays archived original research decision, not later prices or sign
   assert.equal(nvd.decision_at,"2026-10-08T16:55:14.290Z");
   assert.equal(nvd.trigger_price,3.46346);
   assert.equal(nvd.protective_stop,3.428825);
-  assert.equal(nvd.last_bar_at,"2026-10-08T16:45:00Z");
+  assert.equal(nvd.last_bar_at,"2026-10-08T16:55:00.000Z");
+  assert.equal(nvd.metadata.originalLastCompletedBarAt,"2026-10-08T16:45:00Z");
+  assert.equal(nvd.metadata.decisionBucketExcluded,true);
   assert.equal(nvd.metadata.replayedObservation,true);
   assert.equal(nvd.metadata.executedTrade,false);
   assert.equal(nvd.metadata.brokerOrderPlaced,false);
