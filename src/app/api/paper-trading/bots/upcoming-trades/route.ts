@@ -21,6 +21,7 @@ const order=z.object({
   bot_id:z.string(),symbol:z.string(),status:z.string(),side:z.string(),
   entry_trigger:numeric.nullable(),protective_stop:numeric.nullable(),
   take_profit_price:numeric.nullable(),requested_notional:numeric.nullable(),
+  take_profit_fraction:numeric.nullable(),trail_remainder:z.boolean(),
   expires_at:z.string().nullable(),created_at:z.string(),
 });
 const position=z.object({bot_id:z.string(),symbol:z.string(),quantity:numeric});
@@ -49,7 +50,7 @@ export async function GET(){
         .eq("asset_class","stock").in("status",["watchlist","review-ready"])
         .eq("watchlist_eligible",true).order("score",{ascending:false}).limit(60),
       db.from("paper_bot_orders")
-        .select("bot_id,symbol,status,side,entry_trigger,protective_stop,take_profit_price,requested_notional,expires_at,created_at")
+        .select("bot_id,symbol,status,side,entry_trigger,protective_stop,take_profit_price,requested_notional,take_profit_fraction,trail_remainder,expires_at,created_at")
         .eq("side","buy").in("status",["prepared","submitted","partially_filled"])
         .order("created_at",{ascending:false}).limit(100),
       db.from("paper_bot_positions").select("bot_id,symbol,quantity")
