@@ -842,3 +842,11 @@
 .prospectBots{border-color:#205569;background:#081c28}
 @media(max-width:830px){.botProfileHero{grid-template-columns:1fr 1fr}.botProfileBalance{text-align:left}.portfolioHeroTitle{flex-wrap:wrap}.mascotHeroArtwork{width:120px!important;height:120px!important}}
 @media(max-width:650px){.botProfileHero{grid-template-columns:1fr}.botProfileHero>span:first-child{justify-self:center}.mascotHeroArtwork{display:none}}
+
+/* Upcoming Trades remains visible on the initial rotating portfolio screen. */
+.reportWithUpcoming{min-width:0;min-height:0;display:grid;grid-template-rows:auto minmax(0,1fr);gap:10px}
+.reportOnly{min-height:0;min-width:0;display:grid}
+.reportWithUpcoming>.report{min-height:0}
+@media(max-width:900px){
+  .reportWithUpcoming{grid-template-rows:auto minmax(0,1fr)}
+}
