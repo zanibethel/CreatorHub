@@ -173,6 +173,11 @@ export async function GET(request:Request){
     const entries=z.array(entrySchema).parse(entriesRaw);
     const virtual=z.array(virtualSchema).parse(virtualRaw);
     const decisions:Array<{symbol:string;action:string;detail?:string}>=[];
+    const strandedVirtual=virtual.filter(v=>v.bot_id===cfg.botProfileId&&
+      !entries.some(e=>e.symbol===v.symbol));
+    if(strandedVirtual.length)return reply({ok:false,paperOnly:true,executionEnabled:false,
+      error:"Fuse has virtual shares without an active attributable broker parent.",
+      orphanVirtualSymbols:strandedVirtual.map(v=>v.symbol)},503);
     const parentIds=new Set(entries.map(e=>e.broker_order_id).filter(Boolean));
     const orphan=open.filter(o=>o.client_order_id.startsWith("chb-pny-v")&&
       !parentIds.has(o.id)&&!entries.some(e=>fuseFlattenOrderId(e.client_order_id)===o.client_order_id));
