@@ -92,14 +92,27 @@ export async function GET(request:Request){
     const orphanBroker=positions.filter(p=>
       fuseVirtual.some(v=>v.symbol===p.symbol)&&
       !entries.some(entry=>entry.symbol===p.symbol));
-    const critical=outcomes.some(o=>o.state==="unprotected"||
-      o.state==="unconfirmed"&&o.brokerPositionQuantity>0||
-      o.state==="ownership-collision")||untrackedVirtual.length>0||orphanBroker.length>0;
+    // The shared Alpaca venue uses physical net positions, while each bot
+    // owns an isolated virtual ledger. A mismatch must never be hidden behind
+    // a broker-valid bracket, even if fill reconciliation is still pending.
+    const unreconciledVirtual=fuseVirtual.filter(v=>{
+      const actual=positions.find(p=>p.symbol===v.symbol);
+      return !actual||!Number.isFinite(Number(actual.qty))||
+        Math.abs(Number(actual.qty)-v.quantity)>1e-8;
+    });
+    const unreconciledBroker=outcomes.filter(o=>
+      o.brokerPositionQuantity>0&&!fuseVirtual.some(v=>
+        v.symbol===o.symbol&&Math.abs(v.quantity-o.brokerPositionQuantity)<1e-8));
+    const critical=outcomes.some(o=>["unprotected","unconfirmed","ownership-collision"].includes(o.state))||
+      untrackedVirtual.length>0||orphanBroker.length>0||
+      unreconciledVirtual.length>0||unreconciledBroker.length>0;
     return reply({
       ok:!critical,paperOnly:true,readOnly:true,protectiveManagementImplemented:false,
       executionEnabled:false,trackedEntries:entries.length,
       outcomes,untrackedVirtualPositions:untrackedVirtual.map(p=>p.symbol),
       orphanBrokerSymbols:orphanBroker.map(p=>p.symbol),
+      unreconciledVirtualPositions:unreconciledVirtual.map(p=>p.symbol),
+      unreconciledBrokerSymbols:unreconciledBroker.map(p=>p.symbol),
     },critical?503:200);
   }catch(error){
     return reply({ok:false,paperOnly:true,readOnly:true,
