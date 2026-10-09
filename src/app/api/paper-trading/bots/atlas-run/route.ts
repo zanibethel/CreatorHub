@@ -357,6 +357,30 @@ export async function GET(request:Request){
       clientOrderId:result.clientOrderId};
   };
 
+  // Atlas pool reservations and the physical PAPER symbol reservation are
+  // separate controls. Verify the shared stock lock and current Alpaca venue
+  // immediately before both initial and resumed stock BUY submissions.
+  const verifySharedStockEntry=async(symbol:string,clientOrderId:string)=>{
+    const {data,error}=await db.from("paper_stock_symbol_reservations")
+      .select("symbol,bot_id,client_order_id,status")
+      .eq("symbol",symbol).eq("bot_id",BOT_ID)
+      .eq("client_order_id",clientOrderId).eq("status","active").limit(1);
+    if(error||!data||data.length!==1)return false;
+    const [positionsResult,ordersResult]=await Promise.all([
+      broker("positions"),broker("orders?status=open&limit=500&nested=false"),
+    ]);
+    if(!positionsResult.response.ok||!ordersResult.response.ok||
+       !Array.isArray(positionsResult.body)||!Array.isArray(ordersResult.body)||
+       positionsResult.body.length>=500||ordersResult.body.length>=500)
+      return false;
+    const stock=normalize(symbol);
+    if((positionsResult.body as BrokerPosition[]).some(p=>normalize(p.symbol??"")===stock &&
+         Math.abs(num(p.qty)??0)>0))return false;
+    if((ordersResult.body as BrokerOrder[]).some(o=>normalize(o.symbol??"")===stock))
+      return false;
+    return true;
+  };
+
   const clockResult=await broker("clock");
   if(!clockResult.response.ok)return reply({error:"Atlas broker clock unavailable."},503);
   const clock=clockResult.body as BrokerClock;
@@ -392,6 +416,9 @@ export async function GET(request:Request){
       const quantity=num(order.requested_quantity);
       const limit=num(order.max_entry_price);
       if(!quantity||!limit)return reply({error:"Atlas prepared entry is incomplete."},503);
+      if(!await verifySharedStockEntry(order.symbol,order.client_order_id))
+        return reply({error:"Atlas shared PAPER stock ownership or broker preflight unverified.",
+          paperOnly:true,action:"entry-blocked"},503);
       const submitted=await submitWithLookup(order.client_order_id,{
         symbol:order.symbol,side:"buy",qty:qtyString(quantity),type:"limit",time_in_force:"day",
         limit_price:String(roundPrice(limit)),client_order_id:order.client_order_id,
@@ -729,6 +756,9 @@ export async function GET(request:Request){
       return reply({error:"Atlas reservation/order binding failed; broker submission was not attempted.",
         paperOnly:true,clientOrderId,reservationId},503);
 
+    if(!await verifySharedStockEntry(candidate.symbol,clientOrderId))
+      return reply({error:"Atlas shared PAPER stock ownership or broker preflight unverified.",
+        paperOnly:true,action:"entry-blocked",clientOrderId,reservationId},503);
     const submitted=await submitWithLookup(clientOrderId,{
       symbol:candidate.symbol,side:"buy",qty:qtyString(execution.quantity),type:"limit",time_in_force:"day",
       limit_price:String(roundPrice(execution.maxEntryPrice)),client_order_id:clientOrderId,

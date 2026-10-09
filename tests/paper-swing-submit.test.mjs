@@ -96,9 +96,14 @@ test("successful request claims once and submits a PAPER bracket", async()=>{
     calls.push({target,method,body:options.body ? JSON.parse(options.body) : null});
     if(target.includes("/swing-readiness")) return Response.json(readiness(true));
     if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="GET") return Response.json([prepared]);
-    if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="PATCH" && target.includes("status=eq.prepared")) {
-      return Response.json([{...prepared,status:"submitted",requested_quantity:0.03}]);
+    if(target.includes("database.test/rest/v1/rpc/paper_swing_claim_prepared_with_symbol") && method==="POST") {
+      const body=JSON.parse(options.body);
+      assert.equal(body.p_client_order_id,prepared.client_order_id);
+      assert.equal(body.p_symbol,"QQQ");
+      return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:0.03}});
     }
+    if(target==="https://paper-api.alpaca.markets/v2/positions" && method==="GET") return Response.json([]);
+    if(target==="https://paper-api.alpaca.markets/v2/orders?status=open&limit=500&nested=false" && method==="GET") return Response.json([]);
     if(target==="https://paper-api.alpaca.markets/v2/orders" && method==="POST") {
       const body=JSON.parse(options.body);
       assert.equal(body.order_class,"bracket");
@@ -140,7 +145,7 @@ test("failed atomic claim never reaches Alpaca", async()=>{
     const target=String(url); const method=options.method??"GET";
     if(target.includes("/swing-readiness")) return Response.json(readiness(true));
     if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="GET") return Response.json([prepared]);
-    if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="PATCH" && target.includes("status=eq.prepared")) return Response.json([]);
+    if(target.includes("database.test/rest/v1/rpc/paper_swing_claim_prepared_with_symbol") && method==="POST") return Response.json({claimed:false,reason:"symbol-reservation-denied"});
     if(target.startsWith("https://paper-api")) alpacaPosts++;
     throw new Error("Unexpected request");
   });
@@ -157,9 +162,14 @@ test("ambiguous broker submission is journaled without exposing broker identifie
     calls.push({target,method,body:options.body ? JSON.parse(options.body) : null});
     if(target.includes("/swing-readiness")) return Response.json(readiness(true));
     if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="GET") return Response.json([prepared]);
-    if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="PATCH" && target.includes("status=eq.prepared")) {
-      return Response.json([{...prepared,status:"submitted",requested_quantity:0.03}]);
+    if(target.includes("database.test/rest/v1/rpc/paper_swing_claim_prepared_with_symbol") && method==="POST") {
+      const body=JSON.parse(options.body);
+      assert.equal(body.p_client_order_id,prepared.client_order_id);
+      assert.equal(body.p_symbol,"QQQ");
+      return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:0.03}});
     }
+    if(target==="https://paper-api.alpaca.markets/v2/positions" && method==="GET") return Response.json([]);
+    if(target==="https://paper-api.alpaca.markets/v2/orders?status=open&limit=500&nested=false" && method==="GET") return Response.json([]);
     if(target==="https://paper-api.alpaca.markets/v2/orders" && method==="POST") return new Response(JSON.stringify({message:"provider unavailable"}),{status:503});
     if(target.includes("/v2/orders:by_client_order_id")) return new Response("",{status:404});
     if(target.includes("database.test/rest/v1/paper_bot_orders") && method==="PATCH") return new Response(null,{status:204});
@@ -175,4 +185,36 @@ test("ambiguous broker submission is journaled without exposing broker identifie
   assert.equal(journal.body.client_order_id,prepared.client_order_id);
   assert.equal(journal.body.metadata.brokerLookupPending,true);
   assert.equal(Object.hasOwn(journal.body,"broker_order_id"),false);
+});
+
+test("Harbor refuses to send a PAPER buy when the shared stock reservation is denied",async()=>{
+  let posts=0;
+  const api=route((url,options={})=>{
+    const target=String(url),method=options.method??"GET";
+    if(target.includes("/swing-readiness"))return Response.json(readiness(true));
+    if(target.includes("database.test/rest/v1/paper_bot_orders")&&method==="GET")return Response.json([prepared]);
+    if(target.includes("/rpc/paper_swing_claim_prepared_with_symbol"))
+      return Response.json({claimed:false,reason:"symbol-reservation-denied"});
+    if(target.startsWith("https://paper-api.alpaca.markets"))posts++;
+    throw Error("Unexpected call "+target);
+  });
+  const response=await api.POST(request());
+  assert.equal(response.status,409);
+  assert.equal(posts,0);
+});
+test("Harbor holds the one-shot order claim and skips PAPER buy on broker collision after reservation",async()=>{
+  let posts=0;
+  const api=route((url,options={})=>{
+    const target=String(url),method=options.method??"GET";
+    if(target.includes("/swing-readiness"))return Response.json(readiness(true));
+    if(target.includes("database.test/rest/v1/paper_bot_orders")&&method==="GET")return Response.json([prepared]);
+    if(target.includes("/rpc/paper_swing_claim_prepared_with_symbol"))return Response.json({claimed:true,order:{...prepared,status:"submitted",requested_quantity:0.03}});
+    if(target.endsWith("/v2/positions")&&method==="GET")return Response.json([{symbol:"QQQ",qty:"1"}]);
+    if(target.includes("/v2/orders?status=open")&&method==="GET")return Response.json([]);
+    if(target.endsWith("/v2/orders")&&method==="POST")posts++;
+    throw Error("Unexpected call "+target);
+  });
+  const response=await api.POST(request());
+  assert.equal(response.status,503);
+  assert.equal(posts,0);
 });
