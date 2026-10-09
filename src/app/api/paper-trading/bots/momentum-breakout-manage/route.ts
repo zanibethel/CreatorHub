@@ -14,7 +14,7 @@ const orderSchema=z.object({
 });
 type LocalOrder=z.infer<typeof orderSchema>;
 type BrokerOrder={id?:string;client_order_id?:string;symbol?:string;side?:string;
-  type?:string;status?:string;qty?:string;filled_qty?:string};
+  type?:string;status?:string;qty?:string;filled_qty?:string;stop_price?:string|null};
 type BrokerPosition={symbol?:string;qty?:string;qty_available?:string};
 const reply=(body:unknown,status=200)=>NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
 const numeric=(v:unknown)=>{const n=Number(v);return Number.isFinite(n)?n:null;};
@@ -96,6 +96,11 @@ export async function GET(request:Request){
       throw Error("Pulse companion ownership or attribution mismatch.");
     let observed:BrokerOrder|null=await byClient(id);
     if(observed?.id) {
+      if(observed.client_order_id!==id||observed.symbol!==entry.symbol||
+         observed.side!=="sell"||
+         (purpose==="stop"&&observed.type!=="stop")||
+         (purpose==="flatten"&&observed.type!=="market"))
+        throw Error("Pulse broker companion attribution or order type mismatch.");
       await patch(id,{broker_order_id:observed.id,status:mapped(observed.status),
         submitted_at:new Date().toISOString(),
         metadata:{...local.metadata,brokerLookupPending:false,brokerObservedStatus:observed.status}});
@@ -127,6 +132,10 @@ export async function GET(request:Request){
         brokerLookupPending:!explicitReject,executionError:error||"Order outcome uncertain"}});
       return {status:explicitReject?"rejected":"unconfirmed",id,order:null};
     }
+    if(observed.client_order_id!==id||observed.symbol!==entry.symbol||observed.side!=="sell"||
+       (purpose==="stop"&&observed.type!=="stop")||
+       (purpose==="flatten"&&observed.type!=="market"))
+      throw Error("Pulse submitted companion identity or type mismatch.");
     await patch(id,{broker_order_id:observed.id,status:mapped(observed.status),submitted_at:new Date().toISOString(),
       metadata:{...local.metadata,brokerLookupPending:false,brokerObservedStatus:observed.status}});
     return {status:observed.status??"submitted",id,order:observed};
@@ -177,7 +186,7 @@ export async function GET(request:Request){
         }
         const position=positions.find(p=>p.symbol===symbol);
         const owned=numeric(position?.qty)??0;
-        const sellable=numeric(position?.qty_available)??0;
+        let sellable=numeric(position?.qty_available)??0;
         if(owned<=0){outcome.push({symbol,action:"no-broker-position"});continue;}
         if(owned>qtyFilled+0.00000001){
           outcome.push({symbol,action:"manual-reconciliation",detail:"broker holds more than Pulse's filled quantity"});continue;
@@ -186,12 +195,21 @@ export async function GET(request:Request){
         if(!stopId)throw Error("Invalid stop attribution.");
         const currentStop=await byClient(stopId);
         const stopActive=currentStop&&activeStatuses.has(currentStop.status??"");
-        if(stopActive&&!flattenDue){
+        if(stopActive){
           const stopQty=numeric(currentStop.qty)??0;
-          if(stopQty+0.00000001>=owned){
+          const stopAt=numeric(currentStop.stop_price);
+          const requiredStop=numeric(entry.protective_stop);
+          const identity=currentStop.client_order_id===stopId&&currentStop.symbol===symbol&&
+            currentStop.side==="sell"&&currentStop.type==="stop";
+          const protective=identity&&stopAt!==null&&requiredStop!==null&&requiredStop>0&&
+            stopAt+0.000001>=requiredStop&&stopQty+0.00000001>=owned;
+          if(!protective){
+            outcome.push({symbol,action:"manual-reconciliation",
+              detail:"broker stop identity, type, quantity or loss limit cannot be verified"});continue;
+          }
+          if(!flattenDue){
             outcome.push({symbol,action:"broker-stop-verified"});continue;
           }
-          outcome.push({symbol,action:"manual-reconciliation",detail:"stop covers less than broker position"});continue;
         }
         if(!marketOpen) {
           outcome.push({symbol,action:"market-closed-position-needs-review"});continue;
@@ -209,6 +227,21 @@ export async function GET(request:Request){
           if(!after||activeStatuses.has(after.status??"")){
             outcome.push({symbol,action:"stop-cancel-pending"});continue;
           }
+          // The now-canceled stop may previously have reserved all shares.
+          // Query Alpaca again; pre-cancel qty_available is not reliable.
+          const refreshed=await broker("positions");
+          if(!refreshed.response.ok||!Array.isArray(refreshed.payload)){
+            outcome.push({symbol,action:"post-cancel-position-unconfirmed"});continue;
+          }
+          const fresh=(refreshed.payload as BrokerPosition[]).find(p=>p.symbol===symbol);
+          const afterQty=numeric(fresh?.qty)??0;
+          if(afterQty<=0){
+            outcome.push({symbol,action:"no-position-after-stop-cancel"});continue;
+          }
+          if(afterQty>qtyFilled+0.00000001||Math.abs(afterQty-owned)>0.00000001){
+            outcome.push({symbol,action:"manual-reconciliation",detail:"position changed during stop cancellation"});continue;
+          }
+          sellable=numeric(fresh?.qty_available)??0;
         }
         if(sellable<=0){
           outcome.push({symbol,action:"position-quantity-not-yet-sellable"});continue;
@@ -232,7 +265,7 @@ export async function GET(request:Request){
         outcome.push({symbol,action:"management-error",detail:error instanceof Error?error.message:"unknown"});
       }
     }
-    const issue=outcome.some(x=>/error|unconfirmed|manual-reconciliation|closed-position|not-yet-sellable|pending/.test(x.action));
+    const issue=outcome.some(x=>/error|unconfirmed|manual-reconciliation|closed-position|not-yet-sellable|pending|rejected|claimed-by-another-run|stop-cancel|flatten-unconfirmed/.test(x.action));
     return reply({ok:!issue,paperOnly:true,entries:entries.length,marketOpen,flattenDue,outcome},issue?503:200);
   }catch(error){
     return reply({ok:false,paperOnly:true,error:error instanceof Error?error.message:"Pulse manager failed."},503);
