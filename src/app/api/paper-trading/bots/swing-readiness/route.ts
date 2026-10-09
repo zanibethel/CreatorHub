@@ -485,7 +485,11 @@ export async function GET(request: Request) {
           }),
         };
       } catch {
-        return { ...readiness, referencePlan, executionPreview: null };
+        // A research-ready score is not permission to place an unsupported
+        // fractional bracket. Keep the strategy verdict while blocking BUY.
+        return { ...readiness, selectedForSubmission: false, referencePlan,
+          waitingOn:[...readiness.waitingOn,"No broker-valid whole-share PAPER bracket fits the existing cash and risk limits."],
+          executionPreview: null };
       }
     });
 
@@ -509,7 +513,7 @@ export async function GET(request: Request) {
         dailyHistory:"alpaca-sip-completed",
         intradayEvidence:"alpaca-iex",
       },
-      submissionReady: executionEnabled && result.readyCount > 0,
+      submissionReady: executionEnabled && plansWithExecution.some(p=>p.selectedForSubmission && p.executionPreview!==null),
       brokerProtection: "bracket",
       ...(evidenceRun ? { evidencePersisted, expiredPlans, counterfactualTracking } : {}),
     }, { headers: { "Cache-Control": evidenceRun ? "no-store" : "public, s-maxage=5, stale-while-revalidate=5" } });
