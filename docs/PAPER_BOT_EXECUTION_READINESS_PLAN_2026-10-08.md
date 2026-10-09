@@ -1,0 +1,57 @@
+# BigOrders — PAPER bot execution readiness and verification plan
+
+**Reviewed:** October 8, 2026 (Central time; some database timestamps are October 9 UTC)
+**Status:** Persistent working checklist for the pre-start PAPER test period.
+**Source of truth:** Live PAPER broker evidence + Supabase ledgers/orders/fills/journal + deployment/scheduler results. This document supersedes earlier October 8 status snapshots when they differ. Screenshot observations are historical, not fresh verification.
+
+## Ground rules
+
+- **PAPER ONLY** using Alpaca's paper endpoint. Never introduce live-money credentials or live order execution without a separate, explicit future approval.
+- Keep each bot's independent $100 **virtual** accounting separate; physical broker buying power is **not** the bot's spending allowance.
+- Allow only strategy-qualified PAPER trades subject to validated risk, data, market hours and protection. Never force an entry, loosen thresholds to obtain a fill, fabricate a fill, or count counterfactuals as real P/L.
+- Keep the official challenge start/day counter **unstarted** until explicitly requested. Research and pre-start PAPER tests do not start the challenge.
+- Preserve all scanner history, rejection reasons, model versions, submitted/canceled orders and position outcomes for later strategy evaluation.
+- **Implemented ≠ live-verified.** A route, passing tests or HTTP 200 cannot prove that the real broker protection/fill/accounting lifecycle succeeded.
+
+## Current five-bot picture
+
+| Bot | Observed state | Work remaining | Acceptance evidence |
+|---|---|---|---|
+| **Pulse** (`momentum-breakout-100`) | $100 isolated ledger; execution and fractional pilot flags enabled; no pilot client order claim. One SQQQ fractional bracket attempt was rejected before any broker order (`fractional orders must be simple orders`); no confirmed fill. | **P0**: run fractional DAY-limit entry as a **simple** Alpaca order; ensure the independent stop manager can react to **partial/full fills**, verify active stop quantity/price at the broker, halt new entry if any unprotected shares remain, handle canceled/rejected stops and closing/reconciliation. Never treat a rejected bracket as a fill. | One naturally qualified fractional PAPER entry, confirmed broker fill and protective stop, then attributable safe exit and exact virtual-ledger reconciliation; no duplicated or unprotected holdings. |
+| **Fuse** (`penny-volatility-day-100`) | $100 isolated ledger; dual-flagged **one-shot PAPER pilot armed**; no Fuse order, position or pilot claim. Research-only shadow studies recorded for MSTZ/HTZ/NVD. Readiness and runner every 5 minutes weekdays; exit manager every minute weekdays. One-entry SQL reservation and shared-symbol collision checks deployed through PRs #74–#80. | **P0**: verify authenticated real production cron invocations; test partial fills, pending parent cancel, broker-hosted child stop/target activation, lost/canceled protection, rejected order, halt/unavailable market, close-window exit, uncertain broker responses, and fill-to-ledger attribution. Do **not** authorize a second entry until first complete pilot passes. | A naturally selected full PAPER trade whose entry, broker order, partial/full fill state, stop/target, exit, closing journal and $100 virtual P/L all reconcile; evidence that protection failures fail closed. |
+| **Atlas** (`default-diverse`) | Scanner observation and candidate journals actively recording; earlier completed SOL/USD PAPER trade/ledger P/L exists. | **P1**: improve **fresh usable quote coverage** without spoofing prices or weakening risk filters; confirm current scanner-to-strategy selection and a **fully authorized v4** order/fill/protection/exit, not just a scanner signal or older strategy trade. | Trace `scanner observation → candidate evaluation → v4 authorization → tagged PAPER order → actual fill → protection → journal/ledger close`, with timestamps and rejection evidence when not eligible. |
+| **Flash** (`weekend-crypto-day-100`) | Active 24/7 candidate/rejection evidence and 26 completed counterfactual studies; no confirmed bot order/fill. | **P1**: continue labeled missed-opportunity analysis: compare rejected setups to later +R/-R outcomes, transaction costs and strategy regime. Audit whether quote/freshness, ownership and risk gates are operating as intended. **Do not optimize by silently relaxing rules**. | Repeatable dated cohort report that separates hypothetical opportunities, justified rejects, false negatives and **actual PAPER** trades; version and approve any proposed strategy revisions separately. |
+| **Spark** (`crypto-ignition-100`) | PAPER order/fill and closed-trade evidence present; existing protected SOL exposure observed during the preceding production check. | **P2 / monitor**: maintain stop/order-to-position coverage, shared-venue ownership checks, fee reconciliation and exit manager. Verify the existing position eventually closes without stray protection or misattributed accounting; investigate any broker/ledger divergence. | Broker-attributed protective order/position quantity and price confirmed, followed by closed-trade fee and P/L reconciliation against Spark alone. |
+
+**Other existing bots:** Harbor (three-trade weekly swing), Orbit (crypto swing) and Coil (squeeze breakout) remain in the separate eight-bot coverage audit. Do not mistake this five-bot priority queue for approval to disable or regress their schedules. Recheck their execution status independently before broader pre-start certification.
+
+## Shared release gates — checklist (retain evidence links per completed item)
+
+- [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
+- [ ] **G1 — Atomic venue ownership:** move from Fuse's local double checks to a shared venue-wide stock-symbol reservation protocol used by every stock bot, including Pulse, Atlas and Harbor. Revalidate real Alpaca positions/open orders just before POST. Do not allow one bot's OCO or partial sell to conflict with another bot.
+- [ ] **G2 — Partial-fill handling:** broker read → filled/remaining quantities → cancel residual entry when risk dictates → confirmed stop or safe flatten → virtual position update. Distinguish accepted, partially filled, fully filled, protected, pending protection and closed.
+- [ ] **G3 — Broker protection proof:** independently GET the real broker parent and individual child/stop orders after each actual PAPER fill; verify symbol, bot client order identity, sell side, order type, broker status, stop price and enough shares. A requested stop is not an active stop.
+- [ ] **G4 — Failure scenarios:** rejected entries/stops, stale quotes, missing bars, halt, expired/canceled order, timeouts, duplicate cron calls, market close, broker API errors, wrong symbol attribution, delayed DB sync and lost connection; ensure all are fail-closed with auditable follow-up.
+- [ ] **G5 — Safe end-of-session:** pre-close entry cancellation, confirmed child OCO cancellation, independent fresh broker recheck, at-most-once exit submission and no overnight unprotected stock exposure; explicitly document halt/illiquidity cases where a flat position cannot be guaranteed.
+- [ ] **G6 — Virtual-ledger reconciliation:** verify fills, broker fees where available, quantity, average entry, realized/unrealized P/L and after-close equity; no double application or cross-bot mixing. Confirm the Supabase PAPER-report scheduler succeeded through the trade, not merely before it.
+- [ ] **G7 — One actual PAPER lifecycle:** save timestamped evidence for setup, authorization, broker submission, broker fill, active protection, management and exit, close journal, and bot-specific ledger. **One live PAPER pilot per bot is a minimum smoke test, not statistical strategy validation.**
+- [ ] **G8 — Pre-start release review:** only when safety gates are confirmed, decide separately whether to lift one-entry pilots and allow repeat PAPER trades. Do not silently toggle execution flags or start the official challenge counter.
+
+## Recommended work order
+
+1. **Pulse fractional stop lifecycle (P0):** resolve the documented unsupported fractional bracket path and verify simple order + separate stop on a controlled, naturally qualifying PAPER opportunity.
+2. **Fuse full pilot lifecycle (P0):** verify real scheduler authentication, protection on fills/partial fills and safe close. Fuse is **already implemented and armed for exactly one** PAPER entry; the missing evidence is broker-proven end-to-end behavior, not another generic executor rewrite.
+3. **Cross-bot symbol reservation and journaling (shared P0/P1):** make every strategy participate before authorizing concurrent automated stock trades.
+4. **Atlas v4 quote/data provenance and end-to-end authorization (P1).**
+5. **Flash rejection/counterfactual calibration (P1)** while preserving thresholds and the actual/hypothetical distinction.
+6. **Spark protected-position lifecycle surveillance (P2)** plus ongoing sync/fee checks.
+7. **All eight bots pre-start signoff** against G0–G8. Keep recurring evidence audits, but do not add unrelated notification tasks.
+
+## Verification notes and follow-up records
+
+- **Oct 8 late evening CT:** checked Supabase live ledgers: Pulse $100 with flags `executionEnabled=true`, `fractionalExecutionEnabled=true`, no fractional claim; Fuse $100 with `executionEnabled=true`, `fusePilotEnabled=true`, no Fuse pilot claim, zero Fuse orders/positions; Atlas ~$99.755227, Spark ~$99.762004; Flash $100.
+- Pulse's only observed SQQQ entry record was **rejected** with the unsupported fractional-bracket error; it has no broker order ID or fill. Avoid saying its complete fractional lifecycle is already proven.
+- Flash has 26 completed counterfactual studies. Fuse has three recorded historical shadow studies, not actual executed fills.
+- Vercel production was READY on the latest checked merge; deployment readiness alone does **not** prove authenticated CRON execution or protection.
+- Existing related tracker: [pre-start coverage issue #49](https://github.com/zanibethel/CreatorHub/issues/49), [Fuse issue #35](https://github.com/zanibethel/CreatorHub/issues/35). Add evidence/PR links under the relevant gate when marking it complete.
+- Update this document only after a fresh production check; avoid presenting historical snapshots as live current-day guarantees.
