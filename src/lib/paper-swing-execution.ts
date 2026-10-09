@@ -32,8 +32,8 @@ export type AlpacaSwingBracketRequest = {
 const finitePositive = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
 
-const floorQuantity = (value: number) =>
-  Math.floor((value + Number.EPSILON) * 1_000_000_000) / 1_000_000_000;
+// Alpaca PAPER rejects fractional multi-leg brackets. Never round up risk.
+const floorQuantity = (value: number) => Math.floor(value);
 
 const roundPrice = (value: number) =>
   Number(value.toFixed(value >= 1 ? 2 : 6));
@@ -64,7 +64,8 @@ export function buildSwingExecutionPreview(input: {
   const quantityByAllocation = allocationBudget / ask;
   const quantity = floorQuantity(Math.min(quantityByRisk, quantityByAllocation));
 
-  if (!(quantity > 0)) throw new Error("Calculated simulated quantity is below the supported minimum.");
+  if (!Number.isSafeInteger(quantity) || quantity < 1)
+    throw new Error("Broker PAPER bracket requires at least one whole share within the virtual risk and allocation caps.");
 
   const estimatedNotional = quantity * ask;
   const plannedRiskDollars = quantity * stopDistance;
@@ -107,6 +108,8 @@ export function buildAlpacaSwingBracketRequest(
   clientOrderId: string,
 ): AlpacaSwingBracketRequest {
   if (!preview.paperOnly) throw new Error("Only simulated bracket requests are supported.");
+  if (!Number.isSafeInteger(preview.quantity) || preview.quantity < 1)
+    throw new Error("Fractional PAPER brackets are unsupported; use a separately protected simple-order path.");
   if (!clientOrderId || clientOrderId.length > 128) throw new Error("A valid client order ID is required.");
   if (!(preview.takeProfit > preview.entryReference && preview.stopLoss < preview.entryReference)) {
     throw new Error("Bracket prices do not surround the entry reference.");
