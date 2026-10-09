@@ -885,6 +885,98 @@ No new entry is authorized by this documented success.
 
 ---
 
+## Fuse partial target/OCO race: fail-closed prevention and evidence — October 9, 2026
+
+**Production safety hardening PR
+[#109](https://github.com/zanibethel/CreatorHub/pull/109)** merged
+as `fdc6c98a1d3c0d33e59afc7ba58d9d458248b98d`.
+Repository TypeScript, lint, PAPER monitor integration tests and production
+build all succeeded; Vercel preview check passed. Production deployment
+`dpl_FPtBoFEZt8oNNZ4brPgSUoeqhU7N` reached **READY**
+at `creatorhub-gray.vercel.app`, no alias error, on
+**2026-10-09 17:04:17.323 UTC**.
+
+**Triggering real PAPER observation:** Fuse's first RXRX
+4-share target exit was split into **2+1+1** broker fills
+at 16:31:40.893, 16:31:41.816 and 16:31:42.508 UTC.
+The sibling $4.25 stop was canceled at 16:31:40.895 UTC
+after the first partial fill and before the remaining two shares
+finished exiting (approximately **1.61 seconds**).
+Official Alpaca order documentation states that bracket stops
+should adjust to remaining quantity after a partial take-profit fill.
+This historical trace therefore merits further investigation;
+**continuous stop cover in that interval is NOT independently proven**.
+The actual trade still finished safely flat with $100.16
+Fuse virtual equity and **+$0.16** recorded realized P/L.
+
+**Exact non-trading safety corrections:**
+
+- In `fuse-manage`, the independent audit no longer receives
+  `[...sellOpen,...children]`. It receives **only the genuine
+  current Alpaca open sell-order listing** as its independent venue
+  evidence. Otherwise a separately GET-fetched bracket child could
+  incorrectly count as proof that the same child remains live.
+- The bracket audit requires independently matching active child
+  status in that open-order listing. `pending_cancel`,
+  `pending_replace`, canceled or missing children cannot be
+  counted as confirmed open risk protection, even when child IDs
+  are still available.
+- Missing/malformed `filled_qty` on any child is **unknown,
+  not assumed zero**. Exact remaining stop and target quantities
+  still must cover the independently observed PAPER position.
+- The Fuse decision engine now recognizes
+  `takeProfitHasFills`. If some target shares have executed
+  while attributed shares remain, and protection is uncertain,
+  it **refuses destructive broker operations** with
+  `manual-reconciliation`/HTTP 503. At the 15:40 ET flatten
+  cutoff it also defers automatic cancellation/flatten if
+  such partial target execution is in flight, even when current
+  child snapshot seems protected. No second/duplicate sell
+  is authorized on ambiguous partial exit state.
+- A child reported active by independent broker GET but missing
+  or in a pending-cancel/replace state in the current open-order
+  snapshot triggers **manual reconciliation** before any
+  cancel/flatten. Legitimate not-yet-filled entry parents are
+  still allowed to await broker exit activation.
+- Regression tests specifically model a partly filled target,
+  missing or canceled stop, malformed child fills, pending
+  cancellation, contradictory venue listing and an unfilled
+  bracket whose legs are not yet active. These scenarios assert
+  **zero** additional broker POST/DELETE side effects when
+  protection evidence is ambiguous.
+
+**Observed live after change:** The authenticated Vercel
+`fuse-manage` cron at **2026-10-09 17:05:00.984892 UTC**,
+after deployment READY, returned **HTTP 200**, action
+`completed`, zero consecutive failures and source
+`vercel-cron-agent`. This verifies deployment/scheduler health,
+**not** live exercise of the new partial-fill branch, as Fuse
+is already broker/ledger flat.
+
+**Outstanding operator gate:** The observed ~1.6-second
+stop-cancellation timing remains unexplained by an independent
+subsecond stream or exchange venue trace. A one-minute cron
+cannot guarantee continuous stop protection in that window.
+Before rearming Fuse for repeated stock buys, investigate
+Alpaca's partial-bracket fill/stop-resize behavior, collect
+streaming trade-update or broker lifecycle evidence where
+available, and determine a strategy for safe partial exits.
+This patch contains our own manager's unsafe follow-on actions
+but **does not repair Alpaca's broker-side race** or authorize
+automated pilot reset.
+
+**Permanent safety state:** Fuse's pilot claim stays consumed;
+virtual equity **$100.16** and zero Fuse positions after the
+genuine RXRX exit. The separate Pulse pilot remains unclaimed.
+Fuse's `RXRX` and Harbor's `SNAP` stock reservations remain
+HELD; never release without established operator process.
+No new PAPER buys or broker cancel/sells were placed to verify
+this change. No scoring/risk thresholds, live funding,
+Coil execution permissions, or challenge-day counter changed.
+The official challenge counter remains **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
