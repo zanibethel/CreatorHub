@@ -49,7 +49,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false}={}){
     type:"limit",order_class:"bracket",time_in_force:"day",
     qty:"5",filled_qty:parentPending?"0":"5",
     legs:[stop(),target()]});
-  const sellId=CLIENT+"-fx";
+  const sellId=exit.fuseFlattenOrderId(CLIENT);
   const asJson=(data,status=200)=>Response.json(data,{status});
   const fetch=async(input,opt={})=>{
     const url=new URL(input),method=opt.method??"GET";
