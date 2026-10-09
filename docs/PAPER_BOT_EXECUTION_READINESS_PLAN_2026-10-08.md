@@ -496,6 +496,49 @@ Official challenge/day counter **UNSTARTED**.
 
 ---
 
+## Flash + Spark durable 24/7 scheduler telemetry — October 9, 2026
+
+**PR [#98](https://github.com/zanibethel/CreatorHub/pull/98)** merged
+as `e74c568d18dd163b935de70963a4edbba250a20a`.
+Vercel production deployment `dpl_7XUyLkpHu4JmrWDkiMeQcqZ86Lvq`
+was confirmed **READY** on the `creatorhub-gray.vercel.app` alias at
+**15:15:12 UTC**, alias error null. GitHub CI passed TypeScript, lint,
+PAPER monitoring tests and build; the Vercel preview check passed.
+
+- Existing 24/7 five-minute Vercel jobs, unchanged:
+  `/api/paper-trading/bots/weekend-crypto-run` (**Flash**)
+  and `/api/paper-trading/bots/crypto-ignition-run` (**Spark**).
+- Both existing `CRON_SECRET`-gated runners now use the same
+  `withPaperCronHeartbeat` wrapper as the six stock jobs. The wrapper
+  records only sanitized HTTP status, machine action, duration and
+  informational caller classification. It does not rerun or modify strategy
+  selection, execute trades, or adjust broker protection.
+- Supabase migration `paper_crypto_cron_health`
+  (applied version **20261009151408**) expanded the existing
+  `paper_bot_cron_health_job_key_check` and strict service-role RPC
+  job/bot/cadence allowlist with
+  `('flash-run','weekend-crypto-day-100',5)` and
+  `('spark-run','crypto-ignition-100',5)`. Verified the CHECK constraint
+  contains both new keys. Verified the writer RPC remains executable by
+  `service_role`, **not** `anon` or `authenticated`.
+  The six stock rows were not reset.
+- **Independent runtime proof pending at deployment:** The stock jobs
+  remained green, but the next real Flash/Spark five-minute invocation
+  **after 15:15:12 UTC** must appear in `public.paper_bot_cron_health`
+  with an actual Vercel-cron source, status/action and failure count.
+  Do not mistake preview builds, research journal events or artificially
+  invoked endpoints for authenticated schedule evidence.
+- A full crypto **G0** must still distinguish health of these five-minute
+  runners from their underlying broker protection managers and fill
+  reconciliation. A successful health heartbeat is **not** an executed
+  trade or broker-verified protective stop.
+- Harbor's unresolved SNAP single-use order claim and physical stock
+  reservation remain held pending separately approved release, even after
+  Alpaca returned no matching broker order. Coil remains execution-disabled,
+  and the official challenge counter is **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
