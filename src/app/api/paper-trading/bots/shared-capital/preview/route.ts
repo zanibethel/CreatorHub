@@ -3,6 +3,7 @@ import {z} from "zod";
 import {
   PAPER_SHARED_CAPITAL_POLICY_V1,
   previewSharedPaperAllocation,
+  previewSharedPaperBatch,
 } from "@/lib/paper-shared-capital-manager";
 
 export const dynamic="force-dynamic";
@@ -45,7 +46,7 @@ const candidate=z.object({
   brokerProtectionSupported:z.boolean(),speculative:z.boolean(),
   meritEvidence:evidence.nullable().optional(),
 }).strict();
-const requestSchema=z.object({candidate,portfolio:snapshot}).strict();
+const requestSchema=z.union([\n  z.object({candidate,portfolio:snapshot}).strict(),\n  z.object({candidates:z.array(candidate).min(1).max(50),portfolio:snapshot}).strict(),\n]);
 
 function respond(payload:unknown,status=200){
   return NextResponse.json(payload,{status,headers:{"Cache-Control":"no-store"}});
@@ -64,6 +65,10 @@ export async function POST(request:Request){
   const parsed=requestSchema.safeParse(body);
   if(!parsed.success)return respond({error:"Invalid portfolio/candidate inputs."},400);
   try{
+    if("candidates" in parsed.data){
+      const batch=previewSharedPaperBatch(parsed.data.candidates,parsed.data.portfolio);
+      return respond({policy:PAPER_SHARED_CAPITAL_POLICY_V1,independentPreview:false,batch});
+    }
     const preview=previewSharedPaperAllocation(parsed.data.candidate,parsed.data.portfolio);
     return respond({policy:PAPER_SHARED_CAPITAL_POLICY_V1,independentPreview:true,preview});
   }catch{
