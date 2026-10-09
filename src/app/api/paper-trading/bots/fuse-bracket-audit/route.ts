@@ -64,7 +64,7 @@ export async function GET(request:Request){
       const position=positions.find(p=>p.symbol===entry.symbol)??null;
       const otherOwner=virtual.some(p=>p.symbol===entry.symbol&&p.bot_id!==cfg.botProfileId);
       let parent:FuseBrokerParent|null=null;
-      let verifiedChildren:FuseBrokerLeg[]=[];
+      const verifiedChildren:FuseBrokerLeg[]=[];
       if(entry.broker_order_id){
         trackedBrokerOrderIds.add(entry.broker_order_id);
         const raw=brokerOrderSchema.parse(await broker("orders/"+encodeURIComponent(entry.broker_order_id)+"?nested=true"));
