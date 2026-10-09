@@ -72,7 +72,7 @@ test("evidence migration is service-role-only, bot-attributed, and has no trade 
 });
 test("RXRX nanosecond broker activities expose a 1.613474214-second potential residual-cover interval",()=>{
   const nanos=(stamp)=>{
-    const match=/^(.*?)(?:\\.(\\d{1,9}))?Z$/.exec(stamp);
+    const match=/^(.*?)(?:\.(\d{1,9}))?Z$/.exec(stamp);
     assert.ok(match);
     return BigInt(Date.parse(match[1]+"Z"))*1000000n+
       BigInt(((match[2]??"")+"000000000").slice(0,9));
