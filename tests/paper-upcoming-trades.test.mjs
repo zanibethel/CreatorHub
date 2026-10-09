@@ -65,7 +65,7 @@ test("prepared plan from an unexpired bot staged order takes priority, but is no
  const list=run({stagedOrders:[{
   bot_id:"momentum-breakout-100",symbol:"XPEV",side:"buy",status:"prepared",
   entry_trigger:18.52,protective_stop:17.93,take_profit_price:20.4,
-  requested_notional:120,created_at:"2026-10-09T23:42:00Z",
+  requested_notional:120,take_profit_fraction:0.5,trail_remainder:true,created_at:"2026-10-09T23:42:00Z",
   expires_at:"2026-10-10T02:00:00Z",
  }]});
  assert.equal(list[0].symbol,"XPEV");
@@ -74,13 +74,15 @@ test("prepared plan from an unexpired bot staged order takes priority, but is no
  assert.equal(list[0].planState,"prepared");
  assert.equal(list[0].entryPrice,18.52);
  assert.equal(list[0].targetPrice,20.4);
+ assert.equal(list[0].targetIsPartial,true);
+ assert.equal(list[0].trailingRemainder,true);
  assert.equal(list[0].paperOrderAuthorized,false);
 });
 test("submitted/expired orders do not become new upcoming prepared plans",()=>{
  const output=run({stagedOrders:[{
   bot_id:"momentum-breakout-100",symbol:"XPEV",side:"buy",status:"submitted",
   entry_trigger:18.52,protective_stop:17.93,take_profit_price:20.4,
-  requested_notional:120,created_at:"2026-10-09T23:42:00Z",
+  requested_notional:120,take_profit_fraction:0.5,trail_remainder:true,created_at:"2026-10-09T23:42:00Z",
   expires_at:"2026-10-09T23:44:00Z",
  }]});
  assert.equal(output.find(x=>x.symbol==="XPEV").entryPrice,null);
