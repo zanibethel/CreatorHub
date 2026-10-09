@@ -1,3 +1,32 @@
+## Protected fractional PAPER entry prototype — October 8, 2026
+
+Pulse's existing whole-share broker-hosted bracket behavior remains unchanged.
+When the $100 virtual ledger cannot afford a whole share under the original
+25% allocation cap and 0.5% risk budget, readiness now records a nine-decimal
+`fractionalReferenceQuantity`. That reference is **not** permission to trade.
+
+A separate fractional execution mode has been implemented behind the per-bot
+`paper_bot_ledgers.metadata.fractionalExecutionEnabled=true` switch, which
+is **OFF by default in production**. It uses a quote-limited DAY order,
+revalidates the broker asset's `fractionable` flag, refuses collision with
+any existing PAPER broker symbol order or position, and sizes conservatively
+against the worst permitted entry tick. A CRON-authenticated independent
+minute-level manager handles partial-entry cancellation, deterministic
+client-order-ID stop/flatten legs, broker-side stop checks, and flatten-at-close
+recovery. It refuses ambiguous broker outcomes instead of submitting doubles.
+A fractional DAY stop is separate from the entry and is never described
+as bracket/OCO protection. During an order-to-stop gap, its risk is real even
+in PAPER testing. The manager must demonstrate protected fills, explicit
+failure recovery, close-session behavior and independent virtual-ledger
+reconciliation on genuine qualifying setups before the production switch is
+enabled. Do not use synthetic or forced fills to make this appear verified.
+
+**Status:** implementation staged with hard fail-closed switch. No historical
+Pulse fills or authorizations were invented. No change to price/score/acceleration
+rules or portfolio risk caps.
+
+---
+
 # Pulse candidate-handoff audit — 2026-10-08
 
 ## Production baseline, before change
