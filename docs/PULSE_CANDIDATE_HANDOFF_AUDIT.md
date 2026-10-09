@@ -1,3 +1,20 @@
+## Fractional PAPER protective-manager hardening
+
+The five broker-response integration scenarios now explicitly verify:
+
+- One and only one deterministic stop order after a filled fractional entry
+- A matching broker-side stop identity, type, loss-limit price and covered share quantity
+- A safe failure when the broker reports an incorrect stop (no misleading "protected" claim)
+- Cancellation of Pulse's own stop, refetching broker `qty_available`, then one attributed end-of-session flatten
+- Emergency flatten after an explicit rejected stop, including retry idempotency
+- Ambiguous network-order outcomes never trigger duplicate stop or market sell submissions
+
+For a rejected stop, the local `paper_bot_orders` row is consulted on subsequent cron runs even when Alpaca has no matching stop to retrieve. For pending/ambiguous broker outcomes, the manager surfaces a reconciliation-required state instead of guessing that there is no live sell order.
+
+**Live verification remains open:** integration tests simulate broker responses but do not establish an actual Alpaca PAPER entry/fill/protection record. `paper_bot_ledgers.metadata.fractionalExecutionEnabled` remains OFF until an expressly controlled PAPER trial can verify the venue's real stop behavior and reconciliation. No changes to protected whole-share bracket executions or other bots.
+
+---
+
 ## Protected fractional PAPER entry prototype — October 8, 2026
 
 Pulse's existing whole-share broker-hosted bracket behavior remains unchanged.
