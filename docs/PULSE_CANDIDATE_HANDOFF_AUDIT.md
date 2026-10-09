@@ -1,3 +1,34 @@
+## Pulse fractional fill/cancel race and shared broker order guard — October 9, 2026
+
+The independently scheduled fractional stop manager now treats an Alpaca
+`pending_cancel` or `pending_replace` entry as **still live / unconfirmed**.
+It will not size a stop or submit another sell until the parent's final broker
+quantity has been verified. When a partially filled entry is canceled, the
+manager retrieves the *post-cancellation parent filled quantity* and a fresh
+Alpaca physical position, rather than trusting the original pre-cancel
+snapshot. This covers extra shares filling during the cancellation window.
+
+Before managing an attributed Pulse stock, and again immediately before
+a new protective/flatten sell, the manager checks open Alpaca PAPER orders
+for that symbol. Unknown buy/sell orders—even ones belonging to another
+bot—block new Pulse actions and require manual reconciliation. Truncated
+broker ownership scans also fail closed. If shares are partly reserved and
+the complete existing position cannot be protected, the manager declines
+to claim a partial stop as sufficient coverage.
+
+Regression cases: extra fills during partial-buy cancel, a foreign PAPER
+order on the same physical symbol, reduced `qty_available`, and parent
+`pending_cancel` / `pending_replace`. No strategy scoring thresholds,
+PAPER balances, pilot claim, official challenge counter or real-money
+trading authorization are changed.
+
+**Proof still required:** verify live authenticated cron invocation and one
+naturally qualified actual Alpaca PAPER fractional buy, then the venue's
+actual independent stop, fill-to-virtual-ledger accounting and subsequent
+exit. Tests/mock broker responses alone are not a completed trade.
+
+---
+
 ## One-entry Alpaca PAPER fractional pilot
 
 Pulse's fractional route requires three independent conditions *before* a broker buy:
