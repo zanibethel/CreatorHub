@@ -68,17 +68,42 @@ export function makeOrderedProcessor(processFrame,onFailure){
     drain(){return pending;},
   };
 }
+// A lock from an earlier Linux/Android boot cannot belong to a currently
+// running process. Use the kernel's boot UUID for narrowly-scoped reboot
+// recovery, never PID checks (PIDs can be reused). On restricted devices,
+// unreadable boot identity leaves lock recovery manual and fail-closed.
+export function recoverablePriorBootLock(previousBootId,currentBootId){
+  return typeof previousBootId==="string"&&
+    /^[a-f0-9-]{36}$/.test(previousBootId)&&
+    typeof currentBootId==="string"&&
+    /^[a-f0-9-]{36}$/.test(currentBootId)&&
+    previousBootId!==currentBootId;
+}
+async function linuxBootId(){
+  try{return (await readFile("/proc/sys/kernel/random/boot_id","utf8")).trim().toLowerCase();}
+  catch{return null;}
+}
 export async function acquireWorkerLock(dir){
   await mkdir(dir,{recursive:true,mode:0o700});
   const path=join(dir,".paper-trade-stream.lock");
-  const id=randomUUID();
-  // Deliberately fail closed on a stale lock, rather than unlinking another
-  // worker's live lock after a process crash or a PID reuse race.
-  const file=await open(path,"wx",0o600).catch(error=>{
-    if(error?.code==="EEXIST")throw Error("PAPER stream lock exists; confirm prior worker is stopped before manual recovery.");
-    throw error;
-  });
-  try{await file.writeFile(JSON.stringify({pid:process.pid,id}));await file.sync();}
+  const id=randomUUID(),bootId=await linuxBootId();
+  let file;
+  try{file=await open(path,"wx",0o600);}
+  catch(error){
+    if(error?.code!=="EEXIST")throw error;
+    const owner=await readFile(path,"utf8").catch(()=>null);
+    let existing;
+    try{existing=JSON.parse(owner??"");}catch{existing=null;}
+    if(!recoverablePriorBootLock(existing?.bootId,bootId))
+      throw Error("PAPER stream lock exists; confirm prior worker is stopped before manual recovery.");
+    // The old kernel boot is conclusively gone. Recheck the identical lock
+    // text immediately before deleting it; never delete a changed owner.
+    if(await readFile(path,"utf8").catch(()=>null)!==owner)
+      throw Error("PAPER stream lock changed during reboot recovery.");
+    await unlink(path);
+    file=await open(path,"wx",0o600);
+  }
+  try{await file.writeFile(JSON.stringify({pid:process.pid,id,bootId}));await file.sync();}
   finally{await file.close();}
   return async()=>{
     try{
