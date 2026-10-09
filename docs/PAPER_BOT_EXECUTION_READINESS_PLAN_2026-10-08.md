@@ -123,6 +123,49 @@ trading.
 
 ---
 
+## Phase 3 — Coil readiness and broker-evidenced stock reservation release (Oct 9, 2026)
+
+- **Coil** (`squeeze-breakout-100`, tag `sqz`) has a research/readiness
+  endpoint and a **disabled** PAPER execution switch. There is **no stock
+  purchase executor** to integrate yet. The shared stock symbol admission
+  function recognizes Coil's bot/tag, but explicitly rejects Coil claims
+  while its execution flag is OFF. Any future Coil executor MUST claim the
+  shared stock lock atomically as part of its strategy-authorized entry and
+  include independent Alpaca broker checks before a buy.
+- **Read-only release audit:** private
+  `GET /api/paper-trading/bots/stock-reservation-release?reservation_id=...`
+  requires `CRON_SECRET`. It compares the particular reservation to the
+  original local order, other bot orders/positions and independent Alpaca
+  PAPER parent/open orders/physical positions. It is not a scheduled job.
+- **Manual release only:** a matching POST to that private endpoint requires
+  **both** `CRON_SECRET` and a separate `PAPER_STOCK_RELEASE_TOKEN` of at
+  least 32 characters, plus the exact reservation ID, client order ID and
+  explicit confirmation. **This separate token is intentionally NOT
+  configured in production**, so no release can be performed yet.
+- A privileged `paper_stock_symbol_release_verified` transaction rechecks
+  reservation ownership, exact symbol identity, local terminal-order state,
+  zero stock positions across ALL virtual bots, absence of pending orders
+  across all bots, NO unapplied PAPER broker fills and a successful report
+  sync within two minutes. It requires fresh broker-evidence parameters,
+  takes the same shared per-symbol lock as entry, and writes an immutable
+  audit row in the same transaction as the release.
+- A release is refused while Alpaca is OPEN, when broker share/order
+  enumeration is truncated/uncertain, when the original order is unresolved,
+  or when its local/accounting evidence is stale. The release tool does not
+  cancel or submit any order. It is deliberately NOT called by the cron.
+- **Remaining limitation:** live broker state and Supabase cannot be made
+  one global atomic transaction. The endpoint is therefore strictly
+  operator-gated, and a verified review is still needed for first release;
+  no automatic recycling or strategy-threshold changes are permitted.
+
+**Release signoff still missing:** a realistic end-to-end PAPER trade,
+operator token provisioning only after explicit approval, first supervised
+release with broker/fill proof, and future Coil execution integration
+(without altering its current disabled switch). Do not count a passing mock
+test or code deployment as a completed broker release.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
