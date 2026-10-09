@@ -49,6 +49,16 @@ test("Fuse refuses phantom or canceled stop and does not claim a protected posit
   const cancel=scenario();cancel.parent.legs[0].status="canceled";
   assert.equal(audit(cancel).state,"unprotected");
 });
+test("Fuse does not infer zero filled shares from missing broker child fill information",()=>{
+  for(const missing of [undefined,"unknown","6"]){
+    const s=scenario();
+    s.parent.legs[0].filled_qty=missing;
+    assert.equal(audit(s).state,"unprotected");
+  }
+  const absentFromVenue=scenario();
+  absentFromVenue.liveSellOrders=[absentFromVenue.parent.legs[1]];
+  assert.equal(audit(absentFromVenue).state,"unprotected");
+});
 test("Fuse rejects under-covered or too-low sell stop and low target",()=>{
   const small=scenario();small.parent.legs[0].qty="4";
   assert.equal(audit(small).state,"unprotected");
