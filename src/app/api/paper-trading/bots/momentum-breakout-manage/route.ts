@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { pulseCompanionClientOrderId } from "@/lib/paper-pulse-fractional";
@@ -37,7 +38,7 @@ function mapped(status:string|undefined){
  * Manages only Pulse's own broker-attributed orders. Never cancels or replaces
  * other bots' protective sells, and never retries an ambiguous submission.
  */
-export async function GET(request:Request){
+async function runPaperCron(request:Request){
   const cron=process.env.CRON_SECRET?.trim()??"";
   if(!cron||request.headers.get("authorization")!==`Bearer ${cron}`)return reply({error:"Unauthorized"},401);
   const key=process.env.ALPACA_API_KEY_ID?.trim()??"",secret=process.env.ALPACA_API_SECRET_KEY?.trim()??"";
@@ -344,3 +345,5 @@ export async function GET(request:Request){
     return reply({ok:false,paperOnly:true,error:error instanceof Error?error.message:"Pulse manager failed."},503);
   }
 }
+
+export const GET=withPaperCronHeartbeat({job:"pulse-manage",botId:"momentum-breakout-100",expectedMinutes:1},runPaperCron);
