@@ -34,21 +34,21 @@ const js=ts.transpileModule(source,{compilerOptions:{
 }}).outputText;
 const fixedTime=Date.parse("2026-10-08T19:45:00Z");
 class FixedDate extends Date {static now(){return fixedTime;}}
-function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false,unavailable=false,pnyChildren=false,pnyOrphan=false}={}){
+function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false,unavailable=false,pnyChildren=false,pnyOrphan=false,ocoGap=false,missingOpenStop=false,pendingWithoutLegs=false}={}){
   const events=[],orders=new Map();
   let canceled=false,flattenCount=0,parentCanceled=false;
   const entry={client_order_id:CLIENT,symbol:"NVD",side:"buy",
     status:"filled",broker_order_id:"P1",requested_quantity:5,entry_trigger:3.46,
     max_entry_price:3.51,protective_stop:3.428825,take_profit_price:3.53273};
   const stop=()=>({id:"S1",client_order_id:pnyChildren?CLIENT+"-stop":"exit-stop",symbol:"NVD",side:"sell",
-    status:canceled?"canceled":"new",type:"stop",qty:"5",filled_qty:"0",stop_price:"3.43"});
+    status:ocoGap?"canceled":canceled?"canceled":"new",type:"stop",qty:"5",filled_qty:"0",stop_price:"3.43"});
   const target=()=>({id:"T1",client_order_id:pnyChildren?CLIENT+"-target":"exit-target",symbol:"NVD",side:"sell",
-    status:canceled?"canceled":"new",type:"limit",qty:"5",filled_qty:"0",limit_price:"3.54"});
+    status:ocoGap?"partially_filled":canceled?"canceled":"new",type:"limit",qty:"5",filled_qty:ocoGap?"2":"0",limit_price:"3.54"});
   const parent=()=>({id:"P1",client_order_id:CLIENT,symbol:"NVD",side:"buy",
     status:parentCanceled?"canceled":parentPending?"partially_filled":"filled",
     type:"limit",order_class:"bracket",time_in_force:"day",
     qty:"5",filled_qty:parentPending?"0":"5",
-    legs:[stop(),target()]});
+    legs:pendingWithoutLegs?[]:[stop(),target()]});
   const sellId=exit.fuseFlattenOrderId(CLIENT);
   const asJson=(data,status=200)=>Response.json(data,{status});
   const fetch=async(input,opt={})=>{
@@ -57,7 +57,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=fal
     if(url.hostname.includes("supabase")){
       if(url.pathname.endsWith("paper_bot_positions"))
         return asJson(parentPending?[]:[{bot_id:"penny-volatility-day-100",
-          symbol:"NVD",quantity:wrongVirtual?4:5}]);
+          symbol:"NVD",quantity:ocoGap?3:wrongVirtual?4:5}]);
       if(url.pathname.endsWith("paper_bot_orders")){
         const id=url.searchParams.get("client_order_id");
         if(method==="GET"){
@@ -82,9 +82,9 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=fal
     if(url.hostname!=="paper-api.alpaca.markets")throw Error("Unexpected host");
     if(url.pathname==="/v2/clock")return asJson({is_open:true});
     if(url.pathname==="/v2/positions")return asJson(parentPending?[]:
-      [{symbol:"NVD",qty:"5",qty_available:canceled&&!unavailable?"5":"0"}]);
+      [{symbol:"NVD",qty:ocoGap?"3":"5",qty_available:canceled&&!unavailable?"5":"0"}]);
     if(url.pathname==="/v2/orders"&&method==="GET"){
-      const pending=[...(canceled?[]:[stop(),target()]),
+      const pending=[...(canceled||pendingWithoutLegs?[]:ocoGap?[target()]:missingOpenStop?[target()]:[stop(),target()]),
         ...(pnyOrphan?[{id:"ORPHAN",client_order_id:CLIENT+"-unknown",
           symbol:"NVD",side:"sell",type:"stop",status:"new"}]:[]),
         ...(foreign?[{id:"OTHER",client_order_id:"foreign",symbol:"NVD",
@@ -219,4 +219,34 @@ test("Fuse blocks all exit writes for a stray PNY-tagged broker order",async()=>
   assert.match(first.body.error,/unrecognized active Fuse-tagged/i);
   assert.equal(a.getCanceled(),false);
   assert.equal(a.getFlattenCount(),0);
+});
+
+test("Fuse does not cancel a partially filled target when its sibling stop is gone and residual shares remain",async()=>{
+  const a=setup({ocoGap:true});
+  const result=await a.run();
+  assert.equal(result.status,503,JSON.stringify(result.body));
+  assert.equal(result.body.decisions[0].action,"manual-reconciliation");
+  assert.match(result.body.decisions[0].detail,/Partial take-profit/);
+  assert.equal(a.getCanceled(),false);
+  assert.equal(a.getFlattenCount(),0);
+  assert.equal(a.events.filter(x=>x.method==="DELETE"||x.method==="POST"&&x.path==="/v2/orders").length,0);
+});
+
+test("Fuse does not trust independently fetched bracket legs as proof they still appear among active venue orders",async()=>{
+  const a=setup({missingOpenStop:true});
+  const result=await a.run();
+  assert.equal(result.status,503,JSON.stringify(result.body));
+  assert.equal(result.body.decisions[0].action,"manual-reconciliation");
+  assert.match(result.body.decisions[0].detail,/missing from the current venue/);
+  assert.equal(a.getCanceled(),false);
+  assert.equal(a.getFlattenCount(),0);
+});
+
+test("Fuse unfilled bracket parent can await Alpaca exit legs before broker activation",async()=>{
+  const a=setup({parentPending:true,pendingWithoutLegs:true});
+  const result=await a.run();
+  assert.equal(result.status,200,JSON.stringify(result.body));
+  assert.equal(result.body.decisions[0].action,"entry-cancel-requested");
+  assert.equal(a.getFlattenCount(),0);
+  assert.equal(a.getCanceled(),false);
 });

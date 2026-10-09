@@ -33,7 +33,7 @@ export function fuseFlattenOrderId(parentClientId:string):string|null {
 export function chooseFuseExitAction(input:{
   marketOpen:boolean;regularClockMinute:boolean;flattenDue:boolean;
   brokerQty:number;virtualQty:number;entryFilledQty:number;
-  entryPending:boolean;stopOrTargetActive:boolean;
+  entryPending:boolean;stopOrTargetActive:boolean;takeProfitHasFills:boolean;
   foreignSymbolOrder:boolean;parentVerified:boolean;
   protection:FuseProtectionResult;
 }):{action:FuseExitDecision;reason:string} {
@@ -47,6 +47,13 @@ export function chooseFuseExitAction(input:{
     return deny("The shared PAPER symbol belongs to another owner or an unknown broker order.");
   if(i.brokerQty!==i.virtualQty)
     return deny("Fuse virtual and physical share counts do not match.");
+  // A partial take-profit fill can race Alpaca OCO stop resize/cancel.
+  // Never proactively cancel a remaining selling leg or flatten while
+  // residual shares have an unverified stop. Manual broker reconciliation
+  // is safer than issuing a second sell into an in-flight target fill.
+  if(i.brokerQty>0&&i.takeProfitHasFills&&
+     (i.protection.state!=="protected"||i.flattenDue))
+    return deny("Partial take-profit fills left stock shares without independently verified OCO stop coverage; preserve active broker exits.");
   if(!i.marketOpen||!i.regularClockMinute)return {action:"market-closed",reason:"Cannot cancel or flatten outside verified stock-session clock."};
   if(i.entryPending&&(i.flattenDue||i.brokerQty>0))
     return {action:"cancel-pending-entry",reason:"Cancel remaining buy before managing a partial fill or session cutoff."};

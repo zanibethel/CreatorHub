@@ -32,7 +32,7 @@ function validNumber(s:unknown):number|null {
 }
 function isActive(leg:FuseBrokerLeg){return active.has(leg.status??"");}
 function legQty(leg:FuseBrokerLeg) {
-  const requested=validNumber(leg.qty),filled=validNumber(leg.filled_qty??"0");
+  const requested=validNumber(leg.qty),filled=validNumber(leg.filled_qty);
   return requested===null||filled===null||filled>requested?null:requested-filled;
 }
 
@@ -122,8 +122,8 @@ export function auditFuseBrokerBracket(input:{
   }
   const expectedChildIds=new Set([stop.id,target.id].filter(Boolean));
   if(expectedChildIds.size!==2||
-     !liveSellOrders.some(o=>o.id===stop.id&&o.client_order_id===stop.client_order_id)||
-     !liveSellOrders.some(o=>o.id===target.id&&o.client_order_id===target.client_order_id)||
+     !liveSellOrders.some(o=>o.id===stop.id&&o.client_order_id===stop.client_order_id&&isActive(o))||
+     !liveSellOrders.some(o=>o.id===target.id&&o.client_order_id===target.client_order_id&&isActive(o))||
      liveSellOrders.some(o=>o.symbol===entry.symbol&&o.side==="sell"&&isActive(o)&&!expectedChildIds.has(o.id))){
     issues.push("Open Alpaca sell orders cannot be reconciled exactly to the bracket children.");
   }
