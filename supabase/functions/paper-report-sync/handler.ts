@@ -49,6 +49,8 @@ export function createHandler(env: (name: string) => string | undefined, fetcher
       const { report, sourceKey, brokerActivity } = await collectPaperReport(key, secret, fetcher);
       phase = "broker attribution reconciliation";
       await db("rpc/paper_bot_reconcile_broker_activity", { p_orders: brokerActivity.orders, p_fills: brokerActivity.fills, p_collected_at: report.collectedAt });
+      phase = "order lifecycle timestamps";
+      await db("rpc/paper_bot_record_order_lifecycle_evidence", { p_orders: brokerActivity.orders, p_collected_at: report.collectedAt });
       phase = "prepared order linkage";
       await db("rpc/paper_bot_link_prepared_orders", { p_collected_at: report.collectedAt });
       phase = "virtual ledger fill application";
