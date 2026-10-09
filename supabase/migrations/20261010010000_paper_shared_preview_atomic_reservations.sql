@@ -25,7 +25,7 @@ CREATE TABLE IF NOT EXISTS public.paper_shared_capital_reservations (
 );
 -- Physical stock/crypto positions are netted by broker symbol, not bot ID.
 CREATE UNIQUE INDEX IF NOT EXISTS paper_shared_preview_one_holder_per_symbol
-ON public.paper_shared_capital_reservations (scenario_id,asset_class,normalized_symbol)
+ON public.paper_shared_capital_reservations (scenario_id,normalized_symbol)
 WHERE status='held';
 CREATE INDEX IF NOT EXISTS paper_shared_preview_reservations_active
 ON public.paper_shared_capital_reservations (scenario_id,sleeve,concentration_group)
@@ -76,6 +76,14 @@ BEGIN
   IF FOUND THEN
     IF v_old.evidence->'request' IS DISTINCT FROM p_proposal THEN
       RAISE EXCEPTION 'Decision key reused with different proposal.';
+    END IF;
+    IF v_old.decision_state='allocatable' AND EXISTS (
+       SELECT 1 FROM public.paper_shared_capital_reservations
+       WHERE scenario_id=p_scenario_id AND decision_key=p_decision_key
+         AND status='released'
+    ) THEN
+      RETURN jsonb_build_object('state','previously-released','decisionKey',p_decision_key,
+        'reasons',v_old.reasons,'idempotent',true,'paperOnly',true,'brokerOrderAuthorized',false);
     END IF;
     RETURN jsonb_build_object('state',v_old.decision_state,'decisionKey',p_decision_key,
       'reasons',v_old.reasons,'idempotent',true,'paperOnly',true,'brokerOrderAuthorized',false);
@@ -142,7 +150,7 @@ BEGIN
            coalesce(sum(planned_notional) FILTER (WHERE sleeve=v_sleeve),0),
            coalesce(sum(planned_notional) FILTER (WHERE concentration_group=v_group),0),
            count(*)::integer,
-           count(*) FILTER (WHERE asset_class=v_asset AND normalized_symbol=
+           count(*) FILTER (WHERE normalized_symbol=
                upper(replace(btrim(v_symbol),'/', '')))::integer
       INTO v_gross,v_open_risk,v_sleeve_notional,v_group_notional,v_held_count,v_active_symbol
     FROM public.paper_shared_capital_reservations
