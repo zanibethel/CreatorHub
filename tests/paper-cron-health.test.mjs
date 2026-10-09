@@ -71,7 +71,7 @@ test("runner throws before creating reply: one failure heartbeat, fail-closed 50
   const r=await wrapped(request());
   assert.equal(r.status,503);assert.equal(runs,1);
   assert.equal(h.calls.length,1);
-  assert.equal(h.calls[0].body.p_action,"PAPER cron execution failure_");
+  assert.equal(h.calls[0].body.p_action,"runner-exception");
   assert.ok(!JSON.stringify(h.calls[0].body).includes("internal secret"));
 });
 test("all six PAPER stock bot cron handlers are instrumented with exact expected cadence",()=>{
