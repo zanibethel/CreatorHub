@@ -1,3 +1,5 @@
+> **Later status update (October 8, 2026, evening CT):** This original snapshot is historic. Pulse has a guarded fractional PAPER pilot but a rejected fractional bracket attempt; Fuse now has a dual-enabled one-shot PAPER bracket pilot, broker protection auditor and exit manager deployed, with no Fuse broker fills yet. For current actionable work, see [BigOrders bot execution readiness plan](PAPER_BOT_EXECUTION_READINESS_PLAN_2026-10-08.md). Do not interpret the older “Fuse research only” row below as live status.
+
 # Trading bot pre-start execution coverage — 2026-10-08
 
 ## Operating requirement
