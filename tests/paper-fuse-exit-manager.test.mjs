@@ -4,12 +4,12 @@ import { readFileSync } from "node:fs";
 import vm from "node:vm";
 import ts from "typescript";
 
-function load(path){
+function load(path,imports={}){
   const code=readFileSync(new URL(path,import.meta.url),"utf8");
   const exports={};
   vm.runInNewContext(ts.transpileModule(code,{compilerOptions:{
     module:ts.ModuleKind.CommonJS,target:ts.ScriptTarget.ES2022,
-  }}).outputText,{exports,require:()=>({}),Date,Intl,Object,Math,Number,Set,Array,RegExp});
+  }}).outputText,{exports,require:name=>imports[name]??{},Date,Intl,Object,Math,Number,Set,Array,RegExp});
   return exports;
 }
 const {fuseExitWindow,fuseFlattenOrderId,chooseFuseExitAction:pick}=load("../src/lib/paper-fuse-exit-manager.ts");
@@ -71,4 +71,16 @@ test("Fuse manager endpoint contains an atomic one-shot local claim and rechecks
   assert.match(src,/method:"GET"\|"DELETE"\|"POST"/);
   const cron=JSON.parse(readFileSync(new URL("../vercel.json",import.meta.url),"utf8"));
   assert.ok(cron.crons.some(c=>c.path==="/api/paper-trading/bots/fuse-manage"&&c.schedule==="* * * * 1-5"));
+});
+
+test("Fuse emergency sell ID is valid for actual CreatorHub PAPER fill attribution parser",()=>{
+  const attribution=load("../src/lib/paper-order-attribution.ts",{
+    "./paper-bot-profiles":{PAPER_BOT_PROFILES:[{id:"penny-volatility-day-100",brokerTag:"pny"}]},
+  });
+  const original=attribution.parsePaperClientOrderId(CLIENT);
+  const emergency=attribution.parsePaperClientOrderId(fuseFlattenOrderId(CLIENT));
+  assert.equal(original.botId,"penny-volatility-day-100");
+  assert.equal(emergency.botId,original.botId);
+  assert.equal(emergency.strategyVersion,original.strategyVersion);
+  assert.notEqual(emergency.clientOrderId,original.clientOrderId);
 });
