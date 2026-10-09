@@ -22,11 +22,11 @@ function fixture(){
     now:"2026-10-09T15:00:00.000Z",orders:new Map(),rows:new Map(),posted:[],
     cancels:[], brokerQty:"0.5", available:"0.5",entry:entry(),
     rejectStop:false,timeoutStop:false,foreignOrder:false,
-    partialEntry:false,parentCanceled:false,
+    partialEntry:false,parentCanceled:false,entryStatusOverride:null,
   };
   const getOrder=id=>{
     if(id===entryId)return {id:"PULSEBUY",client_order_id:entryId,symbol:"SOXS",side:"buy",type:"limit",
-      status:state.partialEntry?(state.parentCanceled?"canceled":"partially_filled"):"filled",
+      status:state.entryStatusOverride??(state.partialEntry?(state.parentCanceled?"canceled":"partially_filled"):"filled"),
       qty:"0.5",filled_qty:state.partialEntry&&!state.parentCanceled?"0.25":"0.5"};
     return state.orders.get(id)??null;
   };
@@ -221,4 +221,17 @@ test("Pulse refuses an undercovered partial-sellable position instead of claimin
   assert.equal(result.status,503);
   assert.ok(result.body.outcome.some(x=>x.action==="manual-reconciliation"));
   assert.equal(state.posted.length,0);
+});
+
+test("Pulse waits on broker pending_cancel and pending_replace without submitting stops or duplicate cancels",async()=>{
+  for(const status of ["pending_cancel","pending_replace"]){
+    const {state,run}=fixture();
+    state.entryStatusOverride=status;
+    const result=await run();
+    assert.equal(result.status,503,JSON.stringify(result.body));
+    assert.equal(state.posted.length,0);
+    assert.equal(state.cancels.length,0);
+    assert.ok(result.body.outcome.some(x=>x.action===
+      (status==="pending_cancel"?"awaiting-partial-entry-cancel":"manual-reconciliation")));
+  }
 });
