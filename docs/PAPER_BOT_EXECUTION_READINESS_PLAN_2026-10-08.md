@@ -720,6 +720,93 @@ Coil stays disabled. Challenge/day counter remains **UNSTARTED**.
 
 ---
 
+## Fuse's first naturally triggered and Alpaca-filled PAPER stock entry — October 9, 2026
+
+**Major first-fill milestone (not full strategy exit signoff).** The actual
+Vercel scheduled `fuse-run` at **2026-10-09 16:25:04.803 UTC**
+(11:25:04 AM Central) returned **HTTP 200**, action
+`entry-requested`, `consecutive_failures=0`, source
+`vercel-cron-agent`. The pilot was naturally claimed; no operator
+manually invoked the runner or changed scoring, execution permissions
+or budgets.
+
+**Exact broker-confirmed entry:**
+
+- Bot `penny-volatility-day-100` (Fuse, `pny`), independent virtual
+  starting equity `$100`; symbol **RXRX**, decision/pilot metadata
+  `fuseScore=87`, existing strategy
+  `fuse-whole-share-bracket-pilot-v1`.
+- Local client order
+  `chb-pny-v1-mv16eyp2-7adcc5298f604ea69b70342e`;
+  Alpaca PAPER parent
+  `e8287aed-2227-4aed-aa5c-6f420617ffb2`.
+- Broker `buy`, `limit`, `bracket`, `day`, **filled 4/4
+  whole RXRX shares at $4.33** on
+  **2026-10-09 16:25:05.486 UTC**, total entry cost **$17.32**.
+  Independently retrieved by exact Alpaca order ID with the parent
+  and both child exit legs.
+- Protective stop child
+  `dc76e4e6-d27e-433d-b82a-88a1e72f1375`,
+  exact 4-share `sell` `stop` at **$4.25**,
+  broker status **`held`**, filled 0.
+  Profit target child
+  `20aa439e-bd0f-4cb9-9ded-f2a3ec14fdba`,
+  exact 4-share `sell` `limit` at **$4.37**,
+  broker status **`new`**, filled 0.
+  All three independently queried order identities and the broker
+  4-share open position agree.
+- Supabase inserted the **real** broker FILL activity ID
+  `20261009122505486::b0abdcce-10ca-42bf-95af-ddf96fdef949`
+  under Fuse, with `ledger_applied_at=16:25:18.219 UTC`.
+  The virtual position is 4 RXRX shares, basis **$4.33**,
+  stop **$4.25**, target **$4.37**. Ledger cash **$82.68**,
+  virtual equity about **$99.96** on the observed mark, realized
+  P/L **$0** while the position is open.
+- The shared `RXRX` reservation
+  `d7c8e027-7655-4e95-9fda-bc378e018e06`
+  is actively and correctly attributed to Fuse's broker parent.
+  The one-entry `fusePilotClientOrderId` is legitimately claimed.
+  **Never reset that pilot or release the reservation** during
+  this trade.
+- Authenticated real `fuse-manage` cron at
+  **16:28:00.743 UTC** returned **HTTP 200**, action
+  `completed`, zero consecutive failures. This is
+  scheduled execution evidence, not by itself proof of specific
+  per-position outcomes.
+
+**Important unresolved broker/protection distinction:**
+
+- Both Alpaca broker bracket child orders are present at the correct
+  quantities/prices, but the stop is broker-`held` and the original
+  local entry metadata still reports
+  `bracketProtectionVerified=false`. Do **not** silently flip that
+  metadata based only on an observed stop order or healthy manager.
+  Continue independent verification of broker OCO protection and
+  the manager's risk actions.
+- **Entry selection, broker fill, attribution and fill-to-ledger
+  application are verified.** Exit, partial-fill handling,
+  protective stop/target activation over time, session-close
+  management, net realized P/L and broker/ledger flat reconciliation
+  are **not** yet verified.
+- Later `fuse-penny-research-v1` research-only rejected RXRX
+  journal rows at 16:25:14 UTC do not erase or override the separate
+  genuine broker entry fill; preserve both provenance records for
+  subsequent decision consistency review.
+- No trades were forced for the audit, no live funds involved,
+  no broker exits replaced/canceled, no foreign reservation released,
+  no Coil execution enabled. Harbor's unresolved SNAP reservation
+  remains separately held. The official challenge/day counter
+  remains **UNSTARTED**.
+
+**Next gate:** Continue observing this real 4-share RXRX PAPER
+position through naturally triggered stop, target, or authorized
+session-close exit. Confirm exact broker sell fill activity,
+OCO sibling disposition, position flatness, completed tagged
+journal and cash/equity/fees/realized P/L reconciliation.
+Do not send an artificial exit merely to mark a gate green.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
