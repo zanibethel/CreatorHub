@@ -14,8 +14,8 @@ export function pulseFractionalQuantity(riskCap: number, allocationCap: number, 
 export type PulseEntryOrderMode = "bracket" | "fractional-simple-protected";
 export function pulseEntryOrderMode(quantity:number):PulseEntryOrderMode|null {
   if(!Number.isFinite(quantity)||quantity<=0||quantity<0.000000001) return null;
-  const nine=Math.floor(quantity*1_000_000_000+1e-7)/1_000_000_000;
-  if(Math.abs(nine-quantity)>1e-9)return null;
+  const nine=Math.round(quantity*1_000_000_000)/1_000_000_000;
+  if(Math.abs(nine-quantity)>1e-12)return null;
   return Number.isSafeInteger(quantity) ? "bracket" : "fractional-simple-protected";
 }
 
