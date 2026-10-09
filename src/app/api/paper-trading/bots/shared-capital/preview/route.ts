@@ -46,7 +46,10 @@ const candidate=z.object({
   brokerProtectionSupported:z.boolean(),speculative:z.boolean(),
   meritEvidence:evidence.nullable().optional(),
 }).strict();
-const requestSchema=z.union([\n  z.object({candidate,portfolio:snapshot}).strict(),\n  z.object({candidates:z.array(candidate).min(1).max(50),portfolio:snapshot}).strict(),\n]);
+const requestSchema=z.union([
+  z.object({candidate,portfolio:snapshot}).strict(),
+  z.object({candidates:z.array(candidate).min(1).max(50),portfolio:snapshot}).strict(),
+]);
 
 function respond(payload:unknown,status=200){
   return NextResponse.json(payload,{status,headers:{"Cache-Control":"no-store"}});
