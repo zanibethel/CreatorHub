@@ -34,7 +34,7 @@ const js=ts.transpileModule(source,{compilerOptions:{
 }}).outputText;
 const fixedTime=Date.parse("2026-10-08T19:45:00Z");
 class FixedDate extends Date {static now(){return fixedTime;}}
-function setup({foreign=false,wrongVirtual=false,parentPending=false}={}){
+function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false}={}){
   const events=[],orders=new Map();
   let canceled=false,flattenCount=0,parentCanceled=false;
   const entry={client_order_id:CLIENT,symbol:"NVD",side:"buy",
@@ -62,7 +62,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false}={}){
         const id=url.searchParams.get("client_order_id");
         if(method==="GET"){
           if(id)return asJson(orders.has(sellId)?[orders.get(sellId)]:[]);
-          return asJson([entry]);
+          return asJson(noEntry?[]:[entry]);
         }
         if(method==="POST"){
           const body=JSON.parse(opt.body);orders.set(body.client_order_id,body);
@@ -87,7 +87,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false}={}){
       const pending=[...(canceled?[]:[stop(),target()]),
         ...(foreign?[{id:"OTHER",client_order_id:"foreign",symbol:"NVD",
           side:"sell",type:"limit",status:"new"}]:[])];
-      if(flattenCount)pending.push({id:"FX1",client_order_id:sellId,
+      if(flattenCount&&!ambiguousPost)pending.push({id:"FX1",client_order_id:sellId,
         symbol:"NVD",side:"sell",type:"market",status:"new"});
       return asJson(pending);
     }
@@ -101,7 +101,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false}={}){
     }
     if(url.pathname==="/v2/orders/T1")return asJson(target());
     if(url.pathname==="/v2/orders:by_client_order_id"){
-      if(!flattenCount)return asJson({message:"not found"},404);
+      if(!flattenCount||ambiguousPost)return asJson({message:"not found"},404);
       return asJson({id:"FX1",client_order_id:sellId,symbol:"NVD",side:"sell",
         status:"new",type:"market"});
     }
@@ -110,6 +110,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false}={}){
       assert.equal(body.symbol,"NVD");assert.equal(body.side,"sell");
       assert.equal(body.qty,"5");assert.equal(body.time_in_force,"day");
       assert.equal(body.client_order_id,sellId);flattenCount++;
+      if(ambiguousPost)throw Error("Simulated broker network timeout.");
       return asJson({id:"FX1",client_order_id:sellId,symbol:"NVD",side:"sell",
         status:"new",type:"market"});
     }
@@ -169,4 +170,24 @@ test("Fuse only cancels an unfilled buy near the close, never issues a market se
   assert.equal(x.status,200,JSON.stringify(x.body));
   assert.equal(x.body.decisions[0].action,"entry-cancel-requested");
   assert.equal(a.getFlattenCount(),0);
+});
+
+test("Fuse halts the manager when a virtual position has no attributable active parent",async()=>{
+  const a=setup({noEntry:true}),x=await a.run();
+  assert.equal(x.status,503);
+  assert.match(x.body.error,/virtual shares without an active attributable broker parent/i);
+  assert.equal(a.getCanceled(),false);
+  assert.equal(a.getFlattenCount(),0);
+});
+test("Fuse broker POST timeout uses one submission attempt then refuses any replay",async()=>{
+  const a=setup({ambiguousPost:true});
+  assert.equal((await a.run()).body.decisions[0].action,"oco-cancel-requested");
+  const first=await a.run();
+  assert.equal(first.status,503);
+  assert.equal(first.body.decisions[0].action,"flatten-outcome-ambiguous-no-retry");
+  assert.equal(a.getFlattenCount(),1);
+  const second=await a.run();
+  assert.equal(second.status,503);
+  assert.equal(second.body.decisions[0].action,"flatten-unconfirmed-no-retry");
+  assert.equal(a.getFlattenCount(),1);
 });
