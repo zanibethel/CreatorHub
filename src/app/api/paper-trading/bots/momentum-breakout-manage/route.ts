@@ -6,7 +6,7 @@ import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-
 export const dynamic="force-dynamic";
 const API="https://paper-api.alpaca.markets/v2";
 const URL=process.env.NEXT_PUBLIC_SUPABASE_URL||"https://yufptpfiwdbzzrvhkvux.supabase.co";
-const activeStatuses=new Set(["accepted","new","partially_filled","pending_new","accepted_for_bidding","held"]);
+const activeStatuses=new Set(["accepted","new","partially_filled","pending_new","accepted_for_bidding","held","pending_cancel","pending_replace"]);
 const orderSchema=z.object({
   client_order_id:z.string(),broker_order_id:z.string().nullable(),symbol:z.string(),
   side:z.enum(["buy","sell"]),status:z.string(),requested_quantity:z.coerce.number().nullable(),
@@ -61,6 +61,15 @@ export async function GET(request:Request){
     const t=await response.text();
     const payload=t?JSON.parse(t) as unknown:null;
     return {response,payload};
+  };
+  const allOpen=async()=>{
+    const {response,payload}=await broker("orders?status=open&limit=500&nested=false");
+    if(!response.ok||!Array.isArray(payload)||payload.length>=500)
+      throw Error("Pulse shared PAPER broker open-order ownership scan incomplete.");
+    return z.array(z.object({
+      id:z.string(),client_order_id:z.string(),symbol:z.string(),
+      side:z.enum(["buy","sell"]),status:z.string(),
+    }).passthrough()).parse(payload);
   };
   const byClient=async(id:string)=>{
     const {response,payload}=await broker(`orders:by_client_order_id?client_order_id=${encodeURIComponent(id)}`);
@@ -151,22 +160,35 @@ export async function GET(request:Request){
     const positionsRaw=await broker("positions");
     if(!positionsRaw.response.ok)throw Error("Broker positions unavailable.");
     const positions=positionsRaw.payload as BrokerPosition[];
-    if(!Array.isArray(positions))throw Error("Broker positions malformed.");
+    if(!Array.isArray(positions)||positions.length>=500)
+      throw Error("Broker positions malformed or pagination cap reached.");
     const others=z.array(z.object({bot_id:z.string(),symbol:z.string(),quantity:z.coerce.number()}))
       .parse(await db(`paper_bot_positions?bot_id=neq.${strategy.botProfileId}&quantity=gt.0&select=bot_id,symbol,quantity`));
     const entries=z.array(orderSchema).parse(await db(
       `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&side=eq.buy&status=in.(submitted,partially_filled,filled)&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,metadata&order=created_at.desc&limit=60`))
       .filter(row=>row.metadata.executionMode==="paper-fractional-simple-v1");
+    if(entries.length>=60||others.length>=500)
+      throw Error("Pulse paper ownership scan exceeded its safe pagination limit.");
     for(const entry of entries){
       const symbol=entry.symbol;
       try {
         if(others.some(row=>row.symbol===symbol)){
           outcome.push({symbol,action:"manual-reconciliation",detail:"another bot shares the broker symbol"});continue;
         }
+        const stopId=pulseCompanionClientOrderId(entry.client_order_id,"stop");
+        const flattenId=pulseCompanionClientOrderId(entry.client_order_id,"flatten");
+        if(!stopId||!flattenId)throw Error("Pulse order attribution invalid.");
+        const knownIds=new Set([entry.client_order_id,stopId,flattenId]);
+        const openOrders=await allOpen();
+        if(openOrders.some(o=>o.symbol===symbol&&!knownIds.has(o.client_order_id))){
+          outcome.push({symbol,action:"manual-reconciliation",
+            detail:"Unattributed open PAPER broker order occupies Pulse's physical symbol."});continue;
+        }
         const buy=await byClient(entry.client_order_id);
         if(!buy?.id){outcome.push({symbol,action:"broker-buy-unconfirmed"});continue;}
-        if(buy.symbol!==symbol||buy.side!=="buy")throw Error("Entry broker attribution mismatch.");
-        const qtyFilled=numeric(buy.filled_qty)??0;
+        if(buy.client_order_id!==entry.client_order_id||buy.symbol!==symbol||buy.side!=="buy")
+          throw Error("Entry broker attribution mismatch.");
+        let qtyFilled=numeric(buy.filled_qty)??0;
         if(qtyFilled<=0) {
           if(flattenDue&&activeStatuses.has(buy.status??"")){
             await broker(`orders/${encodeURIComponent(buy.id)}`,"DELETE");
@@ -174,25 +196,44 @@ export async function GET(request:Request){
           }else outcome.push({symbol,action:"awaiting-entry-fill"});
           continue;
         }
+        let position=positions.find(p=>p.symbol===symbol);
         if(activeStatuses.has(buy.status??"")){
+          if(buy.status==="pending_cancel"){
+            outcome.push({symbol,action:"awaiting-partial-entry-cancel"});continue;
+          }
+          if(buy.status==="pending_replace"){
+            outcome.push({symbol,action:"manual-reconciliation",
+              detail:"Entry replacement pending; cannot prove final fill quantity."});continue;
+          }
           const cancel=await broker(`orders/${encodeURIComponent(buy.id)}`,"DELETE");
           if(!cancel.response.ok&&cancel.response.status!==404){
             outcome.push({symbol,action:"unconfirmed-partial-cancel"});continue;
           }
           const after=await byClient(entry.client_order_id);
-          if(!after||activeStatuses.has(after.status??"")){
+          if(!after||after.id!==buy.id||after.client_order_id!==entry.client_order_id||
+             activeStatuses.has(after.status??"")){
             outcome.push({symbol,action:"awaiting-partial-entry-cancel"});continue;
           }
+          // An in-flight fill can increase filled_qty while the remaining
+          // shares are being canceled. Never size protection from the stale
+          // pre-cancel fill/position snapshot.
+          const finalFilled=numeric(after.filled_qty);
+          if(finalFilled===null||finalFilled+1e-8<qtyFilled){
+            outcome.push({symbol,action:"manual-reconciliation",detail:"Final broker filled quantity cannot be confirmed."});continue;
+          }
+          qtyFilled=finalFilled;
+          const refreshed=await broker("positions");
+          if(!refreshed.response.ok||!Array.isArray(refreshed.payload)){
+            outcome.push({symbol,action:"post-cancel-position-unconfirmed"});continue;
+          }
+          position=(refreshed.payload as BrokerPosition[]).find(p=>p.symbol===symbol);
         }
-        const position=positions.find(p=>p.symbol===symbol);
         const owned=numeric(position?.qty)??0;
         let sellable=numeric(position?.qty_available)??0;
         if(owned<=0){outcome.push({symbol,action:"no-broker-position"});continue;}
         if(owned>qtyFilled+0.00000001){
           outcome.push({symbol,action:"manual-reconciliation",detail:"broker holds more than Pulse's filled quantity"});continue;
         }
-        const stopId=pulseCompanionClientOrderId(entry.client_order_id,"stop");
-        if(!stopId)throw Error("Invalid stop attribution.");
         const currentStop=await byClient(stopId);
         const localStops=z.array(orderSchema).parse(await db(
           `paper_bot_orders?bot_id=eq.${strategy.botProfileId}&client_order_id=eq.${encodeURIComponent(stopId)}&select=client_order_id,broker_order_id,symbol,side,status,requested_quantity,protective_stop,metadata&limit=1`));
@@ -256,6 +297,15 @@ export async function GET(request:Request){
         if(sellable<=0){
           outcome.push({symbol,action:"position-quantity-not-yet-sellable"});continue;
         }
+        if(sellable+1e-8<owned){
+          outcome.push({symbol,action:"manual-reconciliation",
+            detail:"Not all Pulse shares are available for the required protective sell."});continue;
+        }
+        const lastOpen=await allOpen();
+        if(lastOpen.some(o=>o.symbol===symbol&&!knownIds.has(o.client_order_id))){
+          outcome.push({symbol,action:"manual-reconciliation",
+            detail:"Conflicting PAPER order appeared before protection submission."});continue;
+        }
         const quantity=qty9(Math.min(sellable,owned));
         if(quantity<=0)throw Error("No fractional sellable quantity.");
         if(flattenDue||priorStopTerminal) {
@@ -275,7 +325,7 @@ export async function GET(request:Request){
         outcome.push({symbol,action:"management-error",detail:error instanceof Error?error.message:"unknown"});
       }
     }
-    const issue=outcome.some(x=>/error|unconfirmed|manual-reconciliation|closed-position|not-yet-sellable|pending|rejected|claimed-by-another-run|stop-cancel|flatten-unconfirmed/.test(x.action));
+    const issue=outcome.some(x=>/error|unconfirmed|manual-reconciliation|closed-position|not-yet-sellable|pending|awaiting-partial-entry-cancel|rejected|claimed-by-another-run|stop-cancel|flatten-unconfirmed/.test(x.action));
     return reply({ok:!issue,paperOnly:true,entries:entries.length,marketOpen,flattenDue,outcome},issue?503:200);
   }catch(error){
     return reply({ok:false,paperOnly:true,error:error instanceof Error?error.message:"Pulse manager failed."},503);

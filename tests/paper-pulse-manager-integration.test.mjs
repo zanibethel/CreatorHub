@@ -21,10 +21,13 @@ function fixture(){
   const state={
     now:"2026-10-09T15:00:00.000Z",orders:new Map(),rows:new Map(),posted:[],
     cancels:[], brokerQty:"0.5", available:"0.5",entry:entry(),
-    rejectStop:false,timeoutStop:false,
+    rejectStop:false,timeoutStop:false,foreignOrder:false,
+    partialEntry:false,parentCanceled:false,entryStatusOverride:null,
   };
   const getOrder=id=>{
-    if(id===entryId)return {id:"PULSEBUY",client_order_id:entryId,symbol:"SOXS",side:"buy",type:"limit",status:"filled",qty:"0.5",filled_qty:"0.5"};
+    if(id===entryId)return {id:"PULSEBUY",client_order_id:entryId,symbol:"SOXS",side:"buy",type:"limit",
+      status:state.entryStatusOverride??(state.partialEntry?(state.parentCanceled?"canceled":"partially_filled"):"filled"),
+      qty:"0.5",filled_qty:state.partialEntry&&!state.parentCanceled?"0.25":"0.5"};
     return state.orders.get(id)??null;
   };
   class MockDate extends Date{
@@ -61,6 +64,13 @@ function fixture(){
     if(u.hostname!=="paper-api.alpaca.markets")throw Error("Unexpected network URL: "+url);
     if(u.pathname==="/v2/clock")return reply({is_open:true});
     if(u.pathname==="/v2/positions")return reply([{symbol:"SOXS",qty:state.brokerQty,qty_available:state.available}]);
+    if(u.pathname==="/v2/orders"&&method==="GET"){
+      const active=[...state.orders.values()].filter(o=>["new","accepted","held","partially_filled"].includes(o.status));
+      if(state.partialEntry&&!state.parentCanceled)active.push(getOrder(entryId));
+      if(state.foreignOrder)active.push({id:"OTHER-BOT-ORDER",client_order_id:"chb-hbr-v1-abc-12345678",
+        symbol:"SOXS",side:"sell",status:"new"});
+      return reply(active);
+    }
     if(u.pathname==="/v2/orders:by_client_order_id"){
       const order=getOrder(u.searchParams.get("client_order_id"));
       return order?reply(order):reply({message:"not found"},404);
@@ -81,6 +91,12 @@ function fixture(){
     if(method==="DELETE"&&u.pathname.startsWith("/v2/orders/")){
       const id=u.pathname.split("/").pop();
       state.cancels.push(id);
+      if(id==="PULSEBUY"&&state.partialEntry){
+        state.parentCanceled=true;
+        state.brokerQty="0.5";
+        state.available="0.5";
+        return reply(null,204);
+      }
       const order=[...state.orders.values()].find(o=>o.id===id);
       if(!order)throw Error("Trying to cancel another bot's order");
       order.status="canceled";
@@ -172,4 +188,50 @@ test("Pulse never resubmits a stop after broker network outcome becomes ambiguou
   assert.equal(second.status,503);
   assert.deepEqual(state.posted.map(o=>o.type),["stop"]);
   assert.ok(second.body.outcome.some(x=>x.action==="stop-outcome-unconfirmed"));
+});
+
+test("Pulse refreshes final fill and shares after partial buy cancellation before stop sizing",async()=>{
+  const {state,run}=fixture();
+  state.partialEntry=true;
+  state.brokerQty="0.25";
+  state.available="0.25";
+  const first=await run();
+  assert.equal(first.status,200,JSON.stringify(first.body));
+  assert.equal(state.parentCanceled,true);
+  assert.deepEqual(state.posted.map(x=>x.type),["stop"]);
+  assert.equal(state.posted[0].qty,"0.5",
+    "must cover the additional 0.25 shares filled during parent cancellation");
+  assert.ok(first.body.outcome.some(x=>x.action==="protective-stop-new"));
+});
+
+test("Pulse refuses to submit protection when another bot has an open order for the same physical stock",async()=>{
+  const {state,run}=fixture();
+  state.foreignOrder=true;
+  const result=await run();
+  assert.equal(result.status,503);
+  assert.ok(result.body.outcome.some(x=>x.action==="manual-reconciliation"));
+  assert.equal(state.posted.length,0);
+  assert.equal(state.cancels.length,0);
+});
+
+test("Pulse refuses an undercovered partial-sellable position instead of claiming a partial stop is complete",async()=>{
+  const {state,run}=fixture();
+  state.available="0.25";
+  const result=await run();
+  assert.equal(result.status,503);
+  assert.ok(result.body.outcome.some(x=>x.action==="manual-reconciliation"));
+  assert.equal(state.posted.length,0);
+});
+
+test("Pulse waits on broker pending_cancel and pending_replace without submitting stops or duplicate cancels",async()=>{
+  for(const status of ["pending_cancel","pending_replace"]){
+    const {state,run}=fixture();
+    state.entryStatusOverride=status;
+    const result=await run();
+    assert.equal(result.status,503,JSON.stringify(result.body));
+    assert.equal(state.posted.length,0);
+    assert.equal(state.cancels.length,0);
+    assert.ok(result.body.outcome.some(x=>x.action===
+      (status==="pending_cancel"?"awaiting-partial-entry-cancel":"manual-reconciliation")));
+  }
 });

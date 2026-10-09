@@ -25,6 +25,20 @@
 
 **Other existing bots:** Harbor (three-trade weekly swing), Orbit (crypto swing) and Coil (squeeze breakout) remain in the separate eight-bot coverage audit. Do not mistake this five-bot priority queue for approval to disable or regress their schedules. Recheck their execution status independently before broader pre-start certification.
 
+### Pulse implementation update — October 9, 2026
+
+The independent fractional-stop manager has now been hardened for additional
+fills during partial-entry cancellation, `pending_cancel` /
+`pending_replace` broker parent states, foreign PAPER orders on the same
+physical symbol and undercovered available share quantities. Tests require
+refreshing the final broker fill count and position before sizing a stop;
+unresolved cancellation reports an actionable failure rather than healthy
+protection. **This fixes code-level failure cases, not the still-outstanding
+real Alpaca PAPER fill/stop/exit proof.** Do not mark G2, G3 or G7 as fully
+complete until that live broker evidence has been archived.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
