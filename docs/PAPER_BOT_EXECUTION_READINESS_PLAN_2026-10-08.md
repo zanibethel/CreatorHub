@@ -601,6 +601,64 @@ challenge counter remains **UNSTARTED**.
 
 ---
 
+## Pulse orphan stock ownership preflight — October 9, 2026
+
+**PR [#103](https://github.com/zanibethel/CreatorHub/pull/103)** merged
+as `a51313037329ee7efe5d3e81958319d9bba44573`.
+GitHub passed TypeScript, lint, PAPER monitoring tests and the
+production build; Vercel preview check passed.
+Production deployment `dpl_AUxrTNd8tnJ2rrLqNAMW4KDneQ7z`
+was independently confirmed **READY**, with production alias
+`creatorhub-gray.vercel.app`, on **2026-10-09 16:03:53 UTC**
+with no reported alias error.
+
+**Safety gap addressed:** Pulse's one-minute protection manager previously
+loaded local buys only after filtering them to fractional-simple entries and
+loaded virtual positions for *other* bots but not its own holdings.
+It could return a healthy report without noticing either (a) an existing
+Pulse virtual stock position that lost its active buy-parent link, or
+(b) an active Pulse-tagged broker BUY not attributable to any active local
+Pulse buy order. The patch performs read-only ownership preflight
+over all active Pulse buys, including valid whole-share brackets, plus
+Pulse's own virtual holdings and open Alpaca broker buy orders.
+
+- Any virtual stock position without an attributable local active buy parent
+  fails closed with HTTP 503, not a trade or silent successful check.
+- Any open `chb-pls-v...` PAPER BUY without an active local parent
+  fails closed with HTTP 503, not a cancellation, retry, or new submission.
+- Whole-share bracket buys are recognized as legitimate owning parents
+  without letting this fractional manager alter their OCO protection.
+  Existing bounded queries and fail-closed pagination checks remain.
+- Integration tests exercise both orphan conditions and legitimate bracket
+  ownership. They verify zero buy, stop, sell, or cancel side effects.
+
+**Independent live evidence:** The authenticated Vercel one-minute
+`pulse-manage` job recorded **HTTP 200**, action `completed`,
+zero consecutive failures and source `vercel-cron-agent` at
+**2026-10-09 16:04:02 UTC**, after the updated deployment was READY.
+This proves the patched route is executing, **not** that its orphan
+branches have been triggered by a real position. The trading report
+collector was also seen refreshing attributed broker orders at
+**15:58:11 UTC**; nine attributed PAPER fills had been applied to their
+ledgers with zero unapplied fills, but none established a complete
+Pulse or Fuse stock lifecycle.
+
+**Remaining first-stock-trade gates:** A naturally qualified and selected
+stock entry, independent Alpaca PAPER acceptance and actual fill,
+broker-verified protective coverage through partial fills and exits,
+fee-aware virtual ledger P/L, and post-close ownership reconciliation
+are still mandatory before first-trade signoff. Historical filled
+broker orders no longer listed as open require independent full
+reconciliation beyond this newly bounded open-order guard.
+
+**Controls preserved:** No PAPER buy/sell/cancel was caused by this
+verification, no scoring threshold or $100 virtual capital changed,
+no one-entry pilot was reset, no coil execution arm, no protected stock
+reservation released; Harbor's SNAP reservation remains held, and
+the official challenge counter remains **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
