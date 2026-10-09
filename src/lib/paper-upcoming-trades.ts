@@ -97,7 +97,7 @@ export function buildUpcomingStockWatch(
         const notional=prepared?order.requested_notional:num(ref.uncappedPositionValue);
         const spread=p.spread_pct;
         // 0.50% minimum round-trip friction is an OBSERVATION assumption, not broker evidence.
-        const costPct=Math.max(0.5,(spread??0)*2+0.2);
+        const costPct=Math.min(10,Math.max(0.5,(spread??0)*2+0.2));
         let allocatorState:UpcomingStock["allocatorState"]=null;
         let allocatorBudgetUsd:number|null=null;
         let allocatorReasons:string[]=[];
