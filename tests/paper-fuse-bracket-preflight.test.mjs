@@ -73,7 +73,9 @@ test("Fuse entry planner is publicly read-only and cannot submit broker orders",
   assert.match(route,/export async function GET/);
   assert.doesNotMatch(route,/export async function POST/);
   assert.doesNotMatch(route,/paper-api\.alpaca|\/orders/);
-  assert.match(route,/executionEnabled:false,submissionReady:false/);
+  assert.match(route,/const executionEnabled=ledger.metadata.executionEnabled===true/);
+  assert.match(route,/const pilotEnabled=ledger.metadata.fusePilotEnabled===true/);
+  assert.match(route,/pilotArmed,submissionReady:false/);
   assert.match(route,/protectedExitManagerRequired:true/);
   assert.match(readiness,/bid:validQuote\?quote\.bid:null,ask:validQuote\?quote\.ask:null/);
 });
