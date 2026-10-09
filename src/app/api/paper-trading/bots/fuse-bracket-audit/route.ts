@@ -59,12 +59,14 @@ export async function GET(request:Request){
     const positions=z.array(positionSchema).parse(positionRaw);
     const open=z.array(openSchema).parse(openRaw);
     const outcomes=[];
+    const trackedBrokerOrderIds=new Set<string>();
     for(const entry of entries){
       const position=positions.find(p=>p.symbol===entry.symbol)??null;
       const otherOwner=virtual.some(p=>p.symbol===entry.symbol&&p.bot_id!==cfg.botProfileId);
       let parent:FuseBrokerParent|null=null;
       let verifiedChildren:FuseBrokerLeg[]=[];
       if(entry.broker_order_id){
+        trackedBrokerOrderIds.add(entry.broker_order_id);
         const raw=brokerOrderSchema.parse(await broker("orders/"+encodeURIComponent(entry.broker_order_id)+"?nested=true"));
         parent=raw as FuseBrokerParent;
         if(Array.isArray(raw.legs)){
@@ -72,6 +74,7 @@ export async function GET(request:Request){
             const id=z.object({id:z.string()}).parse(leg).id;
             const observed=brokerOrderSchema.parse(await broker("orders/"+encodeURIComponent(id)));
             verifiedChildren.push(observed as FuseBrokerLeg);
+            trackedBrokerOrderIds.add(id);
           }
           parent={...raw,legs:verifiedChildren};
         }
@@ -86,6 +89,8 @@ export async function GET(request:Request){
         liveSellOrders:[...open,...verifiedChildren],
       }));
     }
+    const orphanAttributedOpenOrders=open.filter(o=>o.client_order_id.startsWith("chb-pny-v")&&
+      !trackedBrokerOrderIds.has(o.id));
     const fuseVirtual=virtual.filter(p=>p.bot_id===cfg.botProfileId);
     const untrackedVirtual=fuseVirtual.filter(p=>
       !entries.some(entry=>entry.symbol===p.symbol));
@@ -105,12 +110,14 @@ export async function GET(request:Request){
         v.symbol===o.symbol&&Math.abs(v.quantity-o.brokerPositionQuantity)<1e-8));
     const critical=outcomes.some(o=>["unprotected","unconfirmed","ownership-collision"].includes(o.state))||
       untrackedVirtual.length>0||orphanBroker.length>0||
+      orphanAttributedOpenOrders.length>0||
       unreconciledVirtual.length>0||unreconciledBroker.length>0;
     return reply({
       ok:!critical,paperOnly:true,readOnly:true,protectiveManagementImplemented:false,
       executionEnabled:false,trackedEntries:entries.length,
       outcomes,untrackedVirtualPositions:untrackedVirtual.map(p=>p.symbol),
       orphanBrokerSymbols:orphanBroker.map(p=>p.symbol),
+      orphanAttributedOpenOrderIds:orphanAttributedOpenOrders.map(o=>o.client_order_id),
       unreconciledVirtualPositions:unreconciledVirtual.map(p=>p.symbol),
       unreconciledBrokerSymbols:unreconciledBroker.map(p=>p.symbol),
     },critical?503:200);
