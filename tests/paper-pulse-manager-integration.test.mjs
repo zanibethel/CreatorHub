@@ -21,6 +21,7 @@ function fixture(){
   const state={
     now:"2026-10-09T15:00:00.000Z",orders:new Map(),rows:new Map(),posted:[],
     cancels:[], brokerQty:"0.5", available:"0.5",entry:entry(),
+    rejectStop:false,timeoutStop:false,
   };
   const getOrder=id=>{
     if(id===entryId)return {id:"PULSEBUY",client_order_id:entryId,symbol:"SOXS",side:"buy",type:"limit",status:"filled",qty:"0.5",filled_qty:"0.5"};
@@ -68,6 +69,8 @@ function fixture(){
       const body=JSON.parse(options.body);
       state.posted.push(body);
       if(body.side!=="sell"||!["stop","market"].includes(body.type))throw Error("Unexpected order type");
+      if(body.type==="stop"&&state.rejectStop)return reply({message:"stop unsupported"},422);
+      if(body.type==="stop"&&state.timeoutStop)throw Error("PAPER venue timed out");
       const order={id:"BROKER-"+state.posted.length,client_order_id:body.client_order_id,
         symbol:body.symbol,side:body.side,type:body.type,stop_price:body.stop_price??null,
         status:"new",qty:body.qty,filled_qty:"0"};
@@ -142,4 +145,31 @@ test("Pulse cancels its stop, refreshes sellable shares, then flattens at sessio
   assert.equal(state.cancels.length,1);
   assert.deepEqual(state.posted.map(o=>o.type),["stop","market"]);
   assert.equal(result.body.outcome[0].action,"session-flatten-new");
+});
+
+test("Pulse recovers a broker-rejected fractional stop by flattening without duplicate orders on retry",async()=>{
+  const {state,run}=fixture();
+  state.rejectStop=true;
+  const initial=await run();
+  assert.equal(initial.status,503);
+  assert.deepEqual(state.posted.map(o=>o.type),["stop","market"]);
+  assert.ok(initial.body.outcome.some(x=>x.action==="protective-stop-rejected"));
+  assert.ok(initial.body.outcome.some(x=>x.action==="emergency-flatten-new"));
+  const after=await run();
+  assert.deepEqual(state.posted.map(o=>o.type),["stop","market"],
+    "retry must reuse attributed emergency market exit");
+  assert.ok(after.body.outcome.some(x=>x.action==="session-flatten-new"));
+});
+
+test("Pulse never resubmits a stop after broker network outcome becomes ambiguous",async()=>{
+  const {state,run}=fixture();
+  state.timeoutStop=true;
+  const first=await run();
+  assert.equal(first.status,503);
+  assert.deepEqual(state.posted.map(o=>o.type),["stop"]);
+  assert.ok(first.body.outcome.some(x=>x.action==="protective-stop-unconfirmed"));
+  const second=await run();
+  assert.equal(second.status,503);
+  assert.deepEqual(state.posted.map(o=>o.type),["stop"]);
+  assert.ok(second.body.outcome.some(x=>x.action==="stop-outcome-unconfirmed"));
 });
