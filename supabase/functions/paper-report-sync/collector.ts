@@ -162,7 +162,7 @@ export async function collectPaperReport(key: string, secret: string, fetcher: t
         price: number(f.price),
         cumulativeQuantity: number(f.cum_qty),
         leavesQuantity: number(f.leaves_qty),
-        transactionTime: time(f.transaction_time),
+        transactionTime: brokerTime(f.transaction_time),
       })).filter(f => f.fillActivityId && f.brokerOrderId && taggedOrderIds.has(f.brokerOrderId));
     } catch {
       errors.brokerAttribution = "Tagged broker fills could not be parsed.";
