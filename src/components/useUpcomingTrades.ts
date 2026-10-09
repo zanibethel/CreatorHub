@@ -7,6 +7,7 @@ export type UpcomingStock={
   planSource:"prepared-order"|"strategy-reference"|"awaiting-plan";
   planState:"prepared"|"watching"|"blocked"|"awaiting-plan";
   entryPrice:number|null;stopPrice:number|null;targetPrice:number|null;
+  targetIsPartial:boolean;trailingRemainder:boolean;
   referenceNotional:number|null;netRewardRisk:number|null;
   allocatorState:"rejected"|"shadow-only"|"allocatable"|null;
   allocatorBudgetUsd:number|null;allocatorReasons:string[];
