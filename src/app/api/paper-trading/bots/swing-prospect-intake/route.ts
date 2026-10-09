@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
+import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
 import { fetchPreferredStockQuotes } from "@/lib/live-stock-market-data";
 import {
   evaluateSwingProspectIntake,
@@ -79,12 +80,6 @@ function numberRecord(value:Record<string,unknown>,key:string){
   const raw=value[key];
   const parsed=typeof raw==="number"?raw:typeof raw==="string"?Number(raw):Number.NaN;
   return Number.isFinite(parsed)?parsed:0;
-}
-
-function yyyymmdd(timestamp:number){
-  return new Intl.DateTimeFormat("en-CA",{
-    timeZone:"America/New_York",year:"numeric",month:"2-digit",day:"2-digit",
-  }).format(new Date(timestamp)).replace(/-/g,"");
 }
 
 export async function GET(request:Request){
@@ -266,7 +261,7 @@ export async function GET(request:Request){
 
       let clientOrderId:string|null=null;
       if(disposition.eligible&&disposition.plan&&stageSlots>0){
-        clientOrderId=`chb-sw3-p3-${yyyymmdd(now)}-${prospect.symbol.toLowerCase()}-${Math.floor(now/1000)}`;
+        clientOrderId=createPaperClientOrderId(BOT_ID,strategy.version);
         const order={
           client_order_id:clientOrderId,
           bot_id:BOT_ID,
