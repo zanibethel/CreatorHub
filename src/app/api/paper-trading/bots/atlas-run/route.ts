@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import {NextResponse} from "next/server";
 import {createAdminSupabaseClient} from "@/lib/supabase-admin";
 import {createPaperClientOrderId} from "@/lib/paper-order-attribution";
@@ -86,7 +87,7 @@ function referencePlan(row:CandidateRow):AtlasExecutionReferencePlan|null{
 }
 const sleep=(ms:number)=>new Promise(resolve=>setTimeout(resolve,ms));
 
-export async function GET(request:Request){
+async function runPaperCron(request:Request){
   const cronSecret=process.env.CRON_SECRET?.trim()??"";
   if(!cronSecret||request.headers.get("authorization")!==`Bearer ${cronSecret}`)
     return reply({error:"Unauthorized."},401);
@@ -802,3 +803,5 @@ export async function GET(request:Request){
 
   return reply({ok:true,paperOnly:true,action:"none",reason:"no-executable-funded-stock"});
 }
+
+export const GET=withPaperCronHeartbeat({job:"atlas-run",botId:"default-diverse",expectedMinutes:1},runPaperCron);

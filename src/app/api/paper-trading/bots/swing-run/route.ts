@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
@@ -21,7 +22,7 @@ function reply(body:unknown,status=200){
   return NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});
 }
 
-export async function GET(request:Request){
+async function runPaperCron(request:Request){
   const cronSecret=process.env.CRON_SECRET?.trim()??"";
   if(!cronSecret||request.headers.get("authorization")!==`Bearer ${cronSecret}`){
     return reply({error:"Unauthorized."},401);
@@ -138,3 +139,5 @@ export async function GET(request:Request){
     note:"Only one new swing submission is attempted per five-minute cycle.",
   });
 }
+
+export const GET=withPaperCronHeartbeat({job:"harbor-run",botId:"three-trade-weekly-swing-100",expectedMinutes:5},runPaperCron);

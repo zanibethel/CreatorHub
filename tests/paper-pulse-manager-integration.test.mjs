@@ -116,6 +116,7 @@ function fixture(){
       if(module==="@/lib/paper-pulse-fractional")return helper;
       if(module==="@/lib/paper-momentum-breakout-strategy-config")
         return {MOMENTUM_BREAKOUT_STRATEGY_V1:{botProfileId:"momentum-breakout-100",id:"stock-momentum-breakout-v1",version:1}};
+      if(module==="@/lib/paper-cron-health")return {withPaperCronHeartbeat:(_info,handler)=>handler};
       throw Error("Unexpected import "+module);
     },
   });

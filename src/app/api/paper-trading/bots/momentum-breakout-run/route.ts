@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createPaperClientOrderId } from "@/lib/paper-order-attribution";
@@ -113,7 +114,7 @@ async function persistCounterfactuals(readiness:z.infer<typeof readinessSchema>)
   return {ok:true,seeds:seeds.length,updates};
 }
 
-export async function GET(request:Request){
+async function runPaperCron(request:Request){
   const cronSecret=process.env.CRON_SECRET?.trim()??"";
   if(!cronSecret||request.headers.get("authorization")!==`Bearer ${cronSecret}`)return reply({error:"Unauthorized."},401);
   const token=process.env.PAPER_MOMENTUM_EXECUTION_TOKEN?.trim()??"";
@@ -192,3 +193,5 @@ export async function GET(request:Request){
   }
   return reply({ok:true,action:"execute",symbol:selected.symbol,execution,counterfactualTracking});
 }
+
+export const GET=withPaperCronHeartbeat({job:"pulse-run",botId:"momentum-breakout-100",expectedMinutes:5},runPaperCron);

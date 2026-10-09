@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FUSE_PENNY_STRATEGY_V1 as cfg } from "@/lib/paper-fuse-strategy-config";
@@ -50,7 +51,7 @@ function status(value:string){
  * and a second broker confirmation. Unconfirmed cancellation stops further
  * processing until a later cron run.
  */
-export async function GET(request:Request){
+async function runPaperCron(request:Request){
   const cron=process.env.CRON_SECRET?.trim()??"";
   if(!cron||request.headers.get("authorization")!=="Bearer "+cron)
     return reply({error:"Unauthorized."},401);
@@ -304,3 +305,5 @@ export async function GET(request:Request){
       error:error instanceof Error?error.message:"Fuse manager unavailable."},503);
   }
 }
+
+export const GET=withPaperCronHeartbeat({job:"fuse-manage",botId:"penny-volatility-day-100",expectedMinutes:1},runPaperCron);

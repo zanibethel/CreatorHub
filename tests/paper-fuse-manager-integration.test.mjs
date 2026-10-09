@@ -131,6 +131,7 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=fal
       if(name==="@/lib/paper-order-attribution")return attribution;
       if(name==="@/lib/paper-fuse-protection-audit")return audit;
       if(name==="@/lib/paper-fuse-exit-manager")return exit;
+      if(name==="@/lib/paper-cron-health")return {withPaperCronHeartbeat:(_info,handler)=>handler};
       throw Error("Unexpected import "+name);
     }});
   const run=async(auth="Bearer fuse-test-secret")=>{
