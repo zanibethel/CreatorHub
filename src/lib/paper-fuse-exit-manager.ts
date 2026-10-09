@@ -47,6 +47,10 @@ export function chooseFuseExitAction(input:{
   if(i.entryPending&&(i.flattenDue||i.brokerQty>0))
     return {action:"cancel-pending-entry",reason:"Cancel remaining buy before managing a partial fill or session cutoff."};
   if(i.brokerQty===0) {
+    // After a filled exit, any still-active OCO sell is a potentially
+    // orphaned order. Cancel that attributable child before calling flat.
+    if(i.entryFilledQty>0&&i.stopOrTargetActive)
+      return {action:"cancel-bracket-exits",reason:"Broker is flat but a stale bracket sell leg remains open."};
     if(i.flattenDue&&i.entryPending)
       return {action:"cancel-pending-entry",reason:"Reject unfilled carryover into the session close."};
     return {action:i.entryFilledQty>0?"broker-flat":"awaiting-entry",
