@@ -50,6 +50,34 @@ virtual-ledger P/L is recorded. Public readiness reads do not create/update
 counterfactuals. The first qualifying signal per symbol and New York date is
 studied; these studies are hypothetical and must not be mixed into executed P/L.
 
+## Archived research signal catch-up (October 8, 2026)
+
+The five-minute authenticated research job recovers missing counterfactual studies
+from **actual stored** `paper_fuse_observations` where the original strategy
+decision was `research-ready`, its recorded score/risk gates passed, and the
+observation belongs to the current New York trading date. This closes the gap
+when a live research signal predates tracker deployment or when a tracking
+write failed and the original observation survived.
+
+Replay selects the **first** eligible observation per symbol and NY session,
+retains the **original decision time/entry/stop/target** (no current-price
+recalibration) and uses the same unique setup key as live shadow tracking.
+It loads all current-session regular-hours five-minute bars from early enough
+to cover the market open. To avoid artificial hindsight with OHLC candles,
+the entire five-minute **decision candle is excluded**, and the original last
+observed bar is saved in metadata for provenance. A late-day replay can
+understate opportunities that happened in the skipped candle; it must not
+be presented as an executed trade or a precise intrabar backtest.
+
+The research-only cron is still distinct from broker execution. It will not
+place a PAPER order, change Fuse's disabled execution switch, change its
+independent $100 virtual ledger, or start the official challenge counter.
+Archived replay is intentionally same-NY-session only; earlier dates require
+a separately audited date-scoped backtest pipeline with validated historical
+market data, not casual late-day backfilling.
+
+---
+
 ## Release / validation
 
 1. Ensure production build compiles and all `npm run test:paper` tests pass.
