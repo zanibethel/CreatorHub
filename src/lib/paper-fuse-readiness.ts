@@ -25,6 +25,7 @@ export function fuseSession(now: number) {
 
 export type FuseReadiness = PaperBotTradePlan & {
   fuseScore: number; readiness: "rejected" | "waiting" | "prepared" | "research-ready";
+  bid: number | null; ask: number | null;
   spreadPct: number | null; quoteAgeSeconds: number | null; relativeVolume: number | null;
   recentDollarVolume: number | null; fastMomentumPct: number | null; chasePct: number | null;
   entryTrigger: number | null; maximumEntry: number | null; plannedShares: number;
@@ -131,6 +132,7 @@ export function evaluateFuseCandidate(input: {
     plan:{phase,entryPrice:trigger,purchaseAmount,stopPrice,maxLossDollars:trigger!==null&&stopPrice!==null?rnd(plannedShares*(trigger-stopPrice)):null,
       exitPrice:targetPrice,projectedProfitDollars:trigger!==null&&targetPrice!==null?rnd(plannedShares*(targetPrice-trigger)):null,
       projectedProfitPct:trigger!==null&&targetPrice!==null?(targetPrice/trigger-1)*100:null},
+    bid:validQuote?quote.bid:null,ask:validQuote?quote.ask:null,
     spreadPct,quoteAgeSeconds,relativeVolume,recentDollarVolume,fastMomentumPct,chasePct,entryTrigger,maximumEntry,plannedShares,
     lastCompletedBarAt:last?.t??null,researchOnly:true,
   };
