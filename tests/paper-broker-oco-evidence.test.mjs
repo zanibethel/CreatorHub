@@ -28,12 +28,15 @@ test("collector preserves exact private order cancel/update timestamps and paren
         side:"sell",type:"stop",order_class:"bracket",status:"canceled",qty:"4",filled_qty:"0",
         canceled_at:canceledAt,updated_at:"2026-10-09T16:31:40.895316588Z"}
     ]};
+  const fill={id:"rxrx-target-partial",order_id:"target-rxrx",symbol:"RXRX",
+    side:"sell",qty:"1",price:"4.37",cum_qty:"4",leaves_qty:"0",
+    transaction_time:"2026-10-09T16:31:42.508790391Z"};
   const fetcher=url=>{
     const p=new URL(url).pathname;
     if(p.endsWith("/account"))return json({id:"paper-account",equity:"100000",currency:"USD"});
     if(p.endsWith("/positions"))return json([]);
     if(p.endsWith("/orders"))return json([parent]);
-    if(p.endsWith("/FILL"))return json([]);
+    if(p.endsWith("/FILL"))return json([fill]);
     throw Error("Unexpected "+p);
   };
   const {report,brokerActivity}=await exports.collectPaperReport("key","secret",fetcher);
@@ -44,6 +47,9 @@ test("collector preserves exact private order cancel/update timestamps and paren
   assert.equal(stop.canceledAt,"2026-10-09T16:31:40.895316177Z");
   assert.equal(stop.updatedAt,"2026-10-09T16:31:40.895316588Z");
   assert.equal(stop.replacedAt,null);
+  assert.equal(brokerActivity.fills.length,1);
+  assert.equal(brokerActivity.fills[0].transactionTime,"2026-10-09T16:31:42.508790391Z");
+  assert.equal(brokerActivity.fills[0].brokerOrderId,"target-rxrx");
   assert.equal(brokerActivity.orders.find(x=>x.brokerOrderId==="target-rxrx").canceledAt,null);
   assert.doesNotMatch(JSON.stringify(report),/stop-rxrx|parent-rxrx|brokerCanceledAt|canceledAt/);
 });
@@ -64,11 +70,17 @@ test("evidence migration is service-role-only, bot-attributed, and has no trade 
   assert.match(migrations,/c\.final_fill>c\.canceled_at/);
   assert.doesNotMatch(migrations,/UPDATE public\.paper_bot_positions|UPDATE public\.paper_bot_ledgers|DELETE FROM public\.paper_bot_orders|POST \/v2\/orders/);
 });
-test("RXRX historical activity reveals 1.613474-second potential residual-cover gap",()=>{
-  const stop=Date.parse("2026-10-09T16:31:40.895316Z");
-  const first=Date.parse("2026-10-09T16:31:40.893978Z");
-  const final=Date.parse("2026-10-09T16:31:42.508790Z");
-  const soldAtStop=first<=stop?2:0;
-  assert.equal(4-soldAtStop,2);
-  assert.equal(final-stop,1613);
+test("RXRX nanosecond broker activities expose a 1.613474214-second potential residual-cover interval",()=>{
+  const nanos=(stamp)=>{
+    const match=/^(.*?)(?:\\.(\\d{1,9}))?Z$/.exec(stamp);
+    assert.ok(match);
+    return BigInt(Date.parse(match[1]+"Z"))*1000000n+
+      BigInt(((match[2]??"")+"000000000").slice(0,9));
+  };
+  const canceled=nanos("2026-10-09T16:31:40.895316177Z");
+  const first=nanos("2026-10-09T16:31:40.893978Z");
+  const last=nanos("2026-10-09T16:31:42.508790391Z");
+  assert.equal(first<canceled,true);
+  assert.equal(4-2,2);
+  assert.equal(last-canceled,1613474214n);
 });
