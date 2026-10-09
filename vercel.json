@@ -50,6 +50,10 @@
       "schedule": "*/5 * * * 1-5"
     },
     {
+      "path": "/api/paper-trading/bots/fuse-run",
+      "schedule": "*/5 * * * 1-5"
+    },
+    {
       "path": "/api/paper-trading/bots/fuse-manage",
       "schedule": "* * * * 1-5"
     },
