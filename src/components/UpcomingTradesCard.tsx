@@ -6,7 +6,7 @@ import styles from "./UpcomingTradesCard.module.css";
 
 const price=(n:number|null)=>n===null?"—":new Intl.NumberFormat("en-US",{
   style:"currency",currency:"USD",minimumFractionDigits:2,
-  maximumFractionDigits:n<1?5:2,
+  maximumFractionDigits:n<1?5:n<10?4:2,
 }).format(n);
 const time=(t:string|null)=>t?new Intl.DateTimeFormat("en-US",{
   timeZone:"America/Chicago",month:"short",day:"numeric",hour:"numeric",minute:"2-digit",
