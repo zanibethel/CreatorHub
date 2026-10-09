@@ -25,6 +25,9 @@ export type PaperBrokerActivity = {
     averageFillPrice: number | null;
     submittedAt: string | null;
     filledAt: string | null;
+    canceledAt: string | null;
+    replacedAt: string | null;
+    updatedAt: string | null;
   }>;
   fills: Array<{
     fillActivityId: string;
@@ -122,6 +125,9 @@ export async function collectPaperReport(key: string, secret: string, fetcher: t
           averageFillPrice: number(order.filled_avg_price),
           submittedAt: time(order.submitted_at),
           filledAt: time(order.filled_at),
+          canceledAt: time(order.canceled_at),
+          replacedAt: time(order.replaced_at),
+          updatedAt: time(order.updated_at),
         });
         const parent = convert(root, rootClientOrderId, null);
         const legs = Array.isArray(root.legs)
