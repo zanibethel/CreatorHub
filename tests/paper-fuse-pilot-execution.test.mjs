@@ -32,8 +32,9 @@ function mount(path,fetch){
 }
 function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=false,
   reserve=true,brokerReject=false,brokerTimeout=false,wrongBroker=false,
-  previewArmed=true}={}){
-  const counts={entryPosts:0,reservations:0,patches:0,preview:0,manager:0};
+  previewArmed=true,postClaimCollision=false,postClaimOpenOrder=false,
+  brokerRecheckUnavailable=false}={}){
+  const counts={entryPosts:0,reservations:0,patches:0,preview:0,manager:0,positionReads:0,orderReads:0};
   const positions=collision?[{symbol:"NVD",qty:"4"}]:[];
   const reply=(x,status=200)=>Response.json(x,{status});
   const fetch=async(address,options={})=>{
@@ -72,8 +73,18 @@ function scenario({enabled=true,pilot=true,eligible=true,manager=true,collision=
     if(u.hostname==="paper-api.alpaca.markets"){
       if(u.pathname==="/v2/clock")return reply({is_open:true});
       if(u.pathname==="/v2/assets/NVD")return reply({status:"active",tradable:true});
-      if(u.pathname==="/v2/positions")return reply(positions);
-      if(u.pathname==="/v2/orders"&&method==="GET")return reply([]);
+      if(u.pathname==="/v2/positions"){
+        counts.positionReads++;
+        if(counts.positionReads>=2&&brokerRecheckUnavailable)return reply({message:"unavailable"},503);
+        if(counts.positionReads>=2&&postClaimCollision)return reply([{symbol:"NVD",qty:"3"}]);
+        return reply(positions);
+      }
+      if(u.pathname==="/v2/orders"&&method==="GET"){
+        counts.orderReads++;
+        if(counts.orderReads>=2&&postClaimOpenOrder)
+          return reply([{symbol:"NVD",side:"buy",status:"new"}]);
+        return reply([]);
+      }
       if(u.pathname==="/v2/orders"&&method==="POST"){
         counts.entryPosts++;
         const v=JSON.parse(options.body);
@@ -177,4 +188,30 @@ test("Fuse executor refuses when ledger pilot becomes disarmed between first and
   assert.equal(r.body.action,"pilot-no-longer-armed");
   assert.equal(x.counts.reservations,0);
   assert.equal(x.counts.entryPosts,0);
+});
+
+test("Fuse consumes one pilot reservation without buying if a competitor appears after its SQL claim",async()=>{
+  for(const flags of [{postClaimCollision:true},{postClaimOpenOrder:true}]){
+    const x=scenario(flags),r=await x.run();
+    assert.equal(r.status,409,JSON.stringify(r.body));
+    assert.equal(r.body.action,"pilot-reserved-symbol-collision");
+    assert.equal(x.counts.reservations,1);
+    assert.equal(x.counts.entryPosts,0);
+    assert.ok(x.counts.positionReads>=2);
+  }
+});
+test("Fuse fails closed when broker's final shared-symbol preflight is unavailable",async()=>{
+  const x=scenario({brokerRecheckUnavailable:true}),r=await x.run();
+  assert.equal(r.status,503);
+  assert.equal(r.body.action,"pilot-reserved-broker-recheck-unavailable");
+  assert.equal(x.counts.reservations,1);
+  assert.equal(x.counts.entryPosts,0);
+});
+test("Fuse SQL reservation rejects competing open orders and virtual positions from ALL bots",()=>{
+  const sql=readFileSync(new URL("../supabase/migrations/20261009024500_fuse_shared_symbol_guards.sql",import.meta.url),"utf8");
+  assert.match(sql,/pg_advisory_xact_lock/);
+  assert.match(sql,/other_position\.symbol=p_symbol and other_position\.quantity>0/);
+  assert.match(sql,/other_order\.bot_id<>v_ledger\.bot_id/);
+  assert.match(sql,/other_order\.status in \('prepared','submitted','partially_filled'\)/);
+  assert.match(sql,/grant execute on function public\.paper_fuse_claim_pilot_entry.+to service_role/);
 });
