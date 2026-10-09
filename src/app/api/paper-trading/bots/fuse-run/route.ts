@@ -1,3 +1,4 @@
+import {withPaperCronHeartbeat} from "@/lib/paper-cron-health";
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { FUSE_PENNY_STRATEGY_V1 as cfg } from "@/lib/paper-fuse-strategy-config";
@@ -14,7 +15,7 @@ const previewSchema=z.object({paperOnly:z.literal(true),researchOnly:z.literal(t
  * Independent five-minute Fuse PAPER pilot driver, permanently inactive
  * unless BOTH Supabase ledger switches are explicitly armed.
  */
-export async function GET(request:Request){
+async function runPaperCron(request:Request){
   const cron=process.env.CRON_SECRET?.trim()??"";
   if(!cron||request.headers.get("authorization")!=="Bearer "+cron)
     return reply({error:"Unauthorized."},401);
@@ -53,3 +54,5 @@ export async function GET(request:Request){
       error:error instanceof Error?error.message:"Fuse driver failed closed."},503);
   }
 }
+
+export const GET=withPaperCronHeartbeat({job:"fuse-run",botId:"penny-volatility-day-100",expectedMinutes:5},runPaperCron);
