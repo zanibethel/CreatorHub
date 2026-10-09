@@ -78,9 +78,8 @@ GRANT EXECUTE ON FUNCTION public.paper_stock_symbol_claim(text,text,text)
 -- than the broker's temporary open-order state and cannot be reused by a
 -- timed-out or rejected-but-uncertain order without a follow-up audit.
 
--- Atomically couple both existing one-entry PAPER pilot gates to the
--- durable venue-level reservation; retain their existing independent risk
--- checks, quote/asset checks, and per-bot ledger locks.
+-- Both current one-shot PAPER claims must reserve the same stock symbol
+-- in their existing ledger-locked transaction, before any broker POST.
 -- Atomic, one-time gate for Pulse's initial real Alpaca PAPER fractional test.
 -- A broker order is not submitted until the claim commits; a failed/ambiguous
 -- claim stops submission, preventing simultaneous cron runs from doubling risk.
@@ -93,14 +92,7 @@ as $$
 declare v_affected integer := 0; v_symbol text; v_ledger public.paper_bot_ledgers%rowtype;
 begin
   if p_client_order_id is null or
-     p_client_order_id !~ '^chb-pls-v1-[a-z0-9]+-[a-z0-9]{6,24}
-$$;
-
-revoke all on function public.paper_pulse_claim_fractional_pilot(text)
-  from public, anon, authenticated;
-grant execute on function public.paper_pulse_claim_fractional_pilot(text)
-  to service_role;
-
+     p_client_order_id !~ '^chb-pls-v1-[a-z0-9]+-[a-z0-9]{6,24}$'
      then return false;
   end if;
   select * into v_ledger from public.paper_bot_ledgers
@@ -117,9 +109,8 @@ grant execute on function public.paper_pulse_claim_fractional_pilot(text)
       and side='buy' and asset_class in ('stock','etf')
       and status='prepared' and broker_order_id is null;
   if v_symbol is null then return false; end if;
-  -- Single atomic transaction: never persist Pulse's one-shot claim unless
-  -- the SHARED physical Alpaca symbol is also reserved. Other stock bots
-  -- joining the protocol take this same symbol lock and unique table key.
+  -- Atomic transaction: never persist the one-shot pilot claim unless
+  -- the shared physical venue's stock symbol is also reserved.
   if not public.paper_stock_symbol_claim(
     'momentum-breakout-100',v_symbol,p_client_order_id
   ) then return false; end if;
@@ -133,7 +124,7 @@ grant execute on function public.paper_pulse_claim_fractional_pilot(text)
     and metadata->>'fractionalExecutionEnabled' = 'true'
     and not metadata ? 'fractionalPilotClientOrderId';
   get diagnostics v_affected = row_count;
-  if v_affected<>1 then raise exception 'Pulse one-shot ledger claim changed unexpectedly'; end if;
+  if v_affected<>1 then raise exception 'Pulse pilot ledger claim changed unexpectedly'; end if;
   return true;
 end
 $$;
@@ -229,9 +220,7 @@ begin
          and status in ('prepared','submitted','partially_filled','filled'))
   then return false;
   end if;
-  -- Both the PNY pilot slot and the physical STOCK symbol must be
-  -- reserved in the SAME transaction. If the table reports another owner,
-  -- consume neither permit and place no broker buy.
+  -- Reserve the same physical stock symbol in the same transaction.
   if not public.paper_stock_symbol_claim(
     'penny-volatility-day-100',p_symbol,p_client_order_id
   ) then return false; end if;
