@@ -22,10 +22,13 @@ not contain API credentials, place trades, cancel orders, or use AI resources.
 
 GitHub Actions workflow `Galaxy PAPER Monitor APK` builds a
 **debug-signed, development-only** installable APK on an Android SDK runner.
-In the repository's Actions tab, open a successful run of that workflow,
-select `CreatorHub-PAPER-Monitor-Android-APK`, and extract
-`app-debug.apk` from the downloaded artifact zip. Copy it to the Galaxy S10,
-allow **Install unknown apps** for the file manager, and open it to sideload.
+After merging, the workflow publishes the FIRST successful APK to a
+**GitHub prerelease** as a directly downloadable `CreatorHub-PAPER-Monitor-alpha.apk`.
+It never silently overwrites the original APK with a newly generated
+test-signing identity. Alternatively, open the successful workflow run's
+artifact `CreatorHub-PAPER-Monitor-Android-APK`, extract `app-debug.apk`
+from its ZIP and copy it to the Galaxy S10. Allow **Install unknown apps**
+for the browser or file manager, then sideload it.
 This does **not** require Play Store, F-Droid, Termux or developer tools
 on the phone.
 
