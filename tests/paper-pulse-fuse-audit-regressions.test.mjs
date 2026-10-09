@@ -24,14 +24,22 @@ test("Pulse broker-hosted brackets use whole shares under the original risk and 
   assert.equal(quantity(Infinity, 10), null);
 });
 
-test("Pulse final broker gate refuses fractions before claiming a prepared order", () => {
+test("Pulse final broker gate chooses fractional only with protected manager enabled", () => {
   const readiness = load("../src/lib/paper-momentum-breakout-readiness.ts");
   const executor = load("../src/app/api/paper-trading/bots/momentum-breakout-execute/route.ts");
-  assert.match(readiness, /plannedQuantity=pulseBracketWholeShareQuantity\(qtyByRisk,qtyByAllocation\)/);
-  assert.match(executor, /if\(!Number\.isSafeInteger\(plan\.plannedQuantity\)\|\|plan\.plannedQuantity<1\)/);
-  assert.ok(executor.indexOf("Number.isSafeInteger(plan.plannedQuantity)") < executor.indexOf("const claim=await fetch("));
-  assert.match(executor, /order_class:"bracket"/);
-  assert.match(executor, /https:\/\/paper-api\.alpaca\.markets\/v2/);
+  const manager = load("../src/app/api/paper-trading/bots/momentum-breakout-manage/route.ts");
+  assert.match(readiness,/fractionalExecutionEnabled\?fractionalReferenceQuantity:null/);
+  assert.match(executor,/pulseEntryOrderMode\(plan.plannedQuantity\)/);
+  assert.ok(executor.indexOf("if(fractional&&!readiness.fractionalExecutionEnabled)") <
+    executor.indexOf("const claim=await fetch("));
+  assert.match(executor,/order_class:fractional\?"simple":"bracket"/);
+  assert.match(executor,/type:fractional\?"limit":"market"/);
+  assert.match(manager,/time_in_force:"day"/);
+  assert.match(manager,/parentClientOrderId/);
+  assert.match(manager,/15\*60\+40/);
+  assert.match(manager,/get\("authorization"\)/);
+  const cron=JSON.parse(load("../vercel.json"));
+  assert.ok(cron.crons.some(c=>c.path==="/api/paper-trading/bots/momentum-breakout-manage" && c.schedule==="* * * * 1-5"));
 });
 
 test("Fuse research journals only database-allowed events, qualification and regime", () => {
