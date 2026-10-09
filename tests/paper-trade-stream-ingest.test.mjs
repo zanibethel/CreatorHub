@@ -5,11 +5,12 @@ import {mkdtemp,rm,readFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {createHash,webcrypto} from "node:crypto";
+import {spawnSync} from "node:child_process";
 import vm from "node:vm";
 import ts from "typescript";
 import {parseFrames,persistFrame,queued,flushOnce,requirePaperConfig,
   privateFrame,makeOrderedProcessor,acquireWorkerLock,
-  PAPER_WS,PAPER_INGEST} from "../workers/alpaca-paper-trade-updates.mjs";
+  PAPER_WS,PAPER_INGEST,recoverablePriorBootLock} from "../workers/alpaca-paper-trade-updates.mjs";
 
 const source=path=>readFileSync(new URL(path,import.meta.url),"utf8");
 const load=(path,imports={})=>{
@@ -194,4 +195,38 @@ test("only one local PAPER stream worker can own a spool directory",async()=>{
     const unlock2=await acquireWorkerLock(dir);
     await unlock2();
   }finally{await rm(dir,{recursive:true,force:true});}
+});
+
+test("Termux Android installer is syntactically valid and cannot embed PAPER credentials",()=>{
+  for(const path of ["../scripts/run-paper-stream-termux.sh","../scripts/install-paper-stream-termux.sh"]){
+    const sourceText=source(path);
+    const bash=spawnSync("bash",["-n"],{input:sourceText,encoding:"utf8"});
+    assert.equal(bash.status,0,bash.stderr);
+    assert.doesNotMatch(sourceText,/sk_[a-z0-9]{16}|AKIA[0-9A-Z]{16}|PAPER_STREAM_INGEST_TOKEN=.{64}/);
+    assert.match(sourceText,/paper-trade-stream/);
+  }
+  const installer=source("../scripts/install-paper-stream-termux.sh");
+  assert.match(installer,/termux-services|sv-enable/);
+  assert.match(installer,/\.termux\/boot/);
+  assert.match(installer,/termux-wake-lock/);
+  assert.match(installer,/nodejs-lts|Node 22/);
+  assert.doesNotMatch(installer,/ALPACA_PAPER_API_SECRET_KEY=[^\s]/);
+  const worker=source("../scripts/run-paper-stream-termux.sh");
+  assert.match(worker,/stat -c '%a'/);
+  assert.match(worker,/PAPER_STREAM_SPOOL_DIR/);
+  assert.match(worker,/exec node/);
+  assert.doesNotMatch(worker,/\bnpm (publish|install)\b|curl .*\| *(sh|bash)/);
+});
+test("cold-reboot lock recovery uses Linux boot UUID and never trusts PID reuse",()=>{
+  const a="12345678-1234-4321-8123-123456789abc";
+  const b="abcdef01-1234-4234-8234-abcdef012345";
+  assert.equal(recoverablePriorBootLock(a,b),true);
+  assert.equal(recoverablePriorBootLock(a,a),false);
+  assert.equal(recoverablePriorBootLock(null,b),false);
+  assert.equal(recoverablePriorBootLock(a,null),false);
+  assert.equal(recoverablePriorBootLock("wrong",b),false);
+  const w=source("../workers/alpaca-paper-trade-updates.mjs");
+  assert.match(w,/readFile\("\/proc\/sys\/kernel\/random\/boot_id"/);
+  assert.match(w,/if\(!recoverablePriorBootLock/);
+  assert.match(w,/PAPER stream lock changed during reboot recovery/);
 });
