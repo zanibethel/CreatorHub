@@ -230,3 +230,23 @@ test("cold-reboot lock recovery uses Linux boot UUID and never trusts PID reuse"
   assert.match(w,/if\(!recoverablePriorBootLock/);
   assert.match(w,/PAPER stream lock changed during reboot recovery/);
 });
+
+test("Galaxy broker health migration preserves connection transitions and private stale diagnostics",()=>{
+  const sql=source("../supabase/migrations/20261009215500_paper_stream_health_diagnostics.sql");
+  assert.match(sql,/NOT connected OR worker_session_id IS DISTINCT FROM p_worker_session_id/);
+  assert.match(sql,/WHEN last_heartbeat_at<=now\(\)-interval '75 seconds' THEN 'stale_heartbeat'/);
+  assert.match(sql,/WHEN NOT connected THEN 'broker_disconnected'/);
+  assert.match(sql,/WITH \(security_invoker=true\)/);
+  assert.match(sql,/REVOKE ALL ON public\.paper_broker_trade_stream_status FROM PUBLIC,anon,authenticated/);
+  assert.doesNotMatch(sql,/UPDATE public\.paper_bot_ledgers|UPDATE public\.paper_bot_positions|place_stock_order/);
+});
+test("Galaxy Android monitoring keeps reconnect history and separates private ingest/spool errors",()=>{
+  const java=source("../android/paper-broker-monitor/app/src/main/java/com/creatorhub/papermonitor/PaperStreamService.java");
+  assert.doesNotMatch(java,/subscribed=true;connecting=false;reconnects=0/);
+  assert.match(java,/subscribed=true;connecting=false; \/\/ retain reconnect count/);
+  assert.match(java,/if\(!tickerScheduled\)/);
+  assert.match(java,/Private event storage failure/);
+  assert.match(java,/Supabase ingest authentication rejected/);
+  assert.match(java,/Supabase delivery unavailable/);
+  assert.doesNotMatch(java,/https:\/\/(?:api|live)-api\.alpaca\.markets/);
+});
