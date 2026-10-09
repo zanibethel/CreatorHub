@@ -56,7 +56,7 @@ GRANT EXECUTE ON FUNCTION public.paper_stock_symbol_claim(text,text,text) TO ser
 CREATE OR REPLACE FUNCTION public.paper_atlas_bind_order(
   p_reservation_id uuid,p_client_order_id text)
 RETURNS boolean LANGUAGE plpgsql SECURITY DEFINER SET search_path = '' AS $$
-DECLARE v_changed integer; v_symbol text;
+DECLARE v_changed integer; v_symbol text; v_asset_class text;
 BEGIN
   IF auth.role() IS DISTINCT FROM 'service_role' THEN
     RAISE EXCEPTION 'Service role required';
@@ -82,15 +82,22 @@ BEGIN
       AND o.metadata->>'decisionId'=r.decision_id
       AND o.metadata->>'opportunityId'=r.opportunity_id
   ) THEN RETURN false; END IF;
-  SELECT o.symbol INTO v_symbol
+  -- Atlas stocks and Atlas crypto share this existing reservation binder.
+  -- Reserve the *physical stock* symbol only for STOCK orders. Keep Atlas
+  -- crypto's original separately guarded workflow fully functional.
+  SELECT o.symbol,o.asset_class INTO v_symbol,v_asset_class
     FROM public.paper_bot_orders o
     WHERE o.client_order_id=p_client_order_id
       AND o.bot_id='default-diverse'
-      AND o.asset_class='stock'
       AND o.side='buy' AND o.status='prepared';
-  IF v_symbol IS NULL OR NOT public.paper_stock_symbol_claim(
-    'default-diverse',v_symbol,p_client_order_id
-  ) THEN RETURN false; END IF;
+  IF v_symbol IS NULL THEN RETURN false; END IF;
+  IF v_asset_class='stock' THEN
+    IF NOT public.paper_stock_symbol_claim(
+      'default-diverse',v_symbol,p_client_order_id
+    ) THEN RETURN false; END IF;
+  ELSIF v_asset_class<>'crypto' THEN
+    RETURN false;
+  END IF;
   UPDATE public.paper_atlas_reservations
      SET client_order_id=p_client_order_id,updated_at=now()
    WHERE reservation_id=p_reservation_id
