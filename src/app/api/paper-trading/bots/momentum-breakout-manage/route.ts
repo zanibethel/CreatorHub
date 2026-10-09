@@ -325,7 +325,7 @@ export async function GET(request:Request){
         outcome.push({symbol,action:"management-error",detail:error instanceof Error?error.message:"unknown"});
       }
     }
-    const issue=outcome.some(x=>/error|unconfirmed|manual-reconciliation|closed-position|not-yet-sellable|pending|rejected|claimed-by-another-run|stop-cancel|flatten-unconfirmed/.test(x.action));
+    const issue=outcome.some(x=>/error|unconfirmed|manual-reconciliation|closed-position|not-yet-sellable|pending|awaiting-partial-entry-cancel|rejected|claimed-by-another-run|stop-cancel|flatten-unconfirmed/.test(x.action));
     return reply({ok:!issue,paperOnly:true,entries:entries.length,marketOpen,flattenDue,outcome},issue?503:200);
   }catch(error){
     return reply({ok:false,paperOnly:true,error:error instanceof Error?error.message:"Pulse manager failed."},503);
