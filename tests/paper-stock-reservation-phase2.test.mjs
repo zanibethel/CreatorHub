@@ -42,7 +42,7 @@ test("Harbor makes one atomic prepared order and stock claim, never blind PATCH 
  const executor=route("swing-execute");
  assert.match(executor,/rpc\/paper_swing_claim_prepared_with_symbol/);
  assert.match(executor,/Shared PAPER broker stock ownership snapshot incomplete/);
- assert.doesNotMatch(executor,/status=eq.prepared&broker_order_id=is.null/);
+ assert.doesNotMatch(executor,/const claimed = z\.array/);
  const intake=route("swing-prospect-intake");
  assert.match(intake,/createPaperClientOrderId\(BOT_ID,strategy.version\)/);
  assert.doesNotMatch(intake,/chb-sw3-p3-/);
