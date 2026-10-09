@@ -95,6 +95,10 @@ function fixture(){
       if(state.orphanTaggedBuy)active.push({id:"ORPHAN-PLS-BUY",
         client_order_id:"chb-pls-v1-orphan-12345678",
         symbol:"SOXS",side:"buy",status:"new"});
+      if(state.bracketIssue==="foreign-buy")active.push({
+        id:"FOREIGN-BUY",client_order_id:"chb-pny-v1-other-12345678",
+        symbol:"SOXS",side:"buy",status:"new",
+      });
       return reply(active);
     }
     if(u.pathname==="/v2/orders/PULSEBUY"&&state.entry.metadata.executionMode==="paper-bracket")
@@ -377,7 +381,7 @@ test("Pulse watchdog independently verifies two live, fully covering whole-share
 });
 
 test("Pulse watchdog fails closed on canceled, missing, undercovered or mispriced bracket exits",async()=>{
-  for(const issue of ["canceled","missing-leg","undercovered","bad-target"]){
+  for(const issue of ["canceled","missing-leg","undercovered","bad-target","foreign-buy"]){
     const {state,run}=fixture();
     state.entry.metadata.executionMode="paper-bracket";
     state.entry.requested_quantity=2;
