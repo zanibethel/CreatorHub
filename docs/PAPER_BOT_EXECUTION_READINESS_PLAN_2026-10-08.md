@@ -522,12 +522,17 @@ PAPER monitoring tests and build; the Vercel preview check passed.
   contains both new keys. Verified the writer RPC remains executable by
   `service_role`, **not** `anon` or `authenticated`.
   The six stock rows were not reset.
-- **Independent runtime proof pending at deployment:** The stock jobs
-  remained green, but the next real Flash/Spark five-minute invocation
-  **after 15:15:12 UTC** must appear in `public.paper_bot_cron_health`
-  with an actual Vercel-cron source, status/action and failure count.
-  Do not mistake preview builds, research journal events or artificially
-  invoked endpoints for authenticated schedule evidence.
+- **Post-deployment Flash and Spark runner heartbeat G0 VERIFIED:** Spark's genuine
+  Vercel cron at **2026-10-09 15:20:20.517185 UTC** recorded HTTP 200,
+  action `none`, zero consecutive failures and source `vercel-cron-agent`
+  (first recorded `spark-run`). Flash's genuine Vercel cron at
+  **15:20:39.091949 UTC** recorded the same HTTP 200, `none`,
+  zero failures and `vercel-cron-agent` source (first recorded
+  `flash-run`). Both occurred after the **15:15:12 UTC** production
+  READY timestamp and have exact authenticated scheduler attribution.
+  This signs off **the two scheduled crypto runner heartbeat subgates**;
+  it does NOT certify independent protection-manager supervision,
+  successful brokerage trade lifecycles or repeated long-term reliability.
 - A full crypto **G0** must still distinguish health of these five-minute
   runners from their underlying broker protection managers and fill
   reconciliation. A successful health heartbeat is **not** an executed
