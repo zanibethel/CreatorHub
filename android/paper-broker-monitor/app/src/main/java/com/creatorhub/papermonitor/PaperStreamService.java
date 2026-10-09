@@ -34,7 +34,7 @@ public final class PaperStreamService extends Service {
     private int reconnects=0;
     private boolean subscribed=false,stopped=false,connecting=false;
     private long nextConnect=0,lastHeartbeat=0;
-    private boolean flushing=false;
+    private boolean flushing=false, tickerScheduled=false;
 
     @Override public void onCreate(){
         super.onCreate();
@@ -64,7 +64,10 @@ public final class PaperStreamService extends Service {
                 tick();
             }catch(Exception ex){status="Setup required";detail="Credentials or private storage unavailable";display();stopSelf();}
         });
-        timer.scheduleAtFixedRate(()->serial.execute(this::tick),5,5,TimeUnit.SECONDS);
+        if(!tickerScheduled){
+            tickerScheduled=true;
+            timer.scheduleAtFixedRate(()->serial.execute(this::tick),5,5,TimeUnit.SECONDS);
+        }
         return START_STICKY;
     }
     private Notification notification(String message){
@@ -132,7 +135,7 @@ public final class PaperStreamService extends Service {
                     if(channels!=null)for(int j=0;j<channels.length();j++)
                         if("trade_updates".equals(channels.optString(j)))found=true;
                     if(!found)throw new IllegalStateException("Alpaca stream subscription refused");
-                    subscribed=true;connecting=false;reconnects=0;
+                    subscribed=true;connecting=false; // retain reconnect count within this service session
                     status="PAPER connected";detail="Broker events subscribed; checking private delivery";
                     display();flush(true);
                 } else if("trade_updates".equals(name)){
@@ -142,6 +145,9 @@ public final class PaperStreamService extends Service {
                     display();flush(false);
                 }
             }
+        }catch(IOException ex){
+            status="Private event storage failure";detail="Broker coverage gap; local spool unavailable";
+            display();disconnect("Local event storage unavailable; coverage gap");
         }catch(Exception ex){
             status="Broker frame error";detail="Connection reset; inspect compatibility";
             display();disconnect("Malformed/unrecognized broker frame");
@@ -200,6 +206,8 @@ public final class PaperStreamService extends Service {
             Call call=client.newCall(req);
             call.timeout().timeout(12,TimeUnit.SECONDS);
             try(Response res=call.execute()){
+                if(res.code()==401||res.code()==403)
+                    throw new SecurityException("Private ingest token rejected");
                 if(!res.isSuccessful())throw new IOException("Private ingestion unavailable (HTTP "+res.code()+")");
                 ResponseBody responseBody=res.body();
                 if(responseBody==null)throw new IOException("Missing receipt");
@@ -214,7 +222,9 @@ public final class PaperStreamService extends Service {
                 }
             }
         }catch(Exception error){
-            detail="Local events retained; Supabase delivery unavailable";
+            detail=error instanceof SecurityException
+                ?"Supabase ingest authentication rejected; retained local events"
+                :"Local events retained; Supabase delivery unavailable";
             display();
         }finally{flushing=false;}
     }
