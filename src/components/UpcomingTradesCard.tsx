@@ -30,7 +30,7 @@ function TradeRow({trade}:{trade:UpcomingStock}){
     <div className={styles.plan}>
       <div><span>Entry</span><strong>{price(trade.entryPrice)}</strong></div>
       <div><span>Stop</span><strong>{price(trade.stopPrice)}</strong></div>
-      <div><span>Exit target</span><strong>{price(trade.targetPrice)}</strong></div>
+      <div><span>{trade.targetIsPartial?"First target":"Exit target"}</span><strong>{price(trade.targetPrice)}</strong></div>
       <div><span>Net R:R est.</span><strong>{trade.netRewardRisk===null?"—":`${trade.netRewardRisk.toFixed(2)}:1`}</strong></div>
     </div>
     <div className={styles.details}>
@@ -38,7 +38,7 @@ function TradeRow({trade}:{trade:UpcomingStock}){
       <span>{trade.quoteFresh?"Quote recently verified":"Quote needs refreshing"}</span>
       {trade.planCheckedAt?<span>Checked {time(trade.planCheckedAt)}</span>:null}
     </div>
-    <p className={styles.explanation}>{trade.reason}</p>
+    <p className={styles.explanation}>{trade.reason}{trade.trailingRemainder?" · Remainder uses a trailing exit plan.":""}</p>
   </article>;
 }
 export default function UpcomingTradesCard({compact=false}:{compact?:boolean}){
