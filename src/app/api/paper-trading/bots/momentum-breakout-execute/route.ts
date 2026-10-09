@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-breakout-strategy-config";
-import { pulseEntryOrderMode } from "@/lib/paper-pulse-fractional";
+import { pulseEntryOrderMode, pulseFractionalQuantity } from "@/lib/paper-pulse-fractional";
 
 export const dynamic="force-dynamic";
 
@@ -12,7 +12,7 @@ const requestSchema=z.object({symbol:z.preprocess(v=>typeof v==="string"?v.trim(
 const planSchema=z.object({
   symbol:z.string(),state:z.enum(["ready","waiting","blocked"]),selectedForSubmission:z.boolean(),
   quoteAgeSeconds:z.number().finite().nonnegative().nullable(),
-  ask:z.number().finite().positive().nullable(),protectiveStop:z.number().finite().positive().nullable(),
+  ask:z.number().finite().positive().nullable(),maxEntry:z.number().finite().positive().nullable(),protectiveStop:z.number().finite().positive().nullable(),
   takeProfit:z.number().finite().positive().nullable(),plannedQuantity:z.number().finite().positive().nullable(),
   plannedNotional:z.number().finite().positive().nullable(),plannedRiskDollars:z.number().finite().nonnegative().nullable(),
   plannedRiskPct:z.number().finite().nonnegative().nullable(),
@@ -95,6 +95,23 @@ export async function POST(request:Request){
       return reply({error:"Shared PAPER broker symbol already occupied by an order or position; cannot safely attribute fractional entry."},409);
   }
 
+  // A fractional market order could exceed both the cash and risk caps on
+  // slippage. Limit the entry and shrink quantity using the worst fill price.
+  const maxLimit=plan.maxEntry===null?null:Math.floor(plan.maxEntry*100)/100;
+  const limitPrice=fractional?Math.ceil(plan.ask*100-1e-8)/100:null;
+  if(fractional&&(!(limitPrice&&maxLimit&&limitPrice<=maxLimit)||!plan.plannedNotional||
+     plan.plannedRiskDollars===null||!plan.protectiveStop||limitPrice<=plan.protectiveStop)){
+    return reply({error:"Pulse fractional DAY limit entry exceeds the authorized risk envelope."},409);
+  }
+  const effectiveQty=fractional
+    ? pulseFractionalQuantity(
+      plan.plannedRiskDollars!/(limitPrice!-plan.protectiveStop!),
+      plan.plannedNotional!/limitPrice!,limitPrice!,
+    )
+    : plan.plannedQuantity;
+  if(effectiveQty===null||effectiveQty<=0||effectiveQty>plan.plannedQuantity+0.000000001)
+    return reply({error:"Pulse fractional limit adjustment cannot preserve the existing risk caps."},409);
+
   const headers:Record<string,string>={apikey:supabaseSecret,"Content-Type":"application/json",Accept:"application/json"};
   if(supabaseSecret.startsWith("eyJ"))headers.Authorization=`Bearer ${supabaseSecret}`;
   const preparedResponse=await fetch(
@@ -111,8 +128,8 @@ export async function POST(request:Request){
     {
       method:"PATCH",headers:{...headers,Prefer:"return=representation"},
       body:JSON.stringify({
-        status:"submitted",requested_quantity:plan.plannedQuantity,submitted_at:claimedAt,
-        metadata:{...prepared.metadata,executionMode:fractional?"paper-fractional-simple-v1":"paper-bracket",executionClaimedAt:claimedAt,entryReference:plan.ask,brokerProtection:fractional?"independent-day-stop":"bracket"},
+        status:"submitted",requested_quantity:effectiveQty,submitted_at:claimedAt,
+        metadata:{...prepared.metadata,executionMode:fractional?"paper-fractional-simple-v1":"paper-bracket",executionClaimedAt:claimedAt,entryReference:plan.ask,limitPrice,brokerProtection:fractional?"independent-day-stop":"bracket"},
         updated_at:claimedAt,
       }),cache:"no-store",signal:AbortSignal.timeout(10_000),
     },
@@ -127,7 +144,8 @@ export async function POST(request:Request){
     const response=await fetch(`${ALPACA_PAPER}/orders`,{
       method:"POST",headers:brokerHeaders,
       body:JSON.stringify({
-        symbol:parsed.symbol,side:"buy",qty:qtyString(plan.plannedQuantity),type:"market",time_in_force:"day",extended_hours:false,
+        symbol:parsed.symbol,side:"buy",qty:qtyString(effectiveQty),type:fractional?"limit":"market",time_in_force:"day",extended_hours:false,
+        ...(fractional?{limit_price:String(limitPrice)}:{}),
         client_order_id:prepared.client_order_id,order_class:fractional?"simple":"bracket",
         ...(fractional?{}:{take_profit:{limit_price:String(roundPrice(plan.takeProfit))},
           stop_loss:{stop_price:String(roundPrice(plan.protectiveStop))}}),
