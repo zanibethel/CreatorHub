@@ -213,22 +213,25 @@ export async function POST(request: Request) {
     brokerProtection: "bracket",
   };
 
-  const claimRaw = await db(
-    `paper_bot_orders?client_order_id=eq.${encodeURIComponent(prepared.client_order_id)}&status=eq.prepared&broker_order_id=is.null`,
-    {
-      status: "submitted",
-      requested_quantity: preview.quantity,
-      submitted_at: claimedAt,
-      metadata: claimMetadata,
-      updated_at: claimedAt,
-    },
-    "PATCH",
-    "return=representation",
-  );
-  const claimed = z.array(preparedOrderSchema.extend({
-    requested_quantity: z.coerce.number().finite().positive().nullable().optional(),
-  })).parse(claimRaw);
-  if (claimed.length !== 1) return reply({ error: "Prepared plan was already claimed by another execution request." }, 409);
+  // The prepared order and the physical Alpaca stock-symbol reservation
+  // are claimed atomically in a single service-role-only Supabase RPC.
+  // Never fall back to an unguarded direct PATCH after RPC failure.
+  const claimRaw = await db("rpc/paper_swing_claim_prepared_with_symbol", {
+    p_client_order_id: prepared.client_order_id,
+    p_symbol: parsedBody.symbol,
+    p_requested_quantity: preview.quantity,
+    p_claim_metadata: claimMetadata,
+  }, "POST");
+  const claim = z.object({
+    claimed: z.boolean(),
+    reason: z.string().optional(),
+    order: preparedOrderSchema.extend({
+      requested_quantity:z.coerce.number().finite().positive().nullable().optional(),
+    }).optional(),
+  }).parse(claimRaw);
+  if (!claim.claimed || !claim.order || claim.order.client_order_id!==prepared.client_order_id)
+    return reply({ error: "Harbor could not obtain its atomic shared PAPER stock ownership claim.",
+      reason:claim.reason??"invalid-order-claim" },409);
 
   const bracket = buildAlpacaSwingBracketRequest(preview, prepared.client_order_id);
   const alpacaHeaders = {
@@ -237,6 +240,31 @@ export async function POST(request: Request) {
     Accept: "application/json",
     "Content-Type": "application/json",
   };
+  // Other stock bots might still be executing while a pending claim settles.
+  // A final independent broker read fails closed before the one-shot buy POST.
+  try {
+    const [positionsResponse,ordersResponse]=await Promise.all([
+      fetch(`${SWING_PAPER_BROKER_HOST}/v2/positions`,{
+        headers:alpacaHeaders,cache:"no-store",signal:AbortSignal.timeout(8_000),
+      }),
+      fetch(`${SWING_PAPER_BROKER_HOST}/v2/orders?status=open&limit=500&nested=false`,{
+        headers:alpacaHeaders,cache:"no-store",signal:AbortSignal.timeout(8_000),
+      }),
+    ]);
+    if(!positionsResponse.ok||!ordersResponse.ok)
+      throw new Error("Shared PAPER broker stock ownership check unavailable.");
+    const positions=z.array(z.object({symbol:z.string()})).parse(await positionsResponse.json());
+    const openOrders=z.array(z.object({symbol:z.string()})).parse(await ordersResponse.json());
+    if(positions.length>=500||openOrders.length>=500)
+      throw new Error("Shared PAPER broker stock ownership snapshot incomplete.");
+    if(positions.some(p=>p.symbol===parsedBody.symbol)||
+       openOrders.some(o=>o.symbol===parsedBody.symbol))
+      throw new Error("Another PAPER broker position or open order occupies this stock.");
+  } catch {
+    // The one-shot local claim stays reserved; no broker POST or auto retry.
+    return reply({error:"Harbor PAPER stock reservation claimed but broker ownership is unconfirmed; no buy submitted.",
+      clientOrderId:prepared.client_order_id,paperOnly:true},503);
+  }
 
   let brokerOrder: AlpacaOrder | null = null;
   let submitError = "";
