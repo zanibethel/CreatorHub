@@ -20,9 +20,13 @@ export function fuseExitWindow(when:number) {
 
 /** One flat order per Fuse parent, stable under concurrent minute crons. */
 export function fuseFlattenOrderId(parentClientId:string):string|null {
-  if(!/^chb-pny-v[1-9][0-9]*-[a-z0-9]+-[a-z0-9]{6,24}$/.test(parentClientId)||
-      parentClientId.length>110)return null;
-  return parentClientId+"-fx";
+  const match=/^(chb-pny-v[1-9][0-9]*-)([a-z0-9]+)-([a-z0-9]{6,24})$/.exec(parentClientId);
+  if(!match)return null;
+  // Preserve the canonical parsePaperClientOrderId format so the shared
+  // PAPER fill journal attributes the emergency sale to Fuse's ledger.
+  // The distinct timestamp segment also makes this stable per parent.
+  const id=match[1]+match[2]+"fx-"+match[3];
+  return id.length<=128?id:null;
 }
 
 /** Decide only; actual broker calls MUST additionally revalidate current positions and orders. */
