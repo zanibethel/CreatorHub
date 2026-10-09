@@ -78,6 +78,36 @@ market data, not casual late-day backfilling.
 
 ---
 
+## Broker-compatible PAPER bracket preflight (phase 2, read-only)
+
+New read-only preview: `GET /api/paper-trading/bots/fuse-execution-preview`.
+
+It consumes **fresh existing Fuse readiness** and its own virtual ledger, then
+checks whole-share `DAY` **limit + broker-hosted bracket** compatibility.
+Every projected order is independently resized at the actual broker-tick
+limit reference, under both the 0.5%-of-equity planned stop loss and
+20%-of-equity cash allocation. Both sizes remain capped by Fuse's original
+research signal's planned whole-share quantity.
+
+Preflight refuses stale quotes, non-ready research plans, risk blockers,
+chased entry prices, zero whole-share capacity, and unrepresentable
+stop/target prices. Alpaca's tick rule is 2 decimals at $1 or above,
+4 decimals below $1. A sell stop must be at least $0.01 below both
+the entry limit and contemporaneous bid reference, or the projected
+bracket is rejected. These are broker constraints, **not relaxed strategy
+criteria**. The broker may still reject a plan for account/asset/venue
+restrictions that the read-only preview cannot verify.
+
+The endpoint never stages a trade, sends a broker order, changes execution
+flags, or alters accounting. `executionEnabled` and `submissionReady`
+remain false. The necessary next phase is to build and verify the private
+broker asset/market preflight, attributable atomic entry claim, bracket leg
+verification, independent protective manager, partial fill/cancel response,
+near-close exit, and fill-to-ledger reconciliation. Until then Fuse
+remains **research-only**.
+
+---
+
 ## Release / validation
 
 1. Ensure production build compiles and all `npm run test:paper` tests pass.
