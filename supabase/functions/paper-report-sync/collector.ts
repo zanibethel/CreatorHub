@@ -54,7 +54,7 @@ const time = (v: unknown) => typeof v === "string" && Number.isFinite(Date.parse
 // rounds to milliseconds and destroys the actual REST nanosecond evidence.
 // Preserve the original validated UTC string in the PRIVATE ledger feed.
 const brokerTime = (v: unknown) => typeof v === "string" &&
-  /^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(?:\\.\\d{1,9})?Z$/.test(v) &&
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d{1,9})?Z$/.test(v) &&
   Number.isFinite(Date.parse(v)) ? v : null;
 const rows = (v: unknown) => {
   if (!Array.isArray(v)) throw new Error("Unexpected provider response.");
