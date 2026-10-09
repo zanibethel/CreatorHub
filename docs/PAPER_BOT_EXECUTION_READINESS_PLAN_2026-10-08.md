@@ -977,6 +977,103 @@ The official challenge counter remains **UNSTARTED**.
 
 ---
 
+## Broker cancellation timestamp capture and evidence-only OCO audit — October 9, 2026
+
+**PR [#112](https://github.com/zanibethel/CreatorHub/pull/112)** merged
+as `678eb73dd14d6c5d4817e0537106614ede5c59bf`.
+GitHub CI passed TypeScript, lint, PAPER tests and build; Vercel preview
+passed. Production Vercel deployment
+`dpl_7canYRj7wGYodcR8Z8Y8SDqGj6cS` was verified **READY**.
+The additive Supabase migration `paper_oco_cancel_timeline_evidence`
+was applied before deploying the collector.
+
+**Deployed native Supabase Edge Function:** `paper-report-sync`
+is **ACTIVE at version 15**, preserving its existing
+`verify_jwt=false` configuration because the body already requires
+a 64-hex private report token and verifies its SHA-256 hash before
+any database or broker collection. The function's collected order
+activity is private service-role data, not part of the public report.
+No OAuth/API secrets were copied into artifacts.
+
+**Exact new evidence path:**
+
+- Tagged Alpaca broker parent/child orders retain validated UTC
+  `canceledAt`, `replacedAt` and `updatedAt`, preserving raw
+  submillisecond/nanosecond timestamp text privately rather than
+  rounding with JavaScript `Date.toISOString()`.
+  Independently tagged FILL activity likewise now passes its raw,
+  validated timestamp into the private reconciliation feed for
+  **future** fills. Existing financial ledger amounts were not changed.
+- Additive function
+  `public.paper_bot_record_order_lifecycle_evidence(jsonb,timestamptz)`
+  merges the lifecycle timing into `paper_bot_broker_orders.metadata`
+  only where broker order ID, client order ID, attributed client ID
+  and `alpaca-paper` source all match.
+  Service-role permission verified true; `anon` and
+  `authenticated` execute privileges verified false.
+- The read-only service-role-only RPC
+  `public.paper_bot_stock_oco_gap_audit(text)` matches
+  sibling stock stop/target orders by their verified Alpaca
+  parent and bot attribution. It joins the real attributed
+  target FILL events and flags a *possible* unprotected residual
+  window whenever the stop was canceled before the final
+  take-profit shares completed selling.
+- The supplemental timestamp write is best-effort:
+  its failure adds `brokerLifecycle` to sanitized report errors
+  but **must never stop existing ledger fill application**.
+  No buy/sell/cancel RPC, pilot reset, stock reservation release,
+  market-data subscription or recurring alert is added.
+
+**Independent production evidence, not hypothetical fixtures:**
+
+- The first genuine post-deployment collector refresh stored the
+  actual Alpaca RXRX stop cancellation timestamp
+  `2026-10-09T16:31:40.895316177Z` under the Fuse stop broker order
+  `dc76e4e6-d27e-433d-b82a-88a1e72f1375`,
+  with `lifecycleObservedAt` around **17:57:06 UTC**.
+- The real service-only risk query
+  `select * from public.paper_bot_stock_oco_gap_audit('penny-volatility-day-100')`
+  returned **one RXRX record**, matching target
+  `20aa439e-bd0f-4cb9-9ded-f2a3ec14fdba`,
+  parent `e8287aed-2227-4aed-aa5c-6f420617ffb2`,
+  **2 RXRX residual shares when stop canceled**, and a
+  **~1.61-second potential cover interval**.
+- The SQL view currently reports `1612.684` milliseconds because
+  this *historical* FILL transaction time was previously stored
+  at millisecond precision (`16:31:42.508Z`).
+  **Direct Alpaca activity and order records** provide the original
+  finer timing: stop canceled
+  `16:31:40.895316177Z`, final target fill
+  `16:31:42.508790391Z`, difference
+  **1613.474214 milliseconds**.
+  Do not overwrite already-applied financial fill/journal timestamps
+  merely to make the two displays equal.
+- Supabase showed zero unapplied attributed broker fills and all
+  eight PAPER cron-health jobs remained HTTP 200 with zero
+  consecutive failures. The Fuse ledger remained **$100.16**
+  after the closed 4-share +$0.16 RXRX trade. Pulse's first
+  stock pilot is still unclaimed.
+
+**Release decision:** **DO NOT rearm Fuse** based on a successful
+trade or this retrospective risk report. The broker REST endpoint
+provides cancellation/fill timestamps but not the complete history
+of internal stop resizing or real-time WebSocket trade-update
+states. We have verified a noteworthy *observable* gap in broker
+order timing, **not** conclusively proven loss of all possible
+internal broker downside protection. A future separate phase
+should capture authenticated Alpaca PAPER `trade_updates` as
+durable, ordered broker events, distinguish stop `replaced` from
+`canceled`, detect partial-fill risks promptly, and confirm a
+strategy-specific safe response before repeat entry authorization.
+
+**No execution side effects:** Fuse's one-shot pilot stays claimed,
+RXRX and Harbor SNAP shared stock reservations remain HELD,
+Coil stays execution-disabled, no stock trade was placed or
+canceled for the audit, and the official challenge/day
+counter remains **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
