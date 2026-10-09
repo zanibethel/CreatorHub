@@ -351,6 +351,63 @@ counter remains UNSTARTED.
 
 ---
 
+## Pulse whole-share stock ownership bypass repair — October 9, 2026
+
+**PR [#93](https://github.com/zanibethel/CreatorHub/pull/93)** merged as
+`fefbf8fd03d024e7184f333dc682832ba1d6c6a9`. Production deployment
+`dpl_A3XcQHZiMYoxL1Ejs7rGo1vJxrTm` was confirmed **READY**
+and assigned to `creatorhub-gray.vercel.app` at **14:26:34 UTC**.
+GitHub CI passed TypeScript, lint, PAPER tests and the production build.
+
+**Defect discovered:** Pulse's fractional-simple buy path used the atomic
+one-entry `paper_pulse_claim_fractional_pilot` database RPC and its shared
+stock-symbol reservation, but a potential whole-share bracket buy bypassed
+that claim. Its fractional-only broker venue scan also did not cover whole
+share entries. A qualifying whole-share entry could therefore have reached
+Alpaca PAPER without the required durable venue symbol reservation.
+
+**Fix implemented and deployed:** Both integer-share bracket and fractional
+simple-order modes now require that **same existing one-entry atomic
+pilot/shared-stock-symbol RPC**, preceded by a PAPER broker scan for exact
+stock asset identity, open regular session, all positions and open orders.
+The scan fails closed on errors, malformed results and the 500-row
+pagination boundary. After the database pilot/order claims, a second fresh
+broker venue scan must pass immediately before the broker buy POST.
+Protected internal readiness and stop-manager requests use the stable
+production origin instead of the incoming deployment-specific request URL.
+The pre-existing service-role SQL function was **read-only verified**
+in production to contain the shared symbol claim and one-shot ledger guard;
+no schema change or separate token was necessary.
+
+**Operator caveat:** The existing RPC field is named
+`fractionalPilotClientOrderId` even though it now gates **all** Pulse stock
+entry modes. `fractionalExecutionEnabled=true` is therefore also a
+prerequisite for whole-share entries in this guarded, one-entry trial.
+If the second broker scan becomes uncertain after claiming the pilot,
+the pilot and physical reservation intentionally remain claimed: **never
+reset the slot or release the reservation automatically.**
+
+**Observed live at 14:27 UTC:** Pulse's `pulse-manage` completed
+after the new deployment at **14:27:03 UTC**, HTTP 200, action
+`completed`, zero consecutive failures, source `vercel-cron-agent`.
+The previous `pulse-run` was 14:25:46 UTC, *before* this deployment,
+and did not by itself prove the new runner cycle. Both Pulse and Fuse
+pilot claim IDs were still unset and no active stock symbol reservations
+existed when inspected. Pulse had no actual stock broker fill; its latest
+signals were research `watch` candidates, not selected submissions.
+Separately, Spark had opened a new BTC/USD PAPER position with a broker
+stop-limit sell; the prior 14:02 UTC flat-account snapshot above is
+historical and **must not** be interpreted as the current broker state.
+
+**Not yet proven:** Full Pulse broker-verified fractional or whole-share
+lifecycle (G2–G7), a naturally qualifying entry under the new shared pilot,
+or fully current G0 confirmation for uninstrumented crypto jobs. This PR
+did not submit orders, adjust scoring thresholds, alter $100 ledgers,
+enable Coil, change PAPER/live settings, release reservations or start
+the official challenge counter.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
