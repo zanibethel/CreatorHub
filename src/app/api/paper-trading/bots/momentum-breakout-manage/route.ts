@@ -196,6 +196,10 @@ export async function GET(request:Request){
         if(!marketOpen) {
           outcome.push({symbol,action:"market-closed-position-needs-review"});continue;
         }
+        // An expired, rejected, or canceled DAY stop cannot be silently
+        // recreated using the same idempotency key. Flatten the remaining
+        // position rather than pretending it is still protected.
+        const priorStopTerminal=currentStop&&["expired","rejected","canceled","filled","replaced"].includes(currentStop.status??"");
         if(stopActive&&flattenDue){
           const cancel=await broker(`orders/${encodeURIComponent(currentStop.id!)}`,"DELETE");
           if(!cancel.response.ok&&cancel.response.status!==404){
@@ -211,7 +215,7 @@ export async function GET(request:Request){
         }
         const quantity=qty9(Math.min(sellable,owned));
         if(quantity<=0)throw Error("No fractional sellable quantity.");
-        if(flattenDue) {
+        if(flattenDue||priorStopTerminal) {
           const result=await companion(entry,"flatten",quantity,null);
           outcome.push({symbol,action:"session-flatten-"+result.status});
         } else if(!Number.isFinite(entry.protective_stop)||entry.protective_stop!<=0) {
