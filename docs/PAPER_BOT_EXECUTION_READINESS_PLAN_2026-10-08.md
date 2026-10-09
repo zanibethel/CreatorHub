@@ -469,10 +469,13 @@ first natural stock trade lifecycle is complete.
   reject fractional sizes before any one-shot SQL/broker claim. This is
   *not* a fractional execution feature and does not lower strategy scoring.
   PR #96 passed type check, lint, PAPER regression tests and build.
-- Harbor's **14:55:07 UTC** cron returned HTTP 200/action `none`, but
-  that invocation was before the #96 production READY timestamp and
-  therefore is **not** post-deployment proof. A later real cron still
-  needs verification.
+- Harbor's **14:55:07 UTC** cron returned HTTP 200/action `none`
+  before #96 became READY; it was not post-deployment proof. The next
+  *real scheduled* invocation at **15:00:07 UTC**, after the corrected
+  deployment, returned **HTTP 200/action `none`**, zero consecutive
+  failures, source `vercel-cron-agent`. This independently verifies
+  the production scheduler recovered from the 14:50 502, **not** an
+  actual completed stock fill.
 
 **Cross-bot evidence:** Coil remains disabled; no shared stock reservation
 was released and no PAPER stock buy was forced. Spark's BTC/USD was the
@@ -480,9 +483,14 @@ only broker physical position at this stage, with a matching open
 protective stop-limit sell. Do not conflate the physical Alpaca account
 balance with either bot's independent virtual equity.
 
-**Next gates:** verify Harbor and Fuse scheduled invocations after their
-respective deploy timestamps; observe naturally qualifying broker fills
-before signing G2/G3/G5/G6/G7; reconcile SNAP independently before any
+**Updated 15:00 UTC scheduler proof:** Fuse `fuse-run` at 15:00:03
+was **HTTP 200/action `none`**; `fuse-manage` at 15:00:04 was
+**HTTP 200/action `completed`**; Harbor `harbor-run` at 15:00:07
+was **HTTP 200/action `none`**. All were authenticated Vercel cron
+sources with zero consecutive failures. Broker lifecycle gates remain open.
+
+**Next gates:** observe naturally qualifying stock broker fills before
+signing G2/G3/G5/G6/G7; reconcile SNAP independently before any
 operator-authorized release. Global crypto scheduler G0 remains open.
 Official challenge/day counter **UNSTARTED**.
 
