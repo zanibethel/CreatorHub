@@ -181,9 +181,37 @@ export async function GET(request:Request){
     if(strandedVirtual.length)return reply({ok:false,paperOnly:true,executionEnabled:false,
       error:"Fuse has virtual shares without an active attributable broker parent.",
       orphanVirtualSymbols:strandedVirtual.map(v=>v.symbol)},503);
-    const parentIds=new Set(entries.map(e=>e.broker_order_id).filter(Boolean));
+    // Build the complete broker parent + child ownership set BEFORE any
+    // cancellation. Alpaca bracket children may inherit the PNY prefix:
+    // without this prefetch, legitimate stops look like orphaned Fuse buys.
+    const snapshots=new Map<string,{raw:BrokerOrder,children:BrokerOrder[]}>();
+    const attributedIds=new Set<string>();
+    for(const entry of entries){
+      if(!entry.broker_order_id)return reply({ok:false,paperOnly:true,
+        executionEnabled:false,error:"Fuse entry lacks a confirmed broker parent ID."},503);
+      try{
+        const raw=orderSchema.parse(await readBroker("orders/"+encodeURIComponent(entry.broker_order_id)+"?nested=true"));
+        if(raw.id!==entry.broker_order_id||raw.client_order_id!==entry.client_order_id||
+          raw.symbol!==entry.symbol||raw.side!=="buy"||
+          raw.order_class!=="bracket"||raw.type!=="limit"||raw.time_in_force!=="day")
+          throw Error("Fuse parent identity or bracket order type mismatch.");
+        const children=Array.isArray(raw.legs)?await Promise.all(raw.legs.map(async child=>{
+          const id=z.object({id:z.string()}).parse(child).id;
+          return orderSchema.parse(await readBroker("orders/"+encodeURIComponent(id)));
+        })):[];
+        if(children.some(ch=>ch.symbol!==entry.symbol||ch.side!=="sell"))
+          throw Error("Fuse bracket child identity mismatch.");
+        snapshots.set(entry.client_order_id,{raw,children});
+        attributedIds.add(raw.id);
+        for(const child of children)attributedIds.add(child.id);
+      }catch(error){
+        return reply({ok:false,paperOnly:true,executionEnabled:false,
+          error:error instanceof Error?error.message:"Fuse broker attribution preflight failed."},503);
+      }
+    }
     const orphan=open.filter(o=>o.client_order_id.startsWith("chb-pny-v")&&
-      !parentIds.has(o.id)&&!entries.some(e=>fuseFlattenOrderId(e.client_order_id)===o.client_order_id));
+      !attributedIds.has(o.id)&&
+      !entries.some(e=>fuseFlattenOrderId(e.client_order_id)===o.client_order_id));
     if(orphan.length)return reply({ok:false,paperOnly:true,executionEnabled:false,
       error:"Unrecognized active Fuse-tagged broker order; manual venue reconciliation required.",
       orphanClientOrderIds:orphan.map(o=>o.client_order_id)},503);
@@ -202,17 +230,9 @@ export async function GET(request:Request){
         const mine=virtual.filter(v=>v.bot_id===cfg.botProfileId&&v.symbol===symbol);
         if(owned===null||mine.length>1)throw Error("Fuse shares cannot be reconciled.");
         const virtualQty=mine[0]?.quantity??0;
-        const raw=orderSchema.parse(await readBroker("orders/"+encodeURIComponent(entry.broker_order_id)+"?nested=true"));
-        if(raw.client_order_id!==entry.client_order_id||raw.id!==entry.broker_order_id||
-          raw.symbol!==symbol||raw.side!=="buy"||raw.order_class!=="bracket"||
-          raw.type!=="limit"||raw.time_in_force!=="day")
-          throw Error("Broker parent order attribution/type does not match Fuse plan.");
-        const children=Array.isArray(raw.legs)?await Promise.all(raw.legs.map(async child=>{
-          const id=z.object({id:z.string()}).parse(child).id;
-          return orderSchema.parse(await readBroker("orders/"+encodeURIComponent(id)));
-        })):[];
-        if(children.some(ch=>ch.symbol!==symbol||ch.side!=="sell"))
-          throw Error("Bracket child identity mismatch.");
+        const snapshot=snapshots.get(entry.client_order_id);
+        if(!snapshot)throw Error("Fuse parent snapshot missing after global preflight.");
+        const {raw,children}=snapshot;
         const parent:FuseBrokerParent={...raw,legs:children as FuseBrokerLeg[]};
         const filled=shares(raw.filled_qty??"0");
         if(filled===null)throw Error("Invalid parent filled quantity.");
