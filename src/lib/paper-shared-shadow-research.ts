@@ -29,6 +29,8 @@ export type ShadowAdvanceOptions = {
   completedThrough:string;
   /** Caller supplies the strategy's actual eligible holding/entry cutoff. */
   expiresAt?:string;
+  /** Must be true only when the provider proved complete bars through the cutoff. */
+  verifiedCoverageThroughCutoff?:boolean;
 };
 
 function timestamp(value:string):number {
@@ -96,7 +98,7 @@ export function advanceSharedShadowStudy(
   const last=s.lastBarAt===null?Number.NEGATIVE_INFINITY:timestamp(s.lastBarAt);
   const bars=completedBars
     .map(b=>({bar:b,time:timestamp(b.t)}))
-    .filter(({time})=>time>=decisionTime && time>last &&
+    .filter(({time})=>time>decisionTime && time>last &&
       time+5*60_000<=observedThrough &&
       (expiration===null || time<expiration))
     .sort((a,b)=>a.time-b.time);
@@ -138,7 +140,7 @@ export function advanceSharedShadowStudy(
       if(s.status!=="triggered")break;
     }
   }
-  if(expiration!==null&&observedThrough>=expiration&&["watching","triggered"].includes(s.status)){
+  if(options.verifiedCoverageThroughCutoff===true && expiration!==null&&observedThrough>=expiration&&["watching","triggered"].includes(s.status)){
     s.status="expired";
     s.firstOutcome=s.assumedEntry===null?"never-triggered":"unresolved-at-horizon";
     changed=true;
