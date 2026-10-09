@@ -154,7 +154,7 @@ export async function run(config=requirePaperConfig()){
     try{
       socket=new WebSocket(PAPER_WS);
       socket.binaryType="arraybuffer";
-      let failure=null;
+      let failure=null,subscribed=false;
       // The WebSocket event dispatcher does not await asynchronous callbacks:
       // queue received frames so every disk write finishes in arrival order.
       const processor=makeOrderedProcessor(async event=>{
@@ -167,10 +167,13 @@ export async function run(config=requirePaperConfig()){
           }else if(frame?.stream==="listening"){
             if(!frame.data?.streams?.includes("trade_updates"))
               throw Error("Alpaca PAPER trade_updates subscription not acknowledged.");
-            connected=true;void sync(true);
+            subscribed=true;connected=true;void sync(true);
             log("SUBSCRIBED","Alpaca PAPER trade_updates; no order mutation permissions used.");
           }else if(frame?.stream==="trade_updates"){
-            if(!connected)throw Error("Trade event arrived before PAPER subscription acknowledgment.");
+            // The socket can close while queued frames are still being
+            // fsynced. Persist events accepted under this subscribed session
+            // even after health.connected is set false by its close callback.
+            if(!subscribed)throw Error("Trade event arrived before PAPER subscription acknowledgment.");
             await persistFrame(config.dir,frame);
             void sync();
           }
