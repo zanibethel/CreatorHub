@@ -1074,6 +1074,35 @@ counter remains **UNSTARTED**.
 
 ---
 
+## Dedicated Alpaca PAPER trade-update event stream — staged October 9, 2026
+
+**New monitoring-only pipeline:** `workers/alpaca-paper-trade-updates.mjs`
+and `supabase/functions/paper-trade-stream-ingest`, with private
+append-only `paper_broker_trade_updates` event hash deduplication,
+`paper_broker_trade_stream_health` heartbeat/freshness reporting,
+disk-spooled at-least-once batch delivery from a persistent Node 22+
+WebSocket client, and private service-role-only storage.
+See `docs/PAPER_BROKER_TRADE_UPDATES_STREAM.md` for exact rollout
+and operator checks.
+
+**Do not mistake server readiness for live WebSocket coverage.**
+The ingestion endpoint is purposely fail-closed until its dedicated
+token digest is configured and a long-lived subscriber process has
+verified real Alpaca PAPER authentication/listening acknowledgments.
+This system is not a mechanism to order, cancel, replay trades,
+or write to virtual ledgers. Existing REST 30-second fill reconciliation
+remains authoritative for ledger entries. WebSocket disconnect intervals
+are **not replayable by assumption** and must be shown as evidence gaps.
+
+Fuse's completed RXRX broker trail remains the first real PAPER stock
+entry-to-exit verification; its historical ~1.61-second partial-OCO
+interval remains unresolved regarding broker internal coverage.
+The one-shot Fuse entry is NOT rearmed, the RXRX and Harbor SNAP
+reservations are NOT released, Coil is disarmed, and the official
+challenge/day counter is **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
