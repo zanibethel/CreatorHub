@@ -34,15 +34,15 @@ const js=ts.transpileModule(source,{compilerOptions:{
 }}).outputText;
 const fixedTime=Date.parse("2026-10-08T19:45:00Z");
 class FixedDate extends Date {static now(){return fixedTime;}}
-function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false,unavailable=false}={}){
+function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=false,ambiguousPost=false,unavailable=false,pnyChildren=false,pnyOrphan=false}={}){
   const events=[],orders=new Map();
   let canceled=false,flattenCount=0,parentCanceled=false;
   const entry={client_order_id:CLIENT,symbol:"NVD",side:"buy",
     status:"filled",broker_order_id:"P1",requested_quantity:5,entry_trigger:3.46,
     max_entry_price:3.51,protective_stop:3.428825,take_profit_price:3.53273};
-  const stop=()=>({id:"S1",client_order_id:"exit-stop",symbol:"NVD",side:"sell",
+  const stop=()=>({id:"S1",client_order_id:pnyChildren?CLIENT+"-stop":"exit-stop",symbol:"NVD",side:"sell",
     status:canceled?"canceled":"new",type:"stop",qty:"5",filled_qty:"0",stop_price:"3.43"});
-  const target=()=>({id:"T1",client_order_id:"exit-target",symbol:"NVD",side:"sell",
+  const target=()=>({id:"T1",client_order_id:pnyChildren?CLIENT+"-target":"exit-target",symbol:"NVD",side:"sell",
     status:canceled?"canceled":"new",type:"limit",qty:"5",filled_qty:"0",limit_price:"3.54"});
   const parent=()=>({id:"P1",client_order_id:CLIENT,symbol:"NVD",side:"buy",
     status:parentCanceled?"canceled":parentPending?"partially_filled":"filled",
@@ -85,6 +85,8 @@ function setup({foreign=false,wrongVirtual=false,parentPending=false,noEntry=fal
       [{symbol:"NVD",qty:"5",qty_available:canceled&&!unavailable?"5":"0"}]);
     if(url.pathname==="/v2/orders"&&method==="GET"){
       const pending=[...(canceled?[]:[stop(),target()]),
+        ...(pnyOrphan?[{id:"ORPHAN",client_order_id:CLIENT+"-unknown",
+          symbol:"NVD",side:"sell",type:"stop",status:"new"}]:[]),
         ...(foreign?[{id:"OTHER",client_order_id:"foreign",symbol:"NVD",
           side:"sell",type:"limit",status:"new"}]:[])];
       if(flattenCount&&!ambiguousPost)pending.push({id:"FX1",client_order_id:sellId,
@@ -198,5 +200,22 @@ test("Fuse refuses market flatten until all remaining shares are broker-sellable
   const outcome=await a.run();
   assert.equal(outcome.status,503);
   assert.equal(outcome.body.decisions[0].action,"manual-reconciliation");
+  assert.equal(a.getFlattenCount(),0);
+});
+
+test("Fuse recognizes broker-generated PNY child stop orders as owned bracket protection",async()=>{
+  const a=setup({pnyChildren:true});
+  const first=await a.run();
+  assert.equal(first.status,200,JSON.stringify(first.body));
+  assert.equal(first.body.decisions[0].action,"oco-cancel-requested");
+  assert.equal(a.getCanceled(),true);
+  assert.equal(a.getFlattenCount(),0);
+});
+test("Fuse blocks all exit writes for a stray PNY-tagged broker order",async()=>{
+  const a=setup({pnyChildren:true,pnyOrphan:true});
+  const first=await a.run();
+  assert.equal(first.status,503);
+  assert.match(first.body.error,/unrecognized active Fuse-tagged/i);
+  assert.equal(a.getCanceled(),false);
   assert.equal(a.getFlattenCount(),0);
 });
