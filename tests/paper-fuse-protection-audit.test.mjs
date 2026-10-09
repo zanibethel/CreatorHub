@@ -58,6 +58,9 @@ test("Fuse does not infer zero filled shares from missing broker child fill info
   const absentFromVenue=scenario();
   absentFromVenue.liveSellOrders=[absentFromVenue.parent.legs[1]];
   assert.equal(audit(absentFromVenue).state,"unprotected");
+  const pendingCancel=scenario();
+  pendingCancel.liveSellOrders[0]={...pendingCancel.liveSellOrders[0],status:"pending_cancel"};
+  assert.equal(audit(pendingCancel).state,"unprotected");
 });
 test("Fuse rejects under-covered or too-low sell stop and low target",()=>{
   const small=scenario();small.parent.legs[0].qty="4";
