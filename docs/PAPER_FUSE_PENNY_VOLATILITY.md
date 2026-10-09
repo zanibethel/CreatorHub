@@ -230,6 +230,34 @@ No live-money execution endpoint exists.
 
 ---
 
+## Shared PAPER venue collision hardening
+
+Fuse's one-shot PAPER pilot now checks for competing stock ownership at
+**three separate levels**:
+
+1. Before reservation, the entry endpoint reads all known virtual positions
+   and live Alpaca PAPER positions/open orders for the candidate symbol.
+2. During the privileged Supabase reservation, the database transaction
+   refuses other bots' **virtual positions** or outstanding
+   prepared/submitted/partially filled buys and sells on the same symbol,
+   plus very recent fills awaiting ledger reconciliation. Its own
+   per-symbol advisory lock serializes Fuse claims.
+3. After Fuse's pilot has been irreversibly reserved but **before** its
+   single broker POST, it refreshes live PAPER broker orders and positions.
+   Incomplete reads, provider errors or a new competitor mean NO buy:
+   the pilot is consumed and must not be automatically retried.
+
+**Scope limitation:** Other bots currently use different reservation
+protocols; Fuse's advisory lock does not force those strategies to
+participate. A unified *venue-wide* reservation ledger shared by every
+bot would close that last cross-bot race. Broker state is independently
+checked again immediately before each Fuse submission.
+
+These checks do not enable live-money execution, change risk thresholds,
+reset a pilot claim, or advance the official challenge counter.
+
+---
+
 ## Release / validation
 
 1. Ensure production build compiles and all `npm run test:paper` tests pass.
