@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { MOMENTUM_BREAKOUT_STRATEGY_V1 as strategy } from "@/lib/paper-momentum-breakout-strategy-config";
 import { pulseEntryOrderMode, pulseFractionalQuantity } from "@/lib/paper-pulse-fractional";
+import { auditPulseBrokerBracket, type PulseBracketParent } from "@/lib/paper-pulse-bracket-evidence";
 
 export const dynamic="force-dynamic";
 
@@ -25,7 +26,7 @@ const preparedSchema=z.object({
   client_order_id:z.string(),bot_id:z.literal(strategy.botProfileId),strategy_id:z.string(),strategy_version:z.coerce.number().int().positive(),
   symbol:z.string(),asset_class:z.string(),side:z.literal("buy"),status:z.string(),broker_order_id:z.string().nullable(),metadata:z.record(z.string(),z.unknown()),
 });
-type BrokerOrder={id?:string;status?:string;order_class?:string;side?:string;type?:string;legs?:BrokerOrder[]|null};
+type BrokerOrder=PulseBracketParent;
 
 function reply(body:unknown,status=200){return NextResponse.json(body,{status,headers:{"Cache-Control":"no-store"}});}
 async function digest(value:string){
@@ -240,15 +241,22 @@ export async function POST(request:Request){
     const response=await fetch(`${ALPACA_PAPER}/orders/${encodeURIComponent(order.id)}?nested=true`,{headers:brokerHeaders,cache:"no-store",signal:AbortSignal.timeout(8_000)});
     if(response.ok)nested=await response.json() as BrokerOrder;
   }catch{}
-  const sellLegs=(nested.legs??[]).filter(leg=>leg.side==="sell");
-  const takeObserved=sellLegs.some(leg=>leg.type==="limit"&&Boolean(leg.id));
-  const stopObserved=sellLegs.some(leg=>(leg.type==="stop"||leg.type==="stop_limit")&&Boolean(leg.id));
+  // A broker leg ID alone does not establish that the stop/target is
+  // live, priced correctly or has enough unfilled shares remaining.
+  const brokerProof=auditPulseBrokerBracket({
+    parent:nested,brokerOrderId:order.id,clientOrderId:prepared.client_order_id,
+    symbol:parsed.symbol,quantity:effectiveQty,
+    authorizedStop:roundPrice(plan.protectiveStop),
+    authorizedTarget:roundPrice(plan.takeProfit),
+  });
+  const takeObserved=brokerProof.targetLegObserved;
+  const stopObserved=brokerProof.stopLegObserved;
 
   await fetch(`${SUPABASE_URL}/rest/v1/paper_bot_orders?client_order_id=eq.${encodeURIComponent(prepared.client_order_id)}`,{
     method:"PATCH",headers:{...headers,Prefer:"return=minimal"},
     body:JSON.stringify({
       broker_order_id:order.id,status:brokerStatus(order.status),
-      metadata:{...prepared.metadata,executionMode:fractional?"paper-fractional-simple-v1":"paper-bracket",brokerObservedStatus:order.status??"submitted",bracketAccepted:order.order_class==="bracket",takeProfitLegObserved:takeObserved,stopLossLegObserved:stopObserved,brokerLookupPending:false,protectionValidatedAt:fractional?null:new Date().toISOString()},
+      metadata:{...prepared.metadata,executionMode:fractional?"paper-fractional-simple-v1":"paper-bracket",brokerObservedStatus:order.status??"submitted",bracketAccepted:order.order_class==="bracket",takeProfitLegObserved:takeObserved,stopLossLegObserved:stopObserved,brokerLookupPending:false,protectionValidatedAt:!fractional&&brokerProof.verified?new Date().toISOString():null},
       updated_at:new Date().toISOString(),
     }),cache:"no-store",signal:AbortSignal.timeout(10_000),
   });
@@ -272,7 +280,7 @@ export async function POST(request:Request){
   }
   // An accepted entry is not proof that its protective exits exist. Fail closed and
   // surface an explicit reconciliation requirement rather than reporting success.
-  const protectionVerified=nested.order_class==="bracket"&&takeObserved&&stopObserved;
+  const protectionVerified=brokerProof.verified;
   if(!protectionVerified){
     return reply({ok:false,symbol:parsed.symbol,paperOnly:true,action:"protection-unverified",
       brokerOrderId:order.id,bracketAccepted:nested.order_class==="bracket",

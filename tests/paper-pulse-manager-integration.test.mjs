@@ -260,3 +260,48 @@ test("Pulse awaits unfilled pending cancellation without a duplicate broker DELE
   assert.equal(state.posted.length,0);
   assert.equal(state.cancels.length,0);
 });
+
+
+test("Pulse must subtract an already-filled stop before claiming full protective coverage",async()=>{
+  const {state,run}=fixture();
+  await run();
+  const id=helper.pulseCompanionClientOrderId(entryId,"stop");
+  const stop=state.orders.get(id);
+  stop.status="partially_filled";
+  stop.filled_qty="0.2";
+  // Broker still holds more shares than the stop's remaining 0.3.
+  state.brokerQty="0.5";state.available="0";
+  const check=await run();
+  assert.equal(check.status,503,JSON.stringify(check.body));
+  assert.ok(check.body.outcome.some(x=>x.action==="manual-reconciliation"));
+  assert.equal(state.posted.length,1,"Never silently place a second overlapping sell");
+});
+
+test("Pulse can verify a partially executed stop when its remaining sell quantity covers the actual shares",async()=>{
+  const {state,run}=fixture();
+  await run();
+  const id=helper.pulseCompanionClientOrderId(entryId,"stop");
+  const stop=state.orders.get(id);
+  stop.status="partially_filled";
+  stop.filled_qty="0.2";
+  state.brokerQty="0.3";state.available="0";
+  const check=await run();
+  assert.equal(check.status,200,JSON.stringify(check.body));
+  assert.ok(check.body.outcome.some(x=>x.action==="broker-stop-verified"));
+  assert.equal(state.posted.length,1);
+});
+
+test("Pulse never infers zero filled stop shares from missing or malformed broker fill quantity",async()=>{
+  for(const invalid of [undefined,"unknown","0.6"]){
+    const {state,run}=fixture();
+    await run();
+    const id=helper.pulseCompanionClientOrderId(entryId,"stop");
+    const stop=state.orders.get(id);
+    stop.status="partially_filled";
+    stop.filled_qty=invalid;
+    const check=await run();
+    assert.equal(check.status,503,JSON.stringify(check.body));
+    assert.ok(check.body.outcome.some(x=>x.action==="manual-reconciliation"));
+    assert.equal(state.posted.length,1);
+  }
+});
