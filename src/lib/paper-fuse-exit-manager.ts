@@ -51,7 +51,8 @@ export function chooseFuseExitAction(input:{
   // Never proactively cancel a remaining selling leg or flatten while
   // residual shares have an unverified stop. Manual broker reconciliation
   // is safer than issuing a second sell into an in-flight target fill.
-  if(i.brokerQty>0&&i.takeProfitHasFills&&i.protection.state!=="protected")
+  if(i.brokerQty>0&&i.takeProfitHasFills&&
+     (i.protection.state!=="protected"||i.flattenDue))
     return deny("Partial take-profit fills left stock shares without independently verified OCO stop coverage; preserve active broker exits.");
   if(!i.marketOpen||!i.regularClockMinute)return {action:"market-closed",reason:"Cannot cancel or flatten outside verified stock-session clock."};
   if(i.entryPending&&(i.flattenDue||i.brokerQty>0))
