@@ -8,7 +8,7 @@ This is **evidence collection only**, separate from the existing 30-second `pape
 
 ## Components
 
-- `workers/alpaca-paper-trade-updates.mjs`: standalone **Node 22+** persistent WebSocket consumer. Uses the PAPER host only, authenticates and subscribes to `trade_updates`, persists every accepted frame to a local `0600` fsynced spool, then POSTs batches to the dedicated private Edge ingestion endpoint. Files are deleted only after the database acknowledges receipt. Reconnects with capped backoff. Never commits spool files.
+- `workers/alpaca-paper-trade-updates.mjs`: standalone **Node 22+** persistent WebSocket consumer. Uses the PAPER host only, authenticates and subscribes to `trade_updates`, **strips private account fields before persisting** accepted frames to a local `0600` fsynced spool, then POSTs batches to the dedicated private Edge ingestion endpoint. Files are deleted only after the database acknowledges receipt. Reconnects with capped backoff. Never commits spool files.
 - `supabase/functions/paper-trade-stream-ingest/`: independent Edge endpoint accepting only 64-hex bearer-like token in `x-paper-stream-token` after matching its SHA-256 digest to the configured secret. Rejects missing credentials, oversized/malformed envelopes, unrecognized streams or bad orders. Removes account identifiers and all unapproved order fields before insert. **Not an ordinary authenticated-user endpoint.**
 - `supabase/migrations/20261009191000_paper_trade_updates_durable.sql`: service-role-only `paper_broker_trade_updates` append-only history keyed by deterministic event hash, plus one-row `paper_broker_trade_stream_health`. Unique hashes handle retransmission without replaying changes to virtual balances. The private view `paper_broker_trade_stream_status` sets `recently_connected=false` if broker subscription heartbeats stop for over 75 seconds.
 - Existing `paper_report_state`, `paper_bot_broker_fills`, `paper_bot_ledgers` and `paper_bot_stock_oco_gap_audit()` retain their current meaning. A stream event is never treated as a financial FILL or used to reset a one-shot pilot.
@@ -21,6 +21,52 @@ This is **evidence collection only**, separate from the existing 30-second `pape
 4. Run `node workers/alpaca-paper-trade-updates.mjs` under a supervised long-lived process with a persistent writable `PAPER_STREAM_SPOOL_DIR` (default `.paper-stream-spool`). This is not a Vercel request route or short-lived scheduled function. Keep the worker online across market sessions if uninterrupted history is desired.
 5. Verify `paper_broker_trade_stream_status.recently_connected` is true and `last_heartbeat_at` moves forward after the worker has received Alpaca's real `authorization` and `listening` acknowledgments. The event count may remain zero for long periods without orders; do not force a PAPER trade merely to increment it. Reconcile new events against real `paper_bot_broker_orders` by broker ID and the existing parent attribution.
 6. On a process crash, retained spool files are retried; event hashes are idempotent. On a socket disconnection, missed broker events **cannot be assumed replayable** via this Alpaca Trading WebSocket. Report a monitoring coverage gap, reconnect, and use existing REST broker snapshot/fill reconciliation to fill factual status where possible. Do not claim uninterrupted subsecond coverage from eventual REST states.
+
+## macOS persistent operator install (staged; not auto-activated)
+
+The secure worker is meant for the owner-controlled always-on Mac, not a
+Vercel serverless route, public webpage or an idle-only Android compute node.
+The installation files have been committed but **no connected tool has
+access to execute them on the Mac**.
+
+1. The operator creates `$HOME/.config/creatorhub/paper-trade-stream.env`,
+   owned by the macOS login account with **`chmod 600`**. It must define
+   `ALPACA_PAPER_API_KEY_ID`, `ALPACA_PAPER_API_SECRET_KEY` (PAPER keys
+   only), `PAPER_STREAM_INGEST_TOKEN` (a locally generated random
+   64-character lowercase hex token), and optionally
+   `PAPER_STREAM_NODE_BINARY` for a Node 22+ absolute binary path.
+   Do not commit, paste, upload or echo this file. The SHA-256 digest of
+   the random token—not the raw token—must separately be configured
+   as Supabase Edge Function secret `PAPER_STREAM_INGEST_TOKEN_SHA256`.
+   Until both are configured the Edge function intentionally returns
+   HTTP 503. The app's existing report cron secret is **not** reusable.
+2. From an up-to-date CreatorHub checkout on that Mac, run
+   `bash scripts/install-paper-stream-macos.sh` after validating
+   the credentials. It generates an owner-specific macOS launchd plist
+   without secrets, enables background restart supervision and uses
+   `scripts/run-paper-stream-macos.sh` to load the mode-600 env file.
+   Check service state with
+   `launchctl print gui/$(id -u)/com.creatorhub.alpaca-paper-stream`.
+3. The node exclusively owns its durable spool with a locally locked
+   `.paper-trade-stream.lock`; a second instance fails closed.
+   After an ungraceful power loss, **verify no previous process is
+   still running** before manually removing a stale lock.
+   The spool contains only allowlisted broker event fields; account
+   numbers and unexpected raw provider fields are discarded locally.
+   The worker serializes WebSocket message handling and awaits pending
+   disk writes across disconnects to preserve observed ordering.
+4. Observe *actual* broker `authorization=authorized` and
+   `listening=trade_updates` messages, plus
+   `paper_broker_trade_stream_status.recently_connected=true`,
+   and exercise crash/replay using a legitimate observed event
+   (do not submit a manufactured trade). Watch the spool and logs
+   for disk pressure and reconnect storms. **A connected flag cannot
+   retroactively reconstruct events missed while the socket was down.**
+
+The macOS supervisor, single-spool lock and callback ordering reduce
+host-side failure risk. They **do not provide globally exclusive
+subscriptions across multiple hosts**; provision only one authorized
+worker for this Alpaca PAPER account.
 
 ## Private verification queries (service role only)
 

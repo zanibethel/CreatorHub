@@ -31,6 +31,63 @@ export function requirePaperConfig(env=process.env){
   if(typeof WebSocket!=="function")throw Error("Use Node >=22 with native WebSocket support.");
   return {key,secret,token,ingest,dir};
 }
+
+// Persist only the fields the private server-side normalizer needs. Alpaca
+// order frames can include broker account IDs, assets and other account data:
+// none of those belong in crash-recoverable local event files.
+export function privateFrame(frame){
+  const data=frame?.data,order=data?.order;
+  if(frame?.stream!=="trade_updates"||!data||!order||
+     typeof data.event!=="string"||typeof order.id!=="string"||
+     typeof order.symbol!=="string")
+    throw Error("Malformed Alpaca PAPER trade update before durable storage.");
+  const take=(source,keys)=>{
+    const out={};
+    for(const key of keys)if(Object.hasOwn(source,key))out[key]=source[key];
+    return out;
+  };
+  return {stream:"trade_updates",data:{
+    ...take(data,["event","execution_id","event_id","timestamp","at","qty","price","position_qty"]),
+    order:take(order,["id","client_order_id","symbol","side","status","type","order_class",
+      "qty","filled_qty","stop_price","limit_price","updated_at","canceled_at",
+      "replaced_at","filled_at","cancel_requested_at","replaces","replaced_by"]),
+  }};
+}
+export function makeOrderedProcessor(processFrame,onFailure){
+  let pending=Promise.resolve(),broken=false;
+  return {
+    push(value){
+      pending=pending.then(async()=>{
+        if(!broken)await processFrame(value);
+      }).catch(error=>{
+        broken=true;
+        onFailure(error);
+      });
+      return pending;
+    },
+    drain(){return pending;},
+  };
+}
+export async function acquireWorkerLock(dir){
+  await mkdir(dir,{recursive:true,mode:0o700});
+  const path=join(dir,".paper-trade-stream.lock");
+  const id=randomUUID();
+  // Deliberately fail closed on a stale lock, rather than unlinking another
+  // worker's live lock after a process crash or a PID reuse race.
+  const file=await open(path,"wx",0o600).catch(error=>{
+    if(error?.code==="EEXIST")throw Error("PAPER stream lock exists; confirm prior worker is stopped before manual recovery.");
+    throw error;
+  });
+  try{await file.writeFile(JSON.stringify({pid:process.pid,id}));await file.sync();}
+  finally{await file.close();}
+  return async()=>{
+    try{
+      const present=JSON.parse(await readFile(path,"utf8"));
+      if(present.id===id)await unlink(path);
+    }catch(error){if(error?.code!=="ENOENT")throw error;}
+  };
+}
+
 const fileName=frame=>{
   const hash=createHash("sha256").update(JSON.stringify(frame)).digest("hex");
   return new Date().toISOString().replace(/[:.]/g,"-")+"-"+hash+"-"+randomUUID()+".json";
@@ -38,9 +95,10 @@ const fileName=frame=>{
 export async function persistFrame(dir,frame){
   await mkdir(dir,{recursive:true,mode:0o700});
   if((await readdir(dir)).length>=MAX_BACKLOG)throw Error("PAPER stream durable queue full: operator recovery required.");
-  const filename=join(dir,fileName(frame));
+  const safe=privateFrame(frame);
+  const filename=join(dir,fileName(safe));
   const fd=await open(filename,"wx",0o600);
-  try{await fd.writeFile(JSON.stringify(frame));await fd.sync();}finally{await fd.close();}
+  try{await fd.writeFile(JSON.stringify(safe));await fd.sync();}finally{await fd.close();}
   return filename;
 }
 export async function queued(dir){
@@ -67,6 +125,7 @@ export async function flushOnce(config,{session,connected,reconnects}){
 }
 export async function run(config=requirePaperConfig()){
   await mkdir(config.dir,{recursive:true,mode:0o700});
+  const releaseLock=await acquireWorkerLock(config.dir);
   const session=randomUUID();
   let connected=false,reconnects=0,stopping=false,socket=null,flushing=false;
   const sync=async(force=false)=>{
@@ -87,45 +146,50 @@ export async function run(config=requirePaperConfig()){
     stopping=true;connected=false;
     clearInterval(drainTimer);clearInterval(heartbeatTimer);
     socket?.close();
-    void sync(true);
   };
   process.once("SIGINT",shutdown);
   process.once("SIGTERM",shutdown);
+  try{
   while(!stopping){
     try{
       socket=new WebSocket(PAPER_WS);
       socket.binaryType="arraybuffer";
-      let failure=null;
+      let failure=null,subscribed=false;
+      // The WebSocket event dispatcher does not await asynchronous callbacks:
+      // queue received frames so every disk write finishes in arrival order.
+      const processor=makeOrderedProcessor(async event=>{
+        const data=typeof Blob!=="undefined"&&event.data instanceof Blob?
+          await event.data.arrayBuffer():event.data;
+        for(const frame of parseFrames(data)){
+          if(frame?.stream==="authorization"){
+            if(frame.data?.status!=="authorized")throw Error("PAPER broker stream auth failed.");
+            socket.send(JSON.stringify({action:"listen",data:{streams:["trade_updates"]}}));
+          }else if(frame?.stream==="listening"){
+            if(!frame.data?.streams?.includes("trade_updates"))
+              throw Error("Alpaca PAPER trade_updates subscription not acknowledged.");
+            subscribed=true;connected=true;void sync(true);
+            log("SUBSCRIBED","Alpaca PAPER trade_updates; no order mutation permissions used.");
+          }else if(frame?.stream==="trade_updates"){
+            // The socket can close while queued frames are still being
+            // fsynced. Persist events accepted under this subscribed session
+            // even after health.connected is set false by its close callback.
+            if(!subscribed)throw Error("Trade event arrived before PAPER subscription acknowledgment.");
+            await persistFrame(config.dir,frame);
+            void sync();
+          }
+        }
+      },error=>{
+        failure=error;connected=false;socket.close();
+      });
       await new Promise(done=>{
         socket.addEventListener("open",()=>{
           socket.send(JSON.stringify({action:"auth",key:config.key,secret:config.secret}));
         });
-        socket.addEventListener("message",async(event)=>{
-          try{
-            const data=typeof Blob!=="undefined"&&event.data instanceof Blob?
-              await event.data.arrayBuffer():event.data;
-            for(const frame of parseFrames(data)){
-              if(frame?.stream==="authorization"){
-                if(frame.data?.status!=="authorized")throw Error("PAPER broker stream auth failed.");
-                socket.send(JSON.stringify({action:"listen",data:{streams:["trade_updates"]}}));
-              }else if(frame?.stream==="listening"){
-                if(!frame.data?.streams?.includes("trade_updates"))
-                  throw Error("Alpaca PAPER trade_updates subscription not acknowledged.");
-                connected=true;void sync(true);
-                log("SUBSCRIBED","Alpaca PAPER trade_updates; no order mutation permissions used.");
-              }else if(frame?.stream==="trade_updates"){
-                if(!connected)throw Error("Trade event arrived before PAPER subscription acknowledgment.");
-                await persistFrame(config.dir,frame);
-                void sync();
-              }
-            }
-          }catch(error){
-            failure=error;connected=false;socket.close();
-          }
-        });
+        socket.addEventListener("message",event=>void processor.push(event));
         socket.addEventListener("error",()=>{failure??=Error("PAPER WebSocket transport error.");});
         socket.addEventListener("close",()=>{connected=false;done();});
       });
+      await processor.drain();
       if(failure)log("STREAM_DISCONNECTED",failure.message);
     }catch(error){connected=false;log("STREAM_FAILURE",error.message);}
     void sync(true);
@@ -134,6 +198,13 @@ export async function run(config=requirePaperConfig()){
     const wait=Math.min(60000,1000*2**Math.min(6,reconnects))+
       Math.floor(Math.random()*500);
     await new Promise(r=>setTimeout(r,wait));
+  }
+  }finally{
+    clearInterval(drainTimer);clearInterval(heartbeatTimer);
+    connected=false;
+    // Commit the offline heartbeat before unlocking when possible.
+    await sync(true);
+    await releaseLock();
   }
 }
 if(process.argv[1]&&import.meta.url===pathToFileURL(resolve(process.argv[1])).href){

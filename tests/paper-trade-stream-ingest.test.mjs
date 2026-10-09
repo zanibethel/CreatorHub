@@ -1,13 +1,14 @@
 import {test} from "node:test";
 import assert from "node:assert/strict";
 import {readFileSync} from "node:fs";
-import {mkdtemp,rm} from "node:fs/promises";
+import {mkdtemp,rm,readFile} from "node:fs/promises";
 import {tmpdir} from "node:os";
 import {join} from "node:path";
 import {createHash,webcrypto} from "node:crypto";
 import vm from "node:vm";
 import ts from "typescript";
 import {parseFrames,persistFrame,queued,flushOnce,requirePaperConfig,
+  privateFrame,makeOrderedProcessor,acquireWorkerLock,
   PAPER_WS,PAPER_INGEST} from "../workers/alpaca-paper-trade-updates.mjs";
 
 const source=path=>readFileSync(new URL(path,import.meta.url),"utf8");
@@ -138,4 +139,59 @@ test("durable disk queue keeps unacknowledged broker frames until database says 
     assert.equal((await queued(dir)).length,0);
     assert.equal(requests,2);
   }finally{globalThis.fetch=prev;await rm(dir,{recursive:true,force:true});}
+});
+
+test("raw PAPER order frames are sanitized BEFORE being written to durable local spool",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"paper-stream-private-"));
+  try{
+    const file=await persistFrame(dir,event);
+    const raw=await readFile(file,"utf8");
+    assert.equal(privateFrame(event).data.order.id,event.data.order.id);
+    assert.equal(JSON.parse(raw).data.order.filled_qty,"2");
+    assert.doesNotMatch(raw,/private-broker-account-id|DO_NOT_STORE|account_id|secret/);
+    assert.equal((await queued(dir)).length,1);
+    await assert.rejects(persistFrame(dir,{stream:"untrusted",data:event.data}),/Malformed Alpaca/);
+    assert.equal((await queued(dir)).length,1);
+  }finally{await rm(dir,{recursive:true,force:true});}
+});
+test("ordered event processor preserves broker arrival ordering across slow async persistence",async()=>{
+  const seen=[];
+  let releaseFirst;
+  const gate=new Promise(resolve=>releaseFirst=resolve);
+  const failures=[];
+  const processor=makeOrderedProcessor(async(value)=>{
+    if(value==="partial_fill")await gate;
+    seen.push(value);
+  },error=>failures.push(error));
+  processor.push("partial_fill");
+  processor.push("canceled");
+  processor.push("fill");
+  await Promise.resolve();
+  assert.deepEqual(seen,[]);
+  releaseFirst();
+  await processor.drain();
+  assert.deepEqual(seen,["partial_fill","canceled","fill"]);
+  assert.equal(failures.length,0);
+});
+test("ordered processor fails closed instead of persisting later frames after a failed write",async()=>{
+  const seen=[],errors=[];
+  const processor=makeOrderedProcessor(async(value)=>{
+    if(value===1)throw Error("spool unavailable");
+    seen.push(value);
+  },error=>errors.push(error));
+  processor.push(1);
+  processor.push(2);
+  await processor.drain();
+  assert.deepEqual(seen,[]);
+  assert.equal(errors.length,1);
+});
+test("only one local PAPER stream worker can own a spool directory",async()=>{
+  const dir=await mkdtemp(join(tmpdir(),"paper-stream-lock-"));
+  try{
+    const unlock=await acquireWorkerLock(dir);
+    await assert.rejects(acquireWorkerLock(dir),/lock exists/);
+    await unlock();
+    const unlock2=await acquireWorkerLock(dir);
+    await unlock2();
+  }finally{await rm(dir,{recursive:true,force:true});}
 });
