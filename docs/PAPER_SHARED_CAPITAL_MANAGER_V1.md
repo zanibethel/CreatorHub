@@ -43,7 +43,7 @@ Only independently observed, settled, strategy-specific historical results may g
 - `shadow-only`: quality gate passed but portfolio exposure, cash, buying power, symbol conflict, position count or loss circuit breaker prevents a real-sized trade. Future shadow tracking must remain isolated from actual broker fills and P/L.
 - `rejected`: strategy, quote/session, protection, minimum net reward-risk or sufficiently strong negative historical evidence fails. These should be retained for audit, not promoted by extra cash.
 
-Each API request previews one opportunity against an explicit **full portfolio snapshot**. Independent previews are not a batch-allocation algorithm and MUST NOT be combined as if cash had been reserved. This is important in multi-bot races.
+Single-candidate requests are independent and MUST NOT be combined as if cash were reserved. Batch requests rank proposals by conservative strategy-specific expected value (where established), then by net reward/risk, and update a copied snapshot with provisional **in-memory only** cash and risk reservations. Batch output is still advisory: it is not an atomic reservation or an execution grant. Broker writes require a future validated transactional allocator.
 
 ## Acceptance work before switching bot executors
 1. Create separate durable shared-portfolio ledger, cash-reservation, position-ownership, and decision tables with service-role-only access, RLS and an immutable event trail. The $5,000 allocation must have an explicit baseline and effective timestamp; don't revalue historical $100 trades.
