@@ -408,6 +408,94 @@ the official challenge counter.
 
 ---
 
+## Fuse entry-path hardening and Harbor fractional-bracket rejection — October 9, 2026
+
+**Scope:** independently observed production Supabase cron and ledger records,
+Alpaca PAPER open/closed orders and physical positions, GitHub code, CI and
+Vercel deployments. These are point-in-time facts, **not** a claim that the
+first natural stock trade lifecycle is complete.
+
+### Fuse — PR [#95](https://github.com/zanibethel/CreatorHub/pull/95)
+
+- Merged commit `bb078fa6860db415cf02b246d900fa2ead57464c`.
+  Vercel production deployment `dpl_ABTeDtPBA8Mqw7vCZUVi7ezHywpm`
+  verified **READY**, serving `creatorhub-gray.vercel.app`.
+- The scheduler's stable-origin fix in #89 was incomplete:
+  `fuse-execute` still used the inbound deployment host for the
+  read-only preview and protected manager; the preview used that host for
+  readiness. Changed all remaining internal callbacks to the stable public
+  origin. Assert exact Alpaca U.S.-equity asset class and requested ticker
+  before the preexisting single-use SQL pilot claim or broker POST.
+- GitHub CI passed type check, lint, **330/330 PAPER tests** and build.
+  Tests now include protected-origin routing, incorrect broker asset identity,
+  and no-reservation/no-buy on a broker asset mismatch.
+- Observed authentic `fuse-run` at 2026-10-09 **14:50:04 UTC**:
+  **HTTP 200, action `none`, zero consecutive failures**; `fuse-manage`
+  at **14:50:02 UTC**: **HTTP 200, action `completed`**, from
+  `vercel-cron-agent`, after #95 was READY. Fuse had no confirmed broker
+  stock order/fill or virtual stock position, retained independent
+  `$100.000000` ledger equity and unclaimed `fusePilotClientOrderId`.
+- **Gate remains OPEN:** no first naturally selected Fuse PAPER order,
+  independent broker fill and live stop/target inspection, safe close,
+  share/fee reconciliation, or post-close ledger P/L for G2-G7.
+
+### Harbor — PR [#96](https://github.com/zanibethel/CreatorHub/pull/96)
+
+- At **14:50:07 UTC**, the real Harbor runner returned **HTTP 502**
+  (`execution-error`). This was a *new* failure unrelated to the #90
+  intake-journal repair. Production journal recorded a selected/authorized
+  **SNAP** candidate followed by `execution_error` with broker reason
+  `fractional orders must be simple orders`. The attempted bracket
+  quantity was **2.252886510** shares; Alpaca does not accept fractional
+  bracket entries.
+- Broker check: no SNAP stock position, no accepted SNAP order in the
+  relevant Alpaca PAPER order search; lookup by exact client order ID
+  `chb-sw3-v1-mv130t9e-25d165730b8542df935bc2f9` returned
+  **404 not found**. Harbor virtual ledger remained **$100.000000**.
+  That is **not a filled trade**.
+- The local SNAP order remains `submitted`, `broker_order_id=NULL`,
+  `brokerLookupPending=true`; the active shared stock reservation ID
+  `dcb06551-b901-45e3-be72-b8a1243884d2` is intentionally
+  **HELD**. Never release, reset pilot, or retry that client order
+  without separately approved broker/ledger reconciliation and operator
+  token approval.
+- Merged PR #96 commit `61554a6391a65e8822fae6b74bfec1ea225401a9`.
+  Production deployment `dpl_7TNSFytxmexijaWixCbGno4QTPdh` verified
+  **READY** on the production alias at **14:56:23 UTC**.
+- The repair floors bracket quantities to whole shares **without
+  increasing any allocation or risk budget**. A setup too expensive for a
+  single whole share remains research-only, with execution selection and
+  `submissionReady` blocked. Bracket serialization and the executor both
+  reject fractional sizes before any one-shot SQL/broker claim. This is
+  *not* a fractional execution feature and does not lower strategy scoring.
+  PR #96 passed type check, lint, PAPER regression tests and build.
+- Harbor's **14:55:07 UTC** cron returned HTTP 200/action `none`
+  before #96 became READY; it was not post-deployment proof. The next
+  *real scheduled* invocation at **15:00:07 UTC**, after the corrected
+  deployment, returned **HTTP 200/action `none`**, zero consecutive
+  failures, source `vercel-cron-agent`. This independently verifies
+  the production scheduler recovered from the 14:50 502, **not** an
+  actual completed stock fill.
+
+**Cross-bot evidence:** Coil remains disabled; no shared stock reservation
+was released and no PAPER stock buy was forced. Spark's BTC/USD was the
+only broker physical position at this stage, with a matching open
+protective stop-limit sell. Do not conflate the physical Alpaca account
+balance with either bot's independent virtual equity.
+
+**Updated 15:00 UTC scheduler proof:** Fuse `fuse-run` at 15:00:03
+was **HTTP 200/action `none`**; `fuse-manage` at 15:00:04 was
+**HTTP 200/action `completed`**; Harbor `harbor-run` at 15:00:07
+was **HTTP 200/action `none`**. All were authenticated Vercel cron
+sources with zero consecutive failures. Broker lifecycle gates remain open.
+
+**Next gates:** observe naturally qualifying stock broker fills before
+signing G2/G3/G5/G6/G7; reconcile SNAP independently before any
+operator-authorized release. Global crypto scheduler G0 remains open.
+Official challenge/day counter **UNSTARTED**.
+
+---
+
 ## Shared release gates — checklist (retain evidence links per completed item)
 
 - [ ] **G0 — Cron invocation proof:** collect dated authenticated production responses/logs for Fuse's five-minute runner and minute manager, Pulse's runner/stop manager, Atlas's strategy runner, Flash and Spark; ensure security/SSO does not silently block internal same-origin calls. A deployed `vercel.json` cron definition alone is insufficient.
