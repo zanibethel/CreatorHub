@@ -100,7 +100,9 @@ test("current valid broker protective stop requires broker ID attribution and sh
   const r=row(report(f),id);
   assert.equal(r.stopProtectionVerified,true);
   assert.equal(r.brokerAttributionVerified,true);
-  assert.equal(r.executionReadiness,"PAPER execution operational");
+  assert.equal(r.executionReadiness,"PAPER execution implemented but currently blocked");
+  assert.equal(r.evidence.freshQuoteVerified,null);
+  assert.ok(r.warnings.some(x=>x.includes("quote freshness")));
 });
 test("partial stop quantity detects an underprotected broker position",()=>{
   const f=fixture(),id="crypto-ignition-100";
@@ -163,4 +165,12 @@ test("audit is deterministic, read-only, and does not modify the $5K model or PA
   assert.doesNotMatch(route,/https:\/\/api\.alpaca\.markets\/v2/);
   assert.doesNotMatch(route,/method:\s*["'](?:POST|PATCH|DELETE)["']/);
   assert.doesNotMatch(route,/paper_shared_preview_claim|paper_shared_preview_release/);
+});
+
+test("missing current quote evidence never certifies historic fills as execution-ready",()=>{
+  const f=fixture(),id="crypto-ignition-100";
+  f.performance.find(x=>x.bot_id===id).closed_trades=3;
+  const r=row(report(f),id);
+  assert.equal(r.evidence.freshQuoteVerified,null);
+  assert.notEqual(r.executionReadiness,"PAPER execution operational");
 });
