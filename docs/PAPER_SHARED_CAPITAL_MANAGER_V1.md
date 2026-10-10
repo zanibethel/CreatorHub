@@ -1,4 +1,7 @@
 # BigOrders — Shared PAPER Capital Manager v1
+
+> **Architecture update (2026-10-09):** This is the historical v1 $5,000 preview specification, **not** the permanent architecture for trading bots. For future work, follow [the configurable multi-challenge roadmap](./BIGORDERS_MULTI_CHALLENGE_ROADMAP.md) and [12 step prompts](./BIGORDERS_MULTI_CHALLENGE_STEP_PROMPTS.md). Preserve existing preview/ledger safety and treat Step 1 PR #128 as in-progress until its actual status is verified.
+
 **Proposed baseline:** October 9, 2026. **Status:** Preview-only; NOT execution-integrated.
 
 ## Intent and preservation
