@@ -96,7 +96,7 @@ test("current valid broker protective stop requires broker ID attribution and sh
   f.virtualPositions.push({bot_id:id,symbol:"BTC/USD",quantity:0.000213223,protective_stop:82173});
   f.brokerPositions.push({symbol:"BTCUSD",qty:"0.000213223"});
   f.dbBrokerOrders.push({bot_id:id,broker_order_id:"o-1",client_order_id:"chb-spk-v1-aa-bbbbbbbb",symbol:"BTC/USD",side:"sell",status:"new"});
-  f.brokerOrders.push({id:"o-1",client_order_id:"chb-spk-v1-aa-bbbbbbbb",symbol:"BTC/USD",side:"sell",status:"new",type:"stop_limit",qty:"0.000213223"});
+  f.brokerOrders.push({id:"o-1",client_order_id:"chb-spk-v1-aa-bbbbbbbb",symbol:"BTC/USD",side:"sell",status:"new",type:"stop_limit",stop_price:"82173",qty:"0.000213223"});
   const r=row(report(f),id);
   assert.equal(r.stopProtectionVerified,true);
   assert.equal(r.brokerAttributionVerified,true);
@@ -109,7 +109,7 @@ test("partial stop quantity detects an underprotected broker position",()=>{
   f.virtualPositions.push({bot_id:id,symbol:"BTC/USD",quantity:0.000213223,protective_stop:82173});
   f.brokerPositions.push({symbol:"BTC/USD",qty:"0.000213223"});
   f.dbBrokerOrders.push({bot_id:id,broker_order_id:"stop",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new"});
-  f.brokerOrders.push({id:"stop",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new",qty:"0.0001"});
+  f.brokerOrders.push({id:"stop",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new",type:"stop_limit",stop_price:"82173",qty:"0.0001"});
   assert.equal(row(report(f),id).stopProtectionVerified,false);
 });
 test("foreign physical-symbol entry collision fails closed",()=>{
@@ -117,7 +117,7 @@ test("foreign physical-symbol entry collision fails closed",()=>{
   f.virtualPositions.push({bot_id:id,symbol:"BTC/USD",quantity:0.000213223,protective_stop:82173});
   f.brokerPositions.push({symbol:"BTCUSD",qty:"0.000213223"});
   f.dbBrokerOrders.push({bot_id:id,broker_order_id:"stop",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new"});
-  f.brokerOrders.push({id:"stop",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new",qty:"0.000213223"});
+  f.brokerOrders.push({id:"stop",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new",type:"stop_limit",stop_price:"82173",qty:"0.000213223"});
   f.brokerOrders.push({id:"foreign-buy",client_order_id:"external",symbol:"BTCUSD",side:"buy",status:"new",qty:"0.1"});
   assert.equal(row(report(f),id).stopProtectionVerified,false);
 });
@@ -173,4 +173,19 @@ test("missing current quote evidence never certifies historic fills as execution
   const r=row(report(f),id);
   assert.equal(r.evidence.freshQuoteVerified,null);
   assert.notEqual(r.executionReadiness,"PAPER execution operational");
+});
+
+test("broker target limit sell is not mistaken for an active protective stop",()=>{
+ const f=fixture(),id="crypto-ignition-100";
+ f.virtualPositions.push({bot_id:id,symbol:"BTC/USD",quantity:0.000213223,protective_stop:82173});
+ f.brokerPositions.push({symbol:"BTCUSD",qty:"0.000213223"});
+ f.dbBrokerOrders.push({bot_id:id,broker_order_id:"target",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new"});
+ f.brokerOrders.push({id:"target",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"BTC/USD",side:"sell",status:"new",type:"limit",qty:"0.000213223"});
+ assert.equal(row(report(f),id).stopProtectionVerified,false);
+});
+test("applied fill counts cannot alone certify reconciled ledger cash",()=>{
+ const f=fixture(),id="crypto-ignition-100";
+ f.dbBrokerOrders.push({bot_id:id,broker_order_id:"entry",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"SOL/USD",side:"buy",status:"filled"});
+ f.brokerOrders.push({id:"entry",client_order_id:"chb-spk-v1-aa-abcdefgh",symbol:"SOL/USD",side:"buy",status:"filled",submitted_at:f.asOf});
+ assert.equal(row(report(f),id).ledgerReconciled,null);
 });
