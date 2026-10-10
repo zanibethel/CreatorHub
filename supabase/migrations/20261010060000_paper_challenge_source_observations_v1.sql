@@ -149,3 +149,23 @@ REVOKE ALL ON FUNCTION public.paper_challenge_sync_source_observations(text,inte
  FROM PUBLIC,anon,authenticated;
 GRANT EXECUTE ON FUNCTION public.paper_challenge_sync_source_observations(text,integer)
  TO service_role;
+
+-- Owner-only aggregate. Legacy source qualifications are NOT challenge qualification.
+CREATE OR REPLACE VIEW public.paper_challenge_source_observation_summary
+WITH (security_invoker=true)
+AS SELECT i.challenge_id,i.bot_instance_id,i.display_name,i.legacy_source_bot_id,
+  COUNT(o.source_journal_id)::bigint AS observation_count,
+  COUNT(o.source_journal_id) FILTER (WHERE o.source_occurred_at>=now()-interval '24 hours')::bigint AS recent_24h,
+  COUNT(o.source_journal_id) FILTER (WHERE o.source_event_type='candidate')::bigint AS candidate_count,
+  COUNT(o.source_journal_id) FILTER (WHERE o.source_event_type='rejected')::bigint AS rejected_count,
+  COUNT(o.source_journal_id) FILTER (WHERE o.source_event_type='scanner_assigned')::bigint AS scanner_assigned_count,
+  COUNT(o.source_journal_id) FILTER (WHERE o.source_qualification IN ('qualified','trade-ready'))::bigint AS legacy_qualified_count,
+  COUNT(DISTINCT o.source_symbol)::bigint AS distinct_symbols,
+  MAX(o.source_occurred_at) AS latest_source_at
+ FROM public.paper_challenge_bot_instances i
+ JOIN public.paper_challenges c ON c.challenge_id=i.challenge_id
+ LEFT JOIN public.paper_challenge_source_observations o
+   ON o.challenge_id=i.challenge_id AND o.bot_instance_id=i.bot_instance_id
+ GROUP BY i.challenge_id,i.bot_instance_id,i.display_name,i.legacy_source_bot_id;
+REVOKE ALL ON TABLE public.paper_challenge_source_observation_summary FROM PUBLIC,anon,authenticated;
+GRANT SELECT ON TABLE public.paper_challenge_source_observation_summary TO service_role;
