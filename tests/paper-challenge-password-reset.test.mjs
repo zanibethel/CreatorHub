@@ -25,7 +25,7 @@ function makeRoute(reset){
  const js=ts.transpileModule(requestRoute,{compilerOptions:{
    target:ts.ScriptTarget.ES2022,module:ts.ModuleKind.CommonJS,
  }}).outputText;
- vm.runInNewContext(js,{exports,process:{env:{}},require:id=>{
+ vm.runInNewContext(js,{exports,URL,process:{env:{}},require:id=>{
    if(!(id in deps))throw Error("Unexpected import: "+id);
    return deps[id];
  }});
@@ -59,7 +59,7 @@ test("reset API uses public Supabase, a fixed BigOrders return URL, and generic 
  assert.equal(called.options.auth.flowType,"implicit");
  assert.equal(called.options.auth.persistSession,false);
  assert.equal(called.options.auth.detectSessionInUrl,false);
- assert.ok(!("SUPABASE_SECRET_KEY" in requestRoute));
+ assert.doesNotMatch(requestRoute,/SUPABASE_SECRET_KEY/);
 });
 test("reset API returns rate-limited or failed delivery status without exposing private auth details",async()=>{
  const limited=makeRoute(async()=>({error:{status:429,message:"internal"}}));
