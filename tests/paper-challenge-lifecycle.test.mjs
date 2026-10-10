@@ -6,6 +6,8 @@ import ts from "typescript";
 const sql=readFileSync(new URL("../supabase/migrations/20261010040000_paper_shadow_challenge_lifecycle_v1.sql",import.meta.url),"utf8");
 const route=readFileSync(new URL("../src/app/api/paper-trading/bots/challenges/manage/route.ts",import.meta.url),"utf8");
 const get=readFileSync(new URL("../src/app/api/paper-trading/bots/challenges/route.ts",import.meta.url),"utf8");
+const manager=readFileSync(new URL("../src/lib/paper-challenge-manage-service.ts",import.meta.url),"utf8");
+const reader=readFileSync(new URL("../src/lib/paper-challenge-registry-service.ts",import.meta.url),"utf8");
 const code=readFileSync(new URL("../src/lib/paper-challenge-registry.ts",import.meta.url),"utf8");
 const exp={};
 vm.runInNewContext(ts.transpileModule(code,{compilerOptions:{
@@ -55,7 +57,7 @@ test("cannot duplicate physical scenario or legacy challenge capital",()=>{
   assert.match(sql,/shared-paper-v1/);
   assert.match(sql,/legacy-paper-100-v1/);
   assert.match(sql,/Cannot duplicate or replace an existing scenario/);
-  assert.match(route,/Existing\/legacy scenario management/);
+  assert.match(manager,/shared-paper-v1/);
 });
 test("multiple Spark strategy instances may independently exist in one shadow challenge",()=>{
   assert.match(sql,/jsonb_array_length\(p_bots\) NOT BETWEEN 1 AND 16/);
@@ -104,14 +106,14 @@ test("mismatched posted virtual amount or broken ledger balance is rejected",()=
   assert.ok(r.blockers.some(x=>x.includes("opening capital")));
 });
 test("protected API only invokes atomic shadow RPCs",()=>{
-  assert.match(route,/z\.discriminatedUnion/);
-  assert.match(route,/paper_challenge_create_shadow/);
-  assert.match(route,/paper_challenge_configure_shadow/);
-  assert.match(route,/paper_challenge_post_shadow_funding/);
-  assert.match(route,/input\.challengeId==="shared-paper-v1"/);
+  assert.match(manager,/z\.discriminatedUnion/);
+  assert.match(manager,/paper_challenge_create_shadow/);
+  assert.match(manager,/paper_challenge_configure_shadow/);
+  assert.match(manager,/paper_challenge_post_shadow_funding/);
+  assert.match(manager,/input\.challengeId==="shared-paper-v1"/);
   assert.doesNotMatch(route,/\.from\(/);
   assert.doesNotMatch(route,/export async function GET/);
-  assert.match(get,/paper_challenge_funding_postings/);
+  assert.match(get+reader,/paper_challenge_funding_postings/);
 });
 test("posting is idempotent, version checked, and cannot overdraw",()=>{
   assert.match(sql,/Idempotent retry returns the original receipt/);
