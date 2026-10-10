@@ -47,7 +47,8 @@ export async function proxy(request: NextRequest) {
     pathname === "/api/auth/login" ||
     pathname === "/api/auth/signup" ||
     pathname === "/api/auth/logout" ||
-    pathname === "/api/auth/change-password";
+    pathname === "/api/auth/change-password" ||
+    pathname === "/api/auth/request-password-reset";
 
   if (allowedPage || allowedFileApi || allowedAuthApi) return response;
 
