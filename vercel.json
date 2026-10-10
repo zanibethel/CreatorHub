@@ -76,6 +76,10 @@
     {
       "path": "/api/paper-trading/bots/atlas-crypto-run",
       "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/paper-trading/bots/challenges/observations/cron",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
