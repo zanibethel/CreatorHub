@@ -160,7 +160,7 @@ test("audit is deterministic, read-only, and does not modify the $5K model or PA
   const route=read("src/app/api/paper-trading/bots/execution-audit/route.ts");
   assert.match(route,/CRON_SECRET/);
   assert.match(route,/paper-api\.alpaca\.markets/);
-  assert.doesNotMatch(route,/api\.alpaca\.markets\/v2/);
+  assert.doesNotMatch(route,/https:\/\/api\.alpaca\.markets\/v2/);
   assert.doesNotMatch(route,/method:\s*["'](?:POST|PATCH|DELETE)["']/);
   assert.doesNotMatch(route,/paper_shared_preview_claim|paper_shared_preview_release/);
 });
