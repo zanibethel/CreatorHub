@@ -131,7 +131,7 @@ export function buildPaperEightBotAudit(i:AuditInput){
     // reconciliation. Do not emit true without full account-specific proof.
     const ledgerReconciled= i.fillsUnapplied!==null && i.fillsUnapplied>0
       ? false : livePositions.some(p=>!p.verified)?false:null;
-    if(ledger&&botDbOrders.length>0&&ledgerReconciled!==true)
+    if(ledger&&botDbOrders.length>0)
       blockers.push("P1: Ledger/broker full reconciliation not independently established.");
     let readiness:AuditReadiness="PAPER execution implemented but currently blocked";
     if(!profile||!ledger)readiness="Broken / requires repair";
