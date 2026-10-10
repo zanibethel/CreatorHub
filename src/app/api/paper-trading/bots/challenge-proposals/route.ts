@@ -85,10 +85,10 @@ export async function POST(request:Request){
   try{
     const data=parsed.data;
     if("inputs" in data){
-      const result=normalizeChallengeProposalBatch(data.inputs as ChallengeProposalInput[]);
+      const result=normalizeChallengeProposalBatch(data.inputs as unknown as ChallengeProposalInput[]);
       return response({...result,unverifiedCallerSuppliedEvidence:true});
     }
-    const proposal=normalizeChallengeTradeProposal(data.input as ChallengeProposalInput);
+    const proposal=normalizeChallengeTradeProposal(data.input as unknown as ChallengeProposalInput);
     return response({paperOnly:true,brokerOrderAuthorized:false,
       unverifiedCallerSuppliedEvidence:true,proposal});
   }catch{
