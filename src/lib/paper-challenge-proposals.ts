@@ -73,7 +73,7 @@ export type ChallengeProposal={
   challengeId:string;botInstanceId:string;botId:TradingBotId;
   strategyId:string;strategyVersion:number;decisionKey:string;
   sourceAdapter:SourcePlan["adapter"];sourceRecordKey:string;
-  symbol:string;assetClass:AssetClass;
+  symbol:string;assetClass:AssetClass|"unknown";
   strategyApproved:boolean;qualifiedByStrategy:boolean;
   observationState:"reference"|"qualified-observation"|"blocked"|"insufficient-evidence";
   entryPrice:number|null;maximumEntryPrice:number|null;
@@ -180,6 +180,8 @@ export function normalizeChallengeTradeProposal(input:ChallengeProposalInput):Ch
   const seen=validTime(evidence.sourceObservedAt);
   if(at===null||seen===null||seen>at)throw Error("Source evidence timestamp missing or future-dated.");
   const extracted=extractLegacyStrategyPlan(source);
+  const candle=validTime(evidence.completedCandleTimestamp);
+  if(candle===null||candle>at)throw Error("Completed candle evidence missing or future-dated.");
   if(!/^[A-Z0-9./-]{1,24}$/i.test(extracted.symbol))
     throw Error("Invalid or unsafe symbol.");
   const blockers=[...extracted.blockers],warnings=[...extracted.warnings];
@@ -271,7 +273,7 @@ export function normalizeChallengeTradeProposal(input:ChallengeProposalInput):Ch
     strategyId:rules.id,strategyVersion:rules.version,
     decisionKey:namespacedAuditKey(challenge,input.botInstanceId,evidence.sourceRecordKey),
     sourceAdapter:source.adapter,sourceRecordKey:evidence.sourceRecordKey,
-    symbol:extracted.symbol,assetClass:extracted.assetClass??"stock",
+    symbol:extracted.symbol,assetClass:extracted.assetClass??"unknown",
     strategyApproved:extracted.qualified,qualifiedByStrategy:extracted.qualified,
     observationState,entryPrice:extracted.entry,maximumEntryPrice:extracted.maxEntry,
     protectiveStop:extracted.stop,finalTargetPrice:extracted.target,
