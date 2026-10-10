@@ -52,3 +52,11 @@
 .success{background:#143e34;border:1px solid #258879;color:#b1ffe2}
 @media(max-width:960px){.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar>.sectionTop,.sidebar>.newButton,.sidebar>.sideNote{grid-column:1/-1}}
 @media(max-width:620px){.shell{padding:16px 12px 50px}.sidebar{display:flex}.botGrid,.two,.metrics{grid-template-columns:1fr}.panel{padding:18px}.safety span{padding:0 3px}.headerLinks{gap:8px}}
+
+.evidenceGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px;margin:18px 0}
+.evidenceRow{background:#0d2431;border:1px solid #2e5165;border-radius:11px;padding:13px;display:flex;flex-direction:column;gap:12px}
+.evidenceRow strong{font-size:14px}.evidenceRow strong small{font-size:11px;color:#86afc3}
+.evidenceRow>div>small{display:block;margin-top:6px;color:#91adc4;font-size:11px}
+.evidenceStats{display:flex;flex-wrap:wrap;gap:6px}
+.evidenceStats span{background:#183547;border:1px solid #385a69;border-radius:6px;padding:5px 7px;font-size:11px;color:#b9ddf0}
+@media(max-width:620px){.evidenceGrid{grid-template-columns:1fr}}
