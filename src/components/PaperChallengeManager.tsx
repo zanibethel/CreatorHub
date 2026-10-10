@@ -26,6 +26,13 @@ type Challenge={challengeId:string;displayName:string;lifecycle:string;policyId:
  capitalAccountVersion:number|null;brokerOrderAuthorized:boolean;
  blockers:string[];warnings:string[]};
 type Registry={challenges:Challenge[];observedAt:string;brokerExecutionPermitted:false;};
+type EvidenceSummary={challengeId:string;botInstanceId:string;displayName:string;
+ legacyBotId:string|null;totalObservations:number;observations24h:number;
+ sourceCandidateCount:number;sourceRejectedCount:number;sourceScannerAssignedCount:number;
+ legacyQualifiedCount:number;distinctSourceSymbols:number;latestSourceAt:string|null;
+ challengeQualificationVerified:false;hypotheticalProfitLossUsd:null};
+type EvidenceReport={instances:EvidenceSummary[];generatedAt:string;sourceOnly:true;
+ brokerOrderAuthorized:false;simulatedPerformanceMeasured:false};
 type Entry={botInstanceId:string;legacyBotId:string};
 const dollar=(value:number|null|undefined)=>value===null||value===undefined?
  "Unavailable":new Intl.NumberFormat("en-US",{style:"currency",currency:"USD"}).format(value);
@@ -49,6 +56,8 @@ function addEntry(items:Entry[],bot:BotSource):Entry[]{
 }
 export default function PaperChallengeManager(){
  const [registry,setRegistry]=useState<Registry|null>(null);
+ const [evidence,setEvidence]=useState<EvidenceReport|null>(null);
+ const [evidenceError,setEvidenceError]=useState("");
  const [selectedId,setSelectedId]=useState("shared-paper-v1");
  const [tab,setTab]=useState<"create"|"manage">("manage");
  const [busy,setBusy]=useState(false);
@@ -66,6 +75,9 @@ export default function PaperChallengeManager(){
  const fundingKey=useRef<string|null>(null);
  const challenge=registry?.challenges.find(c=>c.challengeId===selectedId);
  const independent=challenge?.capitalSource==="standalone-shadow";
+ const summaries=(evidence?.instances??[]).filter(x=>x.challengeId===selectedId);
+ const totalSourceObservations=summaries.reduce((n,x)=>n+x.totalObservations,0);
+ const recentSourceObservations=summaries.reduce((n,x)=>n+x.observations24h,0);
  const refresh=useCallback(async()=>{
   try{
    const res=await fetch("/api/paper-trading/bots/challenges/owner",
@@ -74,6 +86,15 @@ export default function PaperChallengeManager(){
    if(!res.ok||!Array.isArray(data.challenges))
      throw Error(data.error||"Could not load challenges.");
    setRegistry(data);
+   try{
+    const evidenceRes=await fetch("/api/paper-trading/bots/challenges/observations",
+      {method:"GET",credentials:"same-origin",cache:"no-store"});
+    if(!evidenceRes.ok)throw Error("Research evidence summary is currently unavailable.");
+    const incoming=await evidenceRes.json() as EvidenceReport;
+    if(!Array.isArray(incoming.instances)||incoming.sourceOnly!==true||
+      incoming.brokerOrderAuthorized!==false)throw Error("Source evidence report is invalid.");
+    setEvidence(incoming);setEvidenceError("");
+   }catch{setEvidence(null);setEvidenceError("Source observation comparison unavailable.");}
    setSelectedId(old=>data.challenges.some(x=>x.challengeId===old)?old:
      (data.challenges[0]?.challengeId??""));
   }catch(e){setError(e instanceof Error?e.message:"Unable to load challenge registry.");}
@@ -105,6 +126,23 @@ export default function PaperChallengeManager(){
     return true;
    }catch(e){setError(e instanceof Error?e.message:"Change rejected.");return false;}
    finally{setBusy(false);}
+ };
+ const capture=async()=>{
+  if(!challenge||challenge.lifecycle!=="preview")return;
+  setBusy(true);setError("");setNotice("");
+  try{
+   const res=await fetch("/api/paper-trading/bots/challenges/observations",{
+    method:"POST",credentials:"same-origin",cache:"no-store",
+    headers:{"Content-Type":"application/json"},
+    body:JSON.stringify({challengeId:challenge.challengeId}),
+   });
+   const result=await res.json() as {error?:string;newObservations?:number};
+   if(!res.ok||typeof result.newObservations!=="number")
+    throw Error(result.error??"Unable to capture source research.");
+   await refresh();
+   setNotice(`Captured ${result.newObservations} additional strategy source observations; no fills or trades were created.`);
+  }catch(e){setError(e instanceof Error?e.message:"Unable to capture research evidence.");}
+  finally{setBusy(false);}
  };
  const validateEntries=()=>entries.length>0&&entries.length<=16;
  const create=async(e:React.FormEvent)=>{
@@ -254,6 +292,37 @@ export default function PaperChallengeManager(){
              </div>}
              {!independent&&<p className={styles.help}>This is the original linked $5,000 preview. Its balance remains authoritative in the shared scenario. Changes and funding are intentionally disabled here.</p>}
              <div className={styles.metadata}>As of {registry?.observedAt?local(registry.observedAt):"unknown"} · Broker execution disabled</div>
+           </section>
+           <section className={styles.panel}>
+             <div className={styles.sectionTop}>
+               <h2>Strategy evidence by challenge</h2>
+               <span>Source replay only</span>
+             </div>
+             <p className={styles.help}>This is an independently named record of each bot instance&apos;s existing strategy research, captured after that challenge and instance were registered. The observations can share underlying source signals; they are not independent live executions, validated new strategy selections, simulated fills, or measured profit.</p>
+             <div className={styles.metrics}>
+               <div><small>Source events recorded</small><strong>{evidence?totalSourceObservations:"—"}</strong></div>
+               <div><small>Source events, 24 hours</small><strong>{evidence?recentSourceObservations:"—"}</strong></div>
+             </div>
+             {evidenceError&&<p className={styles.help} role="status">{evidenceError}</p>}
+             <div className={styles.evidenceGrid}>
+               {summaries.map(s=><div key={s.botInstanceId} className={styles.evidenceRow}>
+                 <div><strong>{s.displayName} <small>· {s.botInstanceId}</small></strong>
+                 <small>{s.latestSourceAt?"Latest: "+local(s.latestSourceAt):"No captured source events"}</small></div>
+                 <div className={styles.evidenceStats}>
+                   <span>{s.totalObservations} total</span>
+                   <span>{s.observations24h} / 24h</span>
+                   <span>{s.sourceCandidateCount} candidates</span>
+                   <span>{s.sourceRejectedCount} rejected</span>
+                   <span>{s.distinctSourceSymbols} symbols</span>
+                 </div>
+               </div>)}
+             </div>
+             <div className={styles.actions}>
+               <button type="button" disabled={busy||challenge.lifecycle!=="preview"}
+                  onClick={()=>void capture()}>Capture latest source observations</button>
+               <button type="button" disabled={busy} onClick={()=>void refresh()}>Refresh comparison</button>
+             </div>
+             <p className={styles.help}>Automatically checks every 15 minutes while the challenge is in preview. Recorded shadow P/L: not yet measured; data is source-attribution only. No new buying power or risk permissions are issued.</p>
            </section>
            {independent?<section className={styles.panel}>
              <div className={styles.sectionTop}><h2>Configure this challenge</h2><span>Versioned changes</span></div>
