@@ -34,7 +34,8 @@ export type AuditDbPosition = {bot_id:string;symbol:string;quantity:Value;
 export type AuditDbOrder = {bot_id:string;broker_order_id:string;
   client_order_id:string;symbol:string;side:string;status:string};
 export type AuditBrokerOrder = {id:string;client_order_id:string;symbol:string;
-  side:string;status:string;type?:string|null;qty?:string|null};
+  side:string;status:string;type?:string|null;qty?:string|null;
+  stop_price?:string|null;submitted_at?:string|null};
 export type AuditBrokerPosition = {symbol:string;qty:string};
 export type AuditInput = {
   asOf:string;windowStart:string;ledgers:AuditLedger[];performance:AuditPerformance[];
@@ -86,7 +87,9 @@ export function buildPaperEightBotAudit(i:AuditInput){
       blockers.push("P1: Recent cron failure streak requires inspection.");
     const livePositions=positions.map(p=>{
       const broker=brokerPositions.find(b=>norm(b.symbol)===norm(p.symbol));
-      const sells=matchedBroker.filter(o=>norm(o.symbol)===norm(p.symbol)&&o.side==="sell"&&isActive(o.status));
+      const sells=matchedBroker.filter(o=>norm(o.symbol)===norm(p.symbol)&&o.side==="sell"&&
+        isActive(o.status)&&["stop","stop_limit","trailing_stop"].includes(o.type??"")&&
+        (numeric(o.stop_price)??0)>0);
       const qty=numeric(p.quantity);
       const stop=numeric(p.protective_stop);
       const physicalQty=broker?numeric(broker.qty):null;
@@ -124,10 +127,10 @@ export function buildPaperEightBotAudit(i:AuditInput){
     if(attribution===false)blockers.push("P1: Bot-tagged order missing from broker attribution journal.");
     const currentStop=livePositions.length>0&&brokerVerified
       ?livePositions.every(p=>p.verified):null;
-    const ledgerReconciled=ledger&&brokerVerified&&i.fillsUnapplied===0 &&
-      (livePositions.length>0?livePositions.every(p=>p.verified):
-      botDbOrders.length>0&&!brokerPositions.some(p=>botDbOrders.some(o=>norm(o.symbol)===norm(p.symbol))))
-      ?true:null;
+    // A count of applied fills and matched stops is NOT a cash/fee/position
+    // reconciliation. Do not emit true without full account-specific proof.
+    const ledgerReconciled= i.fillsUnapplied!==null && i.fillsUnapplied>0
+      ? false : livePositions.some(p=>!p.verified)?false:null;
     if(ledger&&botDbOrders.length>0&&ledgerReconciled!==true)
       blockers.push("P1: Ledger/broker full reconciliation not independently established.");
     let readiness:AuditReadiness="PAPER execution implemented but currently blocked";
@@ -154,12 +157,25 @@ export function buildPaperEightBotAudit(i:AuditInput){
       lastEvaluationAt:perf?.latest_candidate_at??null,lastSuccessfulJobAt,
       candidateCount:numeric(perf?.candidate_checks_7d),
       strategyQualifiedCount:null,readyCount:null,capitalBlockedCount:null,
-      submittedOrderCount:brokerVerified?matchedBroker.length:null,
-      filledOrderCount:brokerVerified?matchedBroker.filter(o=>o.status==="filled").length:null,
+      submittedOrderCount:brokerVerified?matchedBroker.filter(o=>
+        o.submitted_at&&Date.parse(o.submitted_at)>=Date.parse(i.windowStart)&&
+        Date.parse(o.submitted_at)<=Date.parse(i.asOf)).length:null,
+      filledOrderCount:brokerVerified?matchedBroker.filter(o=>o.status==="filled"&&
+        o.submitted_at&&Date.parse(o.submitted_at)>=Date.parse(i.windowStart)&&
+        Date.parse(o.submitted_at)<=Date.parse(i.asOf)).length:null,
       openPositionCount:brokerVerified?livePositions.length:null,
       closedTradeCount:numeric(perf?.closed_trades),
       ledgerReconciled,stopProtectionVerified:currentStop,brokerAttributionVerified:attribution,
       sharedCapitalCompatible:false,
+      challengePortability:{
+        role:"trading" as const,proposedStrategyId:ledger?.strategy_id??profile?.strategyId??null,
+        challengeIdSupported:false,botInstanceIdSupported:false,
+        externallySuppliedCapitalContextSupported:false,
+        brokerAccountIsolationVerified:false,
+        missingAdapters:["challenge-scoped strategy evaluation","challenge-scoped proposal",
+          "instance-specific journal/ledger","challenge allocator grant",
+          "physical PAPER broker account isolation","challenge-scoped exit ownership"],
+      },
       blockers:unique(blockers),warnings:unique(warnings),
       evidence:{
         source:"Supabase ledgers/performance/cron/broker journals + independent Alpaca PAPER GET",
@@ -187,7 +203,11 @@ export function buildPaperEightBotAudit(i:AuditInput){
       orderId:o.id,clientOrderId:o.client_order_id,symbol:o.symbol,status:o.status,
       needsManualClassification:true,
     })):null,
-    countCaveat:"candidateCount counts evaluations, not unique ideas. Qualified/ready/capital-only counts intentionally null without verified per-decision classifications.",
+    unattributedBrokerPositions:brokerVerified?brokerPositions.filter(p=>
+      !i.virtualPositions.some(v=>norm(v.symbol)===norm(p.symbol))).map(p=>({
+      symbol:p.symbol,qty:p.qty,requiresPhysicalOwnershipReconciliation:true,
+    })):null,
+    countCaveat:"CandidateCount counts rolling seven-day evaluations, not unique ideas. Order counts use broker submitted_at within the same window but depend on the broker's returned 500-order history. ClosedTradeCount is cumulative. Qualified/ready/capital-only counts are null absent verified per-decision classifications. Ledgers cannot be certified reconciled without fees and all physical-account fills.",
     bots:rows,
   };
 }
