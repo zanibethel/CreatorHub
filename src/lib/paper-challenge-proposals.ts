@@ -179,13 +179,21 @@ export function normalizeChallengeTradeProposal(input:ChallengeProposalInput):Ch
   const at=validTime(input.observedAt);
   const seen=validTime(evidence.sourceObservedAt);
   if(at===null||seen===null||seen>at)throw Error("Source evidence timestamp missing or future-dated.");
+  if(source.adapter==="atlas"||source.adapter==="orbit"||source.adapter==="coil"){
+    if(source.plan.botId!==source.botId||source.plan.strategyId!==rules.id||source.plan.strategyVersion!==rules.version)
+      throw Error("Legacy plan identity differs from bound strategy.");
+  }
+  if(source.adapter==="fuse" && (source.result.botId!==source.botId||
+    source.result.strategyId!==rules.id||source.result.strategyVersion!==rules.version))
+    throw Error("Fuse readiness identity differs from bound strategy.");
   const extracted=extractLegacyStrategyPlan(source);
-  const candle=validTime(evidence.completedCandleTimestamp);
-  if(candle===null||candle>at)throw Error("Completed candle evidence missing or future-dated.");
   if(!/^[A-Z0-9./-]{1,24}$/i.test(extracted.symbol))
     throw Error("Invalid or unsafe symbol.");
   const blockers=[...extracted.blockers],warnings=[...extracted.warnings];
   if(!extracted.assetClass)blockers.push("Asset class is unknown.");
+  const candle=validTime(evidence.completedCandleTimestamp);
+  if(candle===null||candle>at)blockers.push("Completed candle provenance missing or future-dated.");
+  if(at-seen>86_400_000)blockers.push("Strategy observation is more than 24 hours old.");
   if(source.botId==="crypto-swing-100"||source.botId==="squeeze-breakout-100")
     blockers.push("Research-only strategy cannot be promoted to execution-ready.");
   const quote=validTime(evidence.quoteTimestamp);
