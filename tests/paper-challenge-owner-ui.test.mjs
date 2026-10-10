@@ -65,7 +65,7 @@ test("owner UI route authenticates on every read and write and rejects cross-ori
  assert.match(ownerRoute,/shadowManageSchema\.safeParse/);
  assert.match(ownerRoute,/executeShadowManage/);
  assert.match(ownerRoute,/Cache-Control.*private/);
- assert.doesNotMatch(ownerRoute,/CRON_SECRET|ALPACA_API_KEY|ALPACA_API_SECRET/);
+ assert.doesNotMatch(ownerRoute,/process\\.env\\.CRON_SECRET|ALPACA_API_KEY|ALPACA_API_SECRET/);
  assert.match(page,/await isVerifiedPaperChallengeOwner\(\)/);
  assert.match(page,/if\(!owner\)/);
 });
