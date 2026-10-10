@@ -14,3 +14,7 @@
 .footer{display:flex;flex-wrap:wrap;justify-content:space-between;gap:14px;align-items:center;margin-top:32px;border-top:1px solid #33495d;padding-top:21px}
 .footer a{color:#83e8ff;font-size:13px;text-decoration:none}
 .footer span{color:#8297ac;font-size:11px}
+
+.textButton{display:block;width:100%;margin-top:13px;padding:9px;border:none;background:transparent;color:#91eafe;font-size:13px;font-weight:700;text-decoration:underline;cursor:pointer}
+.textButton:disabled{opacity:.65;cursor:not-allowed}
+.primaryLink{display:block;text-align:center;border:1px solid #5ae5f2;border-radius:11px;background:linear-gradient(120deg,#32d3df,#249fcf);padding:14px 18px;color:#082233;font-weight:800;text-decoration:none;margin-top:17px}
