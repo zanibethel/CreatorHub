@@ -96,7 +96,7 @@ export function buildPaperChallengeRegistry(snapshot:RegistrySnapshot){
     if(funding.some(x=>x.posting_state!=="recorded-unposted"))
       blockers.push("Unexpected funding state; require immutable posting receipt.");
     if(unposted.length)
-      warnings.push("Recorded funding instructions without posted receipts are excluded from capital.");
+      warnings.push("Recorded unposted funding instructions are excluded from capital until a matching immutable receipt exists.");
     if(postings.some(p=>p.broker_order_authorized||!p.paper_only||
       !funding.some(f=>f.event_key===p.event_key&&near(numeric(f.amount_delta),numeric(p.amount_delta)))))
       blockers.push("Funding receipt lacks matching signed event evidence.");
