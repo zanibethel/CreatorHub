@@ -135,7 +135,8 @@ test("migration has six RLS-denied tables, cannot enable PAPER brokers, and pres
 test("API is secret protected, read-only, and does not count mirrors as money",()=>{
  const route=readFileSync(new URL("../src/app/api/paper-trading/bots/challenges/route.ts",import.meta.url),"utf8");
  assert.match(route,/CRON_SECRET/);
- assert.match(route,/brokerOrderAuthorized|brokerExecutionPermitted|buildPaperChallengeRegistry/);
+ const service=readFileSync(new URL("../src/lib/paper-challenge-registry-service.ts",import.meta.url),"utf8");
+ assert.match(route+service,/brokerOrderAuthorized|brokerExecutionPermitted|buildPaperChallengeRegistry/);
  assert.doesNotMatch(route,/export async function POST|export async function PATCH|export async function DELETE/);
  assert.doesNotMatch(route,/ALPACA_API_KEY_ID|paper_shared_preview_claim/);
 });
