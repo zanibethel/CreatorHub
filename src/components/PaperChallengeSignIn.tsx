@@ -17,6 +17,7 @@ export default function PaperChallengeSignIn({signedIn,email}:{
   const [password,setPassword]=useState("");
   const [pending,setPending]=useState(false);
   const [message,setMessage]=useState("");
+  const [resetMode,setResetMode]=useState(false);
 
   async function signIn(event:FormEvent<HTMLFormElement>){
     event.preventDefault();
@@ -36,6 +37,24 @@ export default function PaperChallengeSignIn({signedIn,email}:{
       setMessage(error instanceof Error?error.message:"Could not sign in.");
       setPending(false);
     }
+  }
+
+  async function requestPasswordReset(event:FormEvent<HTMLFormElement>){
+    event.preventDefault();
+    if(pending)return;
+    setPending(true);setMessage("");
+    try{
+      const response=await fetch("/api/auth/request-password-reset",{
+        method:"POST",credentials:"same-origin",cache:"no-store",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({email:username.trim()}),
+      });
+      const data=await response.json().catch(()=>({})) as {error?:string;message?:string};
+      if(!response.ok)throw Error(data.error||"Unable to request a reset email.");
+      setMessage(data.message||"If an account exists, check its inbox and spam folder for a reset link.");
+    }catch(error){
+      setMessage(error instanceof Error?error.message:"Unable to request a reset email.");
+    }finally{setPending(false);}
   }
 
   async function switchAccount(){
@@ -72,21 +91,29 @@ export default function PaperChallengeSignIn({signedIn,email}:{
             {pending?"Signing out…":"Switch to owner account"}
           </button>
         </section>:
-        <form onSubmit={signIn}>
+        <form onSubmit={resetMode?requestPasswordReset:signIn}>
           <label className={styles.field}>
             Account email
             <input type="email" autoComplete="username" required value={username}
               disabled={pending} onChange={e=>setUsername(e.target.value)}
               placeholder="Your CreatorHub owner email"/>
           </label>
-          <label className={styles.field}>
+          {!resetMode&&<label className={styles.field}>
             Password
             <input type="password" autoComplete="current-password" required
               value={password} disabled={pending} onChange={e=>setPassword(e.target.value)}
               placeholder="Password"/>
-          </label>
+          </label>}
+          {resetMode&&<p className={styles.hint}>We'll email a secure reset link for your existing CreatorHub account. Open the email to choose a new password, then return directly to BigOrders.</p>}
           <button type="submit" className={styles.primary} disabled={pending}>
-            {pending?"Signing in…":"Sign in to Challenge Manager"}
+            {resetMode?(pending?"Requesting link…":"Email me a password-reset link"):
+              (pending?"Signing in…":"Sign in to Challenge Manager")}
+          </button>
+          <button type="button" className={styles.textButton} disabled={pending}
+            onClick={()=>{
+              setMessage("");setPassword("");setResetMode(value=>!value);
+            }}>
+            {resetMode?"Back to sign in":"Forgot password?"}
           </button>
         </form>}
       {message&&<p className={styles.error} role="alert">{message}</p>}
