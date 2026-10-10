@@ -1,0 +1,54 @@
+.shell{max-width:1440px;margin:0 auto;padding:30px clamp(16px,3.5vw,52px) 84px;color:#f3f6ff}
+.hero{border:1px solid #23465d;background:radial-gradient(ellipse at 85% 0%,#14547880,transparent 55%),linear-gradient(135deg,#142234,#10111f);border-radius:22px;padding:clamp(22px,4vw,42px);box-shadow:0 22px 60px #0005}
+.hero h1{font-size:clamp(30px,4vw,48px);margin:12px 0;font-weight:800;letter-spacing:-.025em}
+.hero p{max-width:800px;color:#bccee0;font-size:15px;line-height:1.65}
+.kicker{color:#67dcf7;font-size:11px;letter-spacing:.18em;font-weight:800;text-transform:uppercase}
+.headerLinks{display:flex;flex-wrap:wrap;gap:12px;margin-top:22px}
+.headerLinks a,.headerLinks button{background:#13334d;border:1px solid #36617e;border-radius:9px;padding:10px 15px;color:#c9f5ff;font-size:13px;text-decoration:none;cursor:pointer}
+.headerLinks a:hover,.headerLinks button:hover{background:#205779}
+.safety{color:#b4ffdf;border:1px solid #245d52;background:#11392f65;border-radius:12px;margin:20px 0;padding:13px 16px;font-size:12px;font-weight:700}
+.safety span{padding:0 9px;opacity:.5}
+.layout{display:grid;grid-template-columns:minmax(230px,310px) minmax(0,1fr);gap:22px;align-items:start}
+.sidebar,.main{min-width:0}.sidebar{display:flex;flex-direction:column;gap:12px}.main,.stack{display:flex;flex-direction:column;gap:20px}
+.sectionTop{display:flex;align-items:center;justify-content:space-between;gap:14px;margin-bottom:20px}
+.sectionTop h2{font-size:20px;margin:0}.sectionTop>span,.cardTop span{border-radius:20px;border:1px solid #3e687d;background:#122a3b;padding:5px 10px;font-size:11px;color:#ace5f1;text-transform:uppercase;letter-spacing:.06em}
+.challengeCard,.selectedCard{width:100%;text-align:left;cursor:pointer;border-radius:14px;padding:17px;background:#141b2b;border:1px solid #33405a;color:#f5f8ff}
+.selectedCard{border-color:#3fd6ed;background:linear-gradient(125deg,#143548,#171c33);box-shadow:0 0 0 1px #3fd6ed33}
+.cardTop{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}.cardTop strong{line-height:1.4;font-size:13px}
+.cardValue{font-size:26px;font-weight:750;letter-spacing:-.025em;margin:12px 0 5px}
+.challengeCard small,.selectedCard small{color:#9fb2c9;line-height:1.5;display:block}
+.newButton{width:100%;background:#17455b;border:1px dashed #4bbac9;color:#b6f6ff;cursor:pointer;border-radius:12px;padding:14px;font-weight:700}
+.newButton:hover{background:#225c70}
+.sideNote{font-size:12px;line-height:1.65;color:#8ca5bb;padding:10px}
+.panel{background:linear-gradient(140deg,#151c2a,#131827);border:1px solid #334259;border-radius:18px;padding:clamp(20px,3vw,30px)}
+.panel h3{font-size:15px;margin:26px 0 10px}.panel h3 small{color:#9ac5d4;font-weight:400;margin-left:7px}
+.help{font-size:13px;color:#a7bad0;line-height:1.65}
+.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:16px 0}
+.field{display:flex;flex-direction:column;gap:8px;color:#bcd4e7;font-size:13px;font-weight:600;margin:16px 0}
+.field input{width:100%;box-sizing:border-box;background:#0d1524;color:#fff;border:1px solid #426078;border-radius:10px;padding:12px 13px;font-size:14px;outline-color:#47cfe3}
+.editor{margin-top:18px}.botGrid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px;margin-top:14px}
+.botRow{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#101c2b;border:1px solid #304258;border-radius:10px;padding:12px}
+.botRow strong{font-size:14px;display:block}.botRow small{display:block;margin-top:5px;color:#9db1c6;font-size:11px}
+.stepper{display:flex;align-items:center;gap:8px}.stepper button{width:27px;height:27px;display:grid;place-items:center;padding:0;border:1px solid #3f6581;background:#19344d;color:#dcf9ff;border-radius:8px;font-size:18px;cursor:pointer}.stepper span{font-weight:700;font-size:13px;min-width:10px;text-align:center}
+.stepper button:disabled{opacity:.35;cursor:not-allowed}
+.research{display:flex;gap:12px;flex-wrap:wrap}.research label{display:flex;align-items:center;gap:10px;border:1px solid #365064;background:#122439;padding:12px 16px;border-radius:11px;cursor:pointer}.research strong{display:block;font-size:14px}.research small{display:block;margin-top:3px;color:#9ac5d4;font-size:11px}
+.actions{display:flex;align-items:center;flex-wrap:wrap;gap:12px;margin-top:24px}
+.actions button,.primary{font-size:13px;cursor:pointer;padding:12px 17px;border:1px solid #46617b;background:#1a3047;color:#e5f7ff;border-radius:10px;font-weight:750}
+.actions .primary,.primary{background:linear-gradient(115deg,#16b9d1,#1e80c3);border-color:#3dd9ee;color:#061421}
+.actions .danger{border-color:#945163;background:#482536;color:#ffdee8}
+.actions button:disabled,.primary:disabled{opacity:.5;cursor:not-allowed}
+.metrics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.metrics div{padding:18px;border:1px solid #335069;border-radius:12px;background:#0c1b2c}
+.metrics small{display:block;color:#a5bdd0;margin-bottom:7px;font-size:12px}.metrics strong{font-size:clamp(18px,2vw,26px)}
+.inlineFacts{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}
+.inlineFacts span,.chips span{border:1px solid #38556e;background:#1a2a3e;color:#bddce7;padding:7px 9px;border-radius:8px;font-size:11px}
+.chips{display:flex;flex-wrap:wrap;gap:9px}
+.metadata{margin-top:20px;color:#849cb7;font-size:11px}
+.fundingChoice{border:0;padding:0;margin:18px 0;display:flex;gap:18px}
+.fundingChoice legend{margin-bottom:8px;font-size:12px;color:#c2deeb;font-weight:700}
+.fundingChoice label{display:flex;gap:6px;align-items:center;color:#def9ff;font-size:13px}
+.error,.success,.alert{border-radius:10px;padding:13px 16px;margin:16px 0;font-size:13px;line-height:1.55}
+.error,.alert{background:#47212f;border:1px solid #93445b;color:#ffd6de}
+.success{background:#143e34;border:1px solid #258879;color:#b1ffe2}
+@media(max-width:960px){.layout{grid-template-columns:1fr}.sidebar{display:grid;grid-template-columns:repeat(2,minmax(0,1fr))}.sidebar>.sectionTop,.sidebar>.newButton,.sidebar>.sideNote{grid-column:1/-1}}
+@media(max-width:620px){.shell{padding:16px 12px 50px}.sidebar{display:flex}.botGrid,.two,.metrics{grid-template-columns:1fr}.panel{padding:18px}.safety span{padding:0 3px}.headerLinks{gap:8px}}
