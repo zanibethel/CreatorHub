@@ -264,7 +264,8 @@ export function normalizeChallengeTradeProposal(input:ChallengeProposalInput):Ch
     const maxQty=Math.min(notionalCap/(entry*(1+feeRate)),challenge.equityUsd*riskPct/100/lossPerUnit);
     const qty=floor(maxQty,extracted.assetClass==="crypto"?1_000_000_000:
       input.fractionalStockEligibilityVerified===true?1_000_000_000:1);
-    if(qty>0 && qty*entry>=rules.minNotional){
+    if(qty>0 && qty*entry>=Math.max(rules.minNotional,
+      extracted.assetClass==="crypto"?POLICY.minimumCryptoNotionalUsd:1)){
       requestedQuantity=qty;requestedNotionalUsd=rounded(qty*entry);
       plannedDollarLoss=rounded(qty*lossPerUnit);
       estimatedRoundTripCostsUsd=rounded(qty*entry*feeRate);
