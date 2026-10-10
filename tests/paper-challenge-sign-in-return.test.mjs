@@ -92,8 +92,9 @@ test("a session without owner access can switch accounts without visiting Creato
   const button=find(tree,n=>n.type==="button"&&String(n.props.children).includes("Switch to owner account"));
   assert.ok(button);
   button.props.onClick();
-  await Promise.resolve();
-  await Promise.resolve();
+  // The UI intentionally fires-and-forgets sign-out from its click handler;
+  // allow the async fetch and navigation microtasks to finish before asserting.
+  await new Promise(resolve=>setImmediate(resolve));
   assert.equal(request.path,"/api/auth/logout");
   assert.equal(request.opts.credentials,"same-origin");
   assert.equal(redirected,"/paper-trading/bots/challenges");
