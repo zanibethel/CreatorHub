@@ -41,7 +41,8 @@ test("Step 4 creates privately callable, service-only atomic RPC functions",()=>
   assert.doesNotMatch(sql,/UPDATE public\.paper_shared_portfolio_scenarios/);
 });
 test("Step 4 never creates an executing broker challenge",()=>{
-  assert.match(sql,/broker_execution_enabled=false/);
+  assert.match(sql,/v_c\.broker_execution_enabled/);
+  assert.match(sql,/v_a\.broker_execution_enabled/);
   assert.match(sql,/brokerOrderAuthorized',false/);
   assert.match(sql,/source_kind<>'standalone-shadow'/);
   assert.match(sql,/legacy_scenario_id IS NOT NULL/);
