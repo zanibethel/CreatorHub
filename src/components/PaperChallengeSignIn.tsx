@@ -104,7 +104,7 @@ export default function PaperChallengeSignIn({signedIn,email}:{
               value={password} disabled={pending} onChange={e=>setPassword(e.target.value)}
               placeholder="Password"/>
           </label>}
-          {resetMode&&<p className={styles.hint}>We'll email a secure reset link for your existing CreatorHub account. Open the email to choose a new password, then return directly to BigOrders.</p>}
+          {resetMode&&<p className={styles.hint}>We&apos;ll email a secure reset link for your existing CreatorHub account. Open the email to choose a new password, then return directly to BigOrders.</p>}
           <button type="submit" className={styles.primary} disabled={pending}>
             {resetMode?(pending?"Requesting link…":"Email me a password-reset link"):
               (pending?"Signing in…":"Sign in to Challenge Manager")}
