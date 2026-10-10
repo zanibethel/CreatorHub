@@ -16,10 +16,11 @@ export const metadata:Metadata={
  */
 export default async function ChallengeManagerPage(){
  const owner=await isVerifiedPaperChallengeOwner();
- if(owner)return <PaperChallengeManager/>;
-
- const supabase=await createServerSupabaseClient();
- const {data:{user},error}=await supabase.auth.getUser();
- return <PaperChallengeSignIn signedIn={!error&&Boolean(user)}
-   email={!error?user?.email??null:null}/>;
+ if(!owner){
+   const supabase=await createServerSupabaseClient();
+   const {data:{user},error}=await supabase.auth.getUser();
+   return <PaperChallengeSignIn signedIn={!error&&Boolean(user)}
+     email={!error?user?.email??null:null}/>;
+ }
+ return <PaperChallengeManager/>;
 }
