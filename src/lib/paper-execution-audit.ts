@@ -114,6 +114,8 @@ export function buildPaperEightBotAudit(i:AuditInput){
       warnings.push("No attributable Flash live PAPER fill; candidate volume is not trade proof.");
     if(botId==="crypto-ignition-100")
       warnings.push("Crypto stop-limit may trigger without filling; monitor price/quantity and repair coverage.");
+    if(enabled)
+      warnings.push("Current quote freshness and complete future-stop recovery are not independently certified by this snapshot.");
     if(nonBotBrokerOrders.some(o=>isActive(o.status)&&positions.some(p=>norm(p.symbol)===norm(o.symbol))))
       blockers.push("P0: Non-bot broker order may overlap this bot's physical symbol.");
     const attribution=brokerVerified&&(tagged.length+matchedBroker.length>0)
@@ -132,10 +134,10 @@ export function buildPaperEightBotAudit(i:AuditInput){
     if(!profile||!ledger)readiness="Broken / requires repair";
     else if(!enabled&&profile.executionState==="research")readiness="Research-only";
     else if(botId==="three-trade-weekly-swing-100")readiness="PAPER execution partially implemented";
-    else if(enabled&&!claimedPilot&&botId==="crypto-ignition-100"&&
-      numeric(perf?.closed_trades)!==null&&numeric(perf?.closed_trades)!>0&&
-      attribution===true&&livePositions.every(p=>p.verified)&&brokerVerified)
-      readiness="PAPER execution operational";
+    // Historic fills, a broker stop and HTTP-200 crons establish implemented
+    // execution, not current quote validity or full failure-recovery proof.
+    // No audited source of fresh quote evidence is supplied here: never promote
+    // a PAPER route to operational solely from order history.
     const lastSuccessfulJobAt=jobs.map(x=>x.last_success_at).filter((s):s is string=>!!s).sort().at(-1)??null;
     if(permission==="unavailable")blockers.push("P1: Effective execution permission unknown.");
     const missingProposalFields=[
@@ -152,8 +154,8 @@ export function buildPaperEightBotAudit(i:AuditInput){
       lastEvaluationAt:perf?.latest_candidate_at??null,lastSuccessfulJobAt,
       candidateCount:numeric(perf?.candidate_checks_7d),
       strategyQualifiedCount:null,readyCount:null,capitalBlockedCount:null,
-      submittedOrderCount:brokerVerified?matchedBroker.filter(o=>o.side==="buy").length:null,
-      filledOrderCount:brokerVerified?matchedBroker.filter(o=>o.side==="buy"&&o.status==="filled").length:null,
+      submittedOrderCount:brokerVerified?matchedBroker.length:null,
+      filledOrderCount:brokerVerified?matchedBroker.filter(o=>o.status==="filled").length:null,
       openPositionCount:brokerVerified?livePositions.length:null,
       closedTradeCount:numeric(perf?.closed_trades),
       ledgerReconciled,stopProtectionVerified:currentStop,brokerAttributionVerified:attribution,
@@ -165,6 +167,9 @@ export function buildPaperEightBotAudit(i:AuditInput){
         brokerMatchedOrderCount:brokerVerified?matchedBroker.length:null,
         currentVirtualPositionCount:positions.length,
         missingProposalFields,executionEnabledFlag:enabled,oneShotPilotConsumed:claimedPilot,
+        brokerEntryOrders:brokerVerified?matchedBroker.filter(o=>o.side==="buy").length:null,
+        brokerEntryFills:brokerVerified?matchedBroker.filter(o=>o.side==="buy"&&o.status==="filled").length:null,
+        freshQuoteVerified:null,
       },
       recommendedNextActions:readiness==="Research-only"
         ?["Keep research-only; design protection-tested broker adapter during later steps."]
