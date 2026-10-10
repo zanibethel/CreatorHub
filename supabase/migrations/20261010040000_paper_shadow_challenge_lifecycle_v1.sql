@@ -2,6 +2,10 @@
 -- No broker execution, no orders, no legacy scenario/account changes.
 -- Legacy $100 bot ledgers are never capital authority for new challenges.
 
+CREATE SCHEMA IF NOT EXISTS bigorders_private;
+REVOKE ALL ON SCHEMA bigorders_private FROM PUBLIC,anon,authenticated;
+GRANT USAGE ON SCHEMA bigorders_private TO service_role;
+
 -- An immutable receipt reconciles already-existing append-only funding events
 -- with atomic capital postings. recorded-unposted means "unposted unless receipt exists".
 CREATE TABLE IF NOT EXISTS public.paper_challenge_funding_postings (
@@ -39,7 +43,7 @@ GRANT INSERT ON public.paper_challenge_funding_events TO service_role;
 GRANT USAGE,SELECT ON SEQUENCE public.paper_challenge_funding_events_event_id_seq TO service_role;
 
 -- Canonical legacy-source identity lookup. NOT an authorization function.
-CREATE OR REPLACE FUNCTION public.paper_challenge_strategy_identity(p_bot_id text)
+CREATE OR REPLACE FUNCTION bigorders_private.paper_challenge_strategy_identity(p_bot_id text)
 RETURNS TABLE(strategy_id text,strategy_version integer,display_name text)
 LANGUAGE sql IMMUTABLE SECURITY INVOKER SET search_path=''
 AS $body$
@@ -60,7 +64,7 @@ $body$;
 -- The only supported input is an array of
 -- {"botInstanceId":"spark-01","legacyBotId":"crypto-ignition-100"}.
 -- The strategy catalog and FK bind every instance to a recognized strategy.
-CREATE OR REPLACE FUNCTION public.paper_challenge_set_shadow_participants(
+CREATE OR REPLACE FUNCTION bigorders_private.paper_challenge_set_shadow_participants(
   p_challenge_id text,p_bots jsonb,p_research text[],p_replace boolean
 ) RETURNS integer
 LANGUAGE plpgsql SECURITY INVOKER SET search_path=''
@@ -96,7 +100,7 @@ BEGIN
    IF v_instance IS NULL OR v_instance !~ '^[a-z0-9][a-z0-9_-]{1,95}$'
       THEN RAISE EXCEPTION 'Invalid bot instance identifier.';END IF;
    SELECT * INTO v_strategy
-     FROM public.paper_challenge_strategy_identity(v_source);
+     FROM bigorders_private.paper_challenge_strategy_identity(v_source);
    IF NOT FOUND THEN RAISE EXCEPTION 'Unknown bot strategy source.';END IF;
    IF NOT EXISTS(SELECT 1 FROM public.paper_bot_ledgers WHERE bot_id=v_source)
      THEN RAISE EXCEPTION 'Legacy strategy identity not registered.';END IF;
@@ -143,7 +147,7 @@ BEGIN
     settled_cash,buying_power,equity,reserved_cash,version,observation_only,broker_execution_enabled)
  VALUES(p_id,'standalone-shadow',NULL,p_starting_usd,p_starting_usd,
    p_starting_usd,p_starting_usd,p_starting_usd,0,1,true,false);
- v_count:=public.paper_challenge_set_shadow_participants(p_id,p_bots,p_research,false);
+ v_count:=bigorders_private.paper_challenge_set_shadow_participants(p_id,p_bots,p_research,false);
  RETURN jsonb_build_object('challengeId',p_id,'startingCapitalUsd',p_starting_usd,
   'accountVersion',1,'participantCount',v_count,'paperOnly',true,
   'brokerOrderAuthorized',false,'observationOnly',true);
@@ -172,7 +176,7 @@ BEGIN
     SELECT 1 FROM public.paper_challenge_proposal_journal WHERE challenge_id=p_id)
    THEN RAISE EXCEPTION 'Cannot archive challenge with recorded strategy decisions.';END IF;
  IF p_lifecycle <> 'archived' THEN
-    v_count:=public.paper_challenge_set_shadow_participants(p_id,p_bots,p_research,true);
+    v_count:=bigorders_private.paper_challenge_set_shadow_participants(p_id,p_bots,p_research,true);
  ELSE
     v_count:=(SELECT count(*) FROM public.paper_challenge_bot_instances WHERE challenge_id=p_id);
  END IF;
@@ -257,13 +261,13 @@ END;
 $body$;
 
 -- Nothing in these functions may be called via the public Data API.
-REVOKE ALL ON FUNCTION public.paper_challenge_strategy_identity(text) FROM PUBLIC,anon,authenticated;
-REVOKE ALL ON FUNCTION public.paper_challenge_set_shadow_participants(text,jsonb,text[],boolean) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION bigorders_private.paper_challenge_strategy_identity(text) FROM PUBLIC,anon,authenticated;
+REVOKE ALL ON FUNCTION bigorders_private.paper_challenge_set_shadow_participants(text,jsonb,text[],boolean) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.paper_challenge_create_shadow(text,text,numeric,jsonb,text[],text) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.paper_challenge_configure_shadow(text,bigint,text,jsonb,text[]) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.paper_challenge_post_shadow_funding(text,bigint,text,numeric,text,jsonb) FROM PUBLIC,anon,authenticated;
-GRANT EXECUTE ON FUNCTION public.paper_challenge_strategy_identity(text) TO service_role;
-GRANT EXECUTE ON FUNCTION public.paper_challenge_set_shadow_participants(text,jsonb,text[],boolean) TO service_role;
+GRANT EXECUTE ON FUNCTION bigorders_private.paper_challenge_strategy_identity(text) TO service_role;
+GRANT EXECUTE ON FUNCTION bigorders_private.paper_challenge_set_shadow_participants(text,jsonb,text[],boolean) TO service_role;
 GRANT EXECUTE ON FUNCTION public.paper_challenge_create_shadow(text,text,numeric,jsonb,text[],text) TO service_role;
 GRANT EXECUTE ON FUNCTION public.paper_challenge_configure_shadow(text,bigint,text,jsonb,text[]) TO service_role;
 GRANT EXECUTE ON FUNCTION public.paper_challenge_post_shadow_funding(text,bigint,text,numeric,text,jsonb) TO service_role;
