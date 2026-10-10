@@ -60,7 +60,7 @@ test("multiple Spark strategy instances may independently exist in one shadow ch
   assert.match(sql,/jsonb_array_length\(p_bots\) NOT BETWEEN 1 AND 16/);
   assert.match(sql,/botInstanceId/);
   assert.match(sql,/PRIMARY KEY/);
-  assert.match(sql,/ON CONFLICT|unique/);
+  assert.match(sql,/INSERT INTO public.paper_challenge_bot_instances/);
 });
 test("funding records and immutable postings reconcile without double counting",()=>{
   const input=fixture();
