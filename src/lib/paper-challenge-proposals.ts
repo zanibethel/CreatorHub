@@ -75,6 +75,7 @@ export type ChallengeProposal={
   sourceAdapter:SourcePlan["adapter"];sourceRecordKey:string;
   symbol:string;assetClass:AssetClass|"unknown";
   strategyApproved:boolean;qualifiedByStrategy:boolean;
+  challengeStrategyRevalidated:false;
   observationState:"reference"|"qualified-observation"|"blocked"|"insufficient-evidence";
   entryPrice:number|null;maximumEntryPrice:number|null;
   protectiveStop:number|null;finalTargetPrice:number|null;
@@ -283,6 +284,7 @@ export function normalizeChallengeTradeProposal(input:ChallengeProposalInput):Ch
     sourceAdapter:source.adapter,sourceRecordKey:evidence.sourceRecordKey,
     symbol:extracted.symbol,assetClass:extracted.assetClass??"unknown",
     strategyApproved:extracted.qualified,qualifiedByStrategy:extracted.qualified,
+    challengeStrategyRevalidated:false,
     observationState,entryPrice:extracted.entry,maximumEntryPrice:extracted.maxEntry,
     protectiveStop:extracted.stop,finalTargetPrice:extracted.target,
     partialTargets:extracted.partial,
