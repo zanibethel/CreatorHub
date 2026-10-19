@@ -32,8 +32,11 @@ export function validYouTubeId(kind: YouTubeKind, id: string): boolean {
 }
 
 export class YouTubeDiscoveryError extends Error {
-  constructor(message: string, public readonly status = 502) {
+  readonly status: number;
+
+  constructor(message: string, status = 502) {
     super(message);
+    this.status = status;
   }
 }
 
