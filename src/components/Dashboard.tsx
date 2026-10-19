@@ -402,6 +402,7 @@ export default function Dashboard({ userId }: { userId: string }) {
           </div>
         </div>
         <div style={{ display: "flex", gap: 7, flexWrap: "wrap", justifyContent: "flex-end" }}>
+          <Link href="/clipper" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>AI Clipper</Link>
           <Link href="/upload" style={{ ...secondaryButton, display: "inline-flex", alignItems: "center", textDecoration: "none" }}>
             Upload
           </Link>
