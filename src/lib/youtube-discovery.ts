@@ -49,7 +49,7 @@ export async function youtubeData(
     );
   }
 
-  const url = new URL(\`https://www.googleapis.com/youtube/v3/\${resource}\`);
+  const url = new URL(`https://www.googleapis.com/youtube/v3/${resource}`);
   for (const [name, value] of Object.entries(parameters)) url.searchParams.set(name, value);
   url.searchParams.set("key", key);
 
