@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test:paper": "node --test tests/paper-*.test.mjs"
+    "test:paper": "node --test tests/paper-*.test.mjs",
+    "test:clipper": "node --experimental-strip-types --test tests/clipper-*.test.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.7.0",
