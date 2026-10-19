@@ -151,7 +151,7 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
           </button>
         </form>
         <p style={{ color: colors.muted, marginBottom: 0, fontSize: 12 }}>
-          Powered by YouTube Data API. Browsing public channels doesn't authorize downloads or publishing.
+          Powered by YouTube Data API. Browsing public channels does not authorize downloads or publishing.
         </p>
       </section>
 
