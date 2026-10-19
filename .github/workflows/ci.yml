@@ -29,5 +29,8 @@ jobs:
       - name: Paper monitor tests
         run: npm run test:paper
 
+      - name: Clipper discovery tests
+        run: npm run test:clipper
+
       - name: Build
         run: npm run build
