@@ -56,7 +56,7 @@ test("SQL reservation implements serialized shared/account/burst checks with loc
   const sql = readFileSync(new URL("../supabase/migrations/20261020100000_clipper_youtube_api_quota.sql", import.meta.url), "utf8");
   assert.match(sql, /security definer/i);
   assert.match(sql, /set search_path = ''/);
-  assert.match(sql, /America\/Los_Angeles/);
+  assert.equal(sql.includes("America/Los_Angeles"), true);
   assert.match(sql, /on conflict do nothing/);
   assert.equal((sql.match(/for update;/g) ?? []).length, 3);
   assert.match(sql, /when v_project_used >= p_project_limit/);
@@ -108,7 +108,7 @@ test("second migration exposes only reviewed 1-unit lookup buckets with service-
     assert.match(sql, new RegExp(bucket.replace(".", "\\.")));
   }
   assert.match(sql, /security definer/i);
-  assert.match(sql, /America\\/Los_Angeles/);
+  assert.equal(sql.includes("America/Los_Angeles"), true);
   assert.match(sql, /from public, anon, authenticated/i);
   assert.match(sql, /to service_role/i);
   assert.equal((sql.match(/for update;/g) ?? []).length, 3);
