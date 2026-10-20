@@ -1,5 +1,6 @@
 import { NextRequest } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase-server";
+import { reserveYouTubeApiCall, quotaPublicFields, YouTubeQuotaError } from "@/lib/clipper-youtube-quota-server";
 import { validYouTubeId, youtubeData, YouTubeDiscoveryError } from "@/lib/youtube-discovery";
 
 export const dynamic = "force-dynamic";
@@ -48,7 +49,7 @@ export async function POST(request: NextRequest) {
 
   try {
     // Resolve metadata from YouTube instead of trusting client-supplied names/URLs.
-    const data = await youtubeData("channels", { part: "snippet", id: channelId });
+    const data = await youtubeData("channels", { part: "snippet", id: channelId }, () => reserveYouTubeApiCall(context.userId, "channels"));
     const item = (data.items as unknown as Array<{
       id?: string;
       snippet?: { title?: string; thumbnails?: Record<string, { url?: string }> };
@@ -68,8 +69,11 @@ export async function POST(request: NextRequest) {
     return Response.json({ saved: true });
   } catch (error) {
     const status = error instanceof YouTubeDiscoveryError ? error.status : 502;
+    const quota = error instanceof YouTubeQuotaError && error.quota
+      ? quotaPublicFields(error.quota) : undefined;
     return Response.json({
       error: error instanceof YouTubeDiscoveryError ? error.message : "Channel lookup failed.",
+      ...(quota ? { quota } : {}),
     }, { status });
   }
 }
