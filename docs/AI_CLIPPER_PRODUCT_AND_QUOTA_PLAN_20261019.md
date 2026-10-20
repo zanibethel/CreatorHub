@@ -1,6 +1,7 @@
 # CreatorHub AI Clipper — Product goals, YouTube quotas, and review passes
 
 **Decision date:** 2026-10-19  
+**Product workflow clarification:** 2026-10-19 — user explicitly requested both direct YouTube URLs and channel search, generated captioned clips, and ready-to-distribute output for four owned social destinations.  
 **Status:** Direction approved for planning; each implementation pass requires a separate user "continue" / "ok go" before work begins.  
 **Current discovery proposal:** [PR #137](https://github.com/zanibethel/CreatorHub/pull/137) (draft; do not merge/deploy as part of this planning pass).
 
@@ -8,13 +9,40 @@
 
 CreatorHub AI Clipper serves the owner's own projects **and** a multi-tenant paid creator service from one codebase.
 
-1. A signed-in CreatorHub user searches YouTube channels or videos **inside CreatorHub**, views results and previews, and bookmarks a public channel in a chosen creator workspace.
-2. Users do **not** need to copy MCP URLs, manage plugins, or paste YouTube links for ordinary discovery; optional URLs remain a fallback.
-3. A public channel bookmark **is not** an authenticated YouTube connection and conveys no ownership or copying rights.
-4. Connecting an owned YouTube account for owner-only data or publishing is a separate, user-consented Google OAuth flow. It must not be mandatory for public-channel search.
-5. AI clipping operates on uploads/original media, licensed material, or another YouTube-approved source mechanism. A public YouTube video URL or channel OAuth access alone must **not** trigger downloading video/audio.
-6. Users may request Auto, Economy, Balanced, or Premium processing, with optional expert overrides. **CoOperative AI** chooses eligible models/nodes by stage, favors suitable user-owned/linked compute, enforces a reserved maximum budget, and reconciles actual cost. Separate tasks include transcription, timestamps/diarization, highlight suggestions, reframing, subtitles, FFmpeg renders, and QA.
-7. The final paid product will have tenant-isolated media/jobs, usage limits, billing, human preview/approval, and authorized publishing/analytics integrations. No automatic publication in early passes.
+1. A signed-in CreatorHub user chooses **either of two equally prominent starting points**: **Search YouTube** (channels, videos, and channel browsing inside CreatorHub) or **Paste YouTube URL** (video, Shorts, channel/@handle, or supported playlist URL). Neither path requires a plugin, MCP URL copying, or manual YouTube browsing.
+2. Selecting a channel or pasting a channel URL opens its public video library and permits one-click bookmarking in the active CreatorHub workspace. Selecting a video or pasting a video/Shorts URL resolves and previews the exact public video, then opens a new Clipper project.
+3. Users choose Auto, Economy, Balanced, or Premium processing, the number and approximate duration of clips, platform targets, and optional editing preferences. **CoOperative AI** routes eligible models/nodes by task and cost, favoring capable owner/linked compute, reserving a maximum budget and reconciling actual costs.
+4. For **authorized source media**, the app transcribes speech, locates high-value moments, proposes clips, reframes for vertical 9:16 video, and renders edited exports with synchronized captions/subtitles (burned-in and/or optional sidecar). Clips must actually finish rendering and be playable before being labeled ready.
+5. A **Clip Library / Distribution Queue** displays each rendered clip with thumbnail, source, duration, captions, editable hook/title/description/hashtags, preview, download, destination accounts, and per-platform readiness/validation status. Users can review/revise and approve each clip independently.
+6. After one-time user-consented connection of their own destination account, the user can stage each approved clip for **their YouTube channel, Instagram professional account, TikTok account, and Facebook Page**; upload/publish/schedule through supported platform APIs only with the required app approvals, account permissions, and user confirmation.
+7. The personal-use and paid multi-tenant service share the same processing pipeline; tenant-isolated projects, media, OAuth tokens, usage allowances, fair quotas, billing, job status, and per-platform publishing history protect each customer.
+
+**Critical source-rights distinction:** Public YouTube search and URL pasting give CreatorHub a **discovery/selection/preview entry point**, not permission or technical authority to download the video's audiovisual content. Render jobs may start only after the user supplies their own original file, independently licensed source media, or a separately verified YouTube-approved source mechanism. **Do not silently download YouTube videos or mislabel a metadata-only video as clip-ready.** Google OAuth for the destination account does not remove the YouTube API's prior-written-approval requirement for downloading/importing content.
+
+## Full product workflow: Find → Create → Prepare → Distribute
+
+| Stage | User-facing behavior | Ready condition |
+| --- | --- | --- |
+| **Find** | Search public YouTube channels/videos *or* enter a direct URL; browse a channel and select a video. | Correct ID and metadata resolved; public embedded preview available if supported. |
+| **Source** | Associate that selection with an upload/original file, a separately licensed asset, or an explicitly YouTube-approved import route. | Server has actual permitted video bytes and a documented source/rights status. |
+| **Generate** | Launch a budgeted CoOperative job; transcribe, score highlights, cut, reframe, generate captions, and render a batch. | Rendered media accessible, playable, caption timing verified, actual cost recorded. |
+| **Clip Library** | Review clips individually, make subtitle/title changes, select channel-specific variants, and approve. | Clip has an approved immutable version and valid target-specific export. |
+| **Distribute** | Choose the **user's own** connected YouTube/Instagram/TikTok/Facebook destinations, edit captions/hashtags, schedule where supported, and publish only by explicit approval. | Authorized connection, supported posting permission, platform validation, and confirmation; track queued/submitting/published/failed separately. |
+
+**Distribution format contract:** Export portable H.264/AAC MP4 where supported; prioritize 9:16 vertical; validate actual target duration, frame rate, audio, aspect ratio, file size, thumbnail/text policies, content classifications, and per-platform restrictions **at publishing time**. Maintain per-destination overrides because publishing one identical file to all four services is not always valid. Show a clear reason for blocked destinations and preserve a downloadable file when direct posting is unavailable.
+
+### Platform connection and publishing boundaries
+
+| Destination | Intended integration | Important limitation |
+| --- | --- | --- |
+| **YouTube** | Separate Google OAuth with least-privilege `youtube.upload` and verified destination channel; resumable `videos.insert` after clip review. | Public channel bookmarking is not authorization to upload. The API has project quotas and account privacy options. |
+| **Instagram** | Account-owner consent and Reels publishing for eligible professional Creator/Business accounts, using the supported Instagram Login or Facebook Login flow. | Not all personal/consumer accounts are supported; ensure the exact chosen login flow and required app permissions are approved. |
+| **TikTok** | Content Posting API: `video.publish` for authorized direct posting or `video.upload` for inbox/draft handoff; show creator-chosen privacy settings. | App review/audit may be needed for public direct posting; unaudited direct-post clients are restricted to private content. |
+| **Facebook** | Facebook Login, Pages authorization, Page-level token and Reels/video publishing to a Page the user manages. | **Pages**, not arbitrary personal profiles or groups, are the initial supported destination; Page posting requires appropriate Meta permissions. |
+
+The existing CreatorHub repository has Instagram/TikTok OAuth foundations; publishing scopes and operational approvals must still be verified. **YouTube owner publishing OAuth and Facebook Page publishing are not currently implemented** in the reviewed repo. Treat account connection, rendered-media readiness, and actual publishing success as distinct states. Never claim a post published merely because a request was queued.
+
+Official API references: https://developers.google.com/youtube/data/reference/rest/v3/videos/insert ; https://developers.tiktok.com/docs/en/content-posting-api-get-started ; https://developers.tiktok.com/docs/en/content-posting-api-get-started-upload-content ; https://www.postman.com/meta/instagram/folder/y6xustx/reels-publishing ; https://www.postman.com/meta/facebook/documentation/r56bjfd/facebook-api
 
 **Boundary:** This work must not modify PAPER-trading logic, trading cron jobs, broker credentials, or trading deployments.
 
@@ -73,13 +101,15 @@ Every pass produces **one narrowly scoped PR with tests and a short verification
 
 | Pass | Deliverable | Review boundary |
 | --- | --- | --- |
-| **0 — This pass** | Persist north-star goals, quota facts, proposed limits, risk boundaries, and this checklist in a standalone documentation PR. | **Stop for review. No runtime code or database writes.** |
+| **0 — This pass** | Persist full search-or-URL → authorized source → captioned clip → four-destination distribution goals, quota facts, risk boundaries and this checklist in the existing documentation PR #138. | **Stop for review. No runtime code or database writes.** |
 | **1 — Quota enforcement** | Atomic Supabase quota ledger/service, wire into `/api/clipper/youtube/search`, account/global throttles, telemetry, and tests; no UI redesign. Work as a **separate, reviewable PR** (stacked onto PR #137 if needed while #137 remains unmerged). | Demonstrate per-account separation and provider-pool safety. Stop. |
-| **2 — Discovery acceptance** | Review PR #137 and Pass 1 together, set/restrict YouTube server key when approved, apply only reviewed migration(s), test mobile channel search/bookmarks/preview, verify quotas and production gating. | Merge/deploy only upon separate explicit instruction; stop. |
-| **3 — Authorized media intake** | Attach a licensed/original upload to a Clipper project and create tenant-owned asynchronous jobs; reuse existing uploads safely. | Test access isolation, file size and rights attestations; stop. |
-| **4 — AI transcript/highlights** | Worker transcription, timestamping, candidate highlights and review UI using CoOperative's capability-aware routing. | Validate time alignment, cost cap, failure recovery; stop. |
-| **5 — Rendering/editing** | FFmpeg cuts, 9:16 framing, captions, speaker-aware follow, preview and export for authorized source files. | Validate actual output files, sync, duration and costs; stop. |
-| **6 — Creator productization** | Plans/usage credits, purchase flow, job lifecycle/admin cost dashboards; then owner OAuth and supported social publishing in further isolated passes. | No automated posting without approval and permissions; stop. |
+| **2 — Direct URL intake** | Add first-class YouTube watch/Shorts/channel/@handle/playlist link parsing, secure canonical-ID resolution, clear input errors and video-selection UI to PR #137 discovery foundation. Do not download video bytes. | Validate URL variants, pasted hostile URLs, no arbitrary server-side fetch or SSRF; stop. |
+| **3 — Discovery acceptance** | Review the discovery PR and quota/URL passes together, confirm key restrictions, review/apply migration(s) only if separately authorized, and test mobile search/bookmarks/preview/direct-URL selection with real API credentials. | No merge/deploy without separate explicit instruction; stop. |
+| **4 — Authorized media intake** | Attach uploaded/owned/licensed video bytes to a selected YouTube URL or search result in a tenant-owned Clipper project and create asynchronous jobs. | Test media rights status, source matching, access isolation and resumable upload; stop. |
+| **5 — AI transcript/highlights** | Worker transcription, timestamping, candidate highlights and review UI using CoOperative's capability-aware routing. | Validate time alignment, cost ceiling and retry behavior; stop. |
+| **6 — Captioned rendering/editing** | FFmpeg clip batches, synchronized subtitles, vertical framing, previews, optional caption editing, and downloadable final exports. | Validate playable final video, captions, output size and actual compute cost; stop. |
+| **7 — Clip Library & distribution staging** | Per-creator clip library, format checks, metadata/caption overrides and approval-based ready-to-distribute queue for all four destinations. | No false "ready" status and no posting without connected account approval; stop. |
+| **8+ — Connectors, publish & monetization** | Build YouTube channel owner OAuth, Facebook Page OAuth, verify/upgrade Instagram and TikTok publishing scopes, then add each platform's posting flow **in separate reviewable passes**. Add credit/billing/analytics in further isolated passes. | Validate one destination at a time, consent, publish result, retry/idempotency and paid margin. Stop after each pass. |
 
 **Source-of-truth and conflict handling:** PR #137 already implements only the proposed discovery interface. This document does not claim those changes are live. Before starting any later pass, check current `main`, open PRs, Supabase migrations and deployment state, and adapt rather than rewrite or duplicate existing work. Do not bundle unrelated fixes.
 
