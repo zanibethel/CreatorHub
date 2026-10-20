@@ -18,6 +18,8 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
   const [creatorId, setCreatorId] = useState(creators[0]?.id ?? "");
   const [kind, setKind] = useState<SearchKind>("channel");
   const [query, setQuery] = useState("");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [directLabel, setDirectLabel] = useState("");
   const [channelFilter, setChannelFilter] = useState<{ id: string; name: string } | null>(null);
   const [results, setResults] = useState<YouTubeHit[]>([]);
   const [saved, setSaved] = useState<SavedChannel[]>([]);
@@ -33,6 +35,7 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
     setResults([]);
     setSelectedVideo(null);
     setChannelFilter(null);
+    setDirectLabel("");
     setMessage("");
     setSearchQuota(null);
     if (!creatorId) return;
@@ -55,6 +58,7 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
     setMessage("");
     setResults([]);
     setSelectedVideo(null);
+    setDirectLabel("");
     try {
       const params = new URLSearchParams({ type: searchKind, creatorId });
       if (text.trim()) params.set("q", text.trim());
@@ -72,6 +76,47 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
         .then((response) => response.json())
         .then((data) => { if (data.search) setSearchQuota(data.search); })
         .catch(() => {});
+    }
+  }
+
+  async function resolveUrl(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!creatorId || busy || !youtubeUrl.trim()) return;
+    setBusy(true);
+    setMessage("");
+    setResults([]);
+    setSelectedVideo(null);
+    setChannelFilter(null);
+    setDirectLabel("");
+    try {
+      const response = await fetch("/api/clipper/youtube/resolve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creatorId, url: youtubeUrl.trim() }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error ?? "Could not open YouTube link.");
+      if (data.kind === "video" && data.item) {
+        setKind("video");
+        setResults([data.item]);
+        setSelectedVideo(data.item);
+        setDirectLabel("Video from pasted URL");
+      } else if (data.kind === "channel" && data.item) {
+        setKind("channel");
+        setResults([data.item]);
+        setDirectLabel("Channel from pasted URL");
+      } else if (data.kind === "playlist") {
+        setKind("video");
+        setResults(data.items ?? []);
+        setDirectLabel("Playlist videos (first 12)");
+        if (!data.items?.length) setMessage("This playlist has no publicly available videos.");
+      } else {
+        throw new Error("YouTube returned unexpected metadata.");
+      }
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "YouTube link could not be opened.");
+    } finally {
+      setBusy(false);
     }
   }
 
@@ -130,7 +175,7 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
         <div style={{ color: colors.purpleBright, fontSize: 12, fontWeight: 900, textTransform: "uppercase", letterSpacing: ".08em" }}>AI Clipper · Discovery preview</div>
         <h1 style={{ margin: "7px 0 8px", fontSize: 27 }}>Find videos. Save channels. Create from one place.</h1>
         <p style={{ color: colors.muted, lineHeight: 1.55, marginTop: 0 }}>
-          Search YouTube directly inside CreatorHub. Save public channels with one tap and preview videos here.
+          Search YouTube or paste a direct YouTube link. Save public channels with one tap and preview videos here.
           AI clipping, original-media import, ownership authorization, and publishing are separate upcoming phases.
         </p>
         <label style={{ display: "block", maxWidth: 420, marginBottom: 14 }}>
@@ -139,6 +184,23 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
             {creators.map((creator) => <option key={creator.id} value={creator.id}>{creator.name}</option>)}
           </select>
         </label>
+        <section aria-label="Paste YouTube link" style={{ border: `1px solid ${colors.border}`, borderRadius: 14, padding: 14, marginBottom: 16 }}>
+          <h2 style={{ margin: "0 0 6px", fontSize: 18 }}>Paste YouTube URL</h2>
+          <p style={{ margin: "0 0 10px", color: colors.muted, fontSize: 13 }}>
+            Video, Short, channel, @handle, or playlist. Preview the source without copying media.
+          </p>
+          <form onSubmit={resolveUrl} style={{ display: "flex", alignItems: "end", gap: 10, flexWrap: "wrap" }}>
+            <label style={{ flex: "1 1 280px" }}>
+              <span style={{ color: colors.muted, fontSize: 13 }}>YouTube link</span>
+              <input type="url" style={input} value={youtubeUrl} onChange={(event) => setYoutubeUrl(event.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..." maxLength={2048} required />
+            </label>
+            <button type="submit" disabled={busy || !youtubeUrl.trim()} style={primaryButton}>
+              {busy ? "Opening…" : "Open YouTube link"}
+            </button>
+          </form>
+        </section>
+        <h2 style={{ margin: "0 0 10px", fontSize: 18 }}>Search YouTube</h2>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 9, marginBottom: 12 }}>
           <button type="button" style={kind === "channel" ? primaryButton : secondaryButton} onClick={() => switchKind("channel")}>Channels</button>
           <button type="button" style={kind === "video" ? primaryButton : secondaryButton} onClick={() => switchKind("video")}>Videos</button>
@@ -192,7 +254,7 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
 
       {results.length > 0 && (
         <section style={card}>
-          <h2 style={{ margin: "0 0 14px" }}>{kind === "channel" ? "YouTube channels" : "YouTube videos"}</h2>
+          <h2 style={{ margin: "0 0 14px" }}>{directLabel || (kind === "channel" ? "YouTube channels" : "YouTube videos")}</h2>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(235px,1fr))", gap: 12 }}>
             {results.map((item) => {
               const isSaved = saved.some((row) => row.channel_id === item.channelId);
