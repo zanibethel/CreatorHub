@@ -44,6 +44,8 @@ The existing CreatorHub repository has Instagram/TikTok OAuth foundations; publi
 
 Official API references: https://developers.google.com/youtube/data/reference/rest/v3/videos/insert ; https://developers.tiktok.com/docs/en/content-posting-api-get-started ; https://developers.tiktok.com/docs/en/content-posting-api-get-started-upload-content ; https://www.postman.com/meta/instagram/folder/y6xustx/reels-publishing ; https://www.postman.com/meta/facebook/documentation/r56bjfd/facebook-api
 
+**Live AI parity dependency:** CreatorHub's embedded assistant and clipping pipeline must use the same supported CoOperative routing/capability experience as cooperative.chat, including creator-authorized personal/owned nodes whenever capable and available, strict node-only mode, actual Model Mixer controls, and per-job cost/fallback visibility. First close the secure profile-linking gap between CreatorHub and CoOperative identities; do not assume an existing CreatorHub user ID inherits another profile's node access. This requirement applies to **CreatorHub-wide AI**, not only Clipper. See [CoOperative AI parity & personal nodes](COOPERATIVE_AI_PARITY_AND_PERSONAL_NODES.md) for the standalone contract and independent approval-gated AI-A through AI-F passes.
+
 **Boundary:** This work must not modify PAPER-trading logic, trading cron jobs, broker credentials, or trading deployments.
 
 ## Answer to the per-user YouTube quota question
@@ -110,6 +112,8 @@ Every pass produces **one narrowly scoped PR with tests and a short verification
 | **6 — Captioned rendering/editing** | FFmpeg clip batches, synchronized subtitles, vertical framing, previews, optional caption editing, and downloadable final exports. | Validate playable final video, captions, output size and actual compute cost; stop. |
 | **7 — Clip Library & distribution staging** | Per-creator clip library, format checks, metadata/caption overrides and approval-based ready-to-distribute queue for all four destinations. | No false "ready" status and no posting without connected account approval; stop. |
 | **8+ — Connectors, publish & monetization** | Build YouTube channel owner OAuth, Facebook Page OAuth, verify/upgrade Instagram and TikTok publishing scopes, then add each platform's posting flow **in separate reviewable passes**. Add credit/billing/analytics in further isolated passes. | Validate one destination at a time, consent, publish result, retry/idempotency and paid margin. Stop after each pass. |
+
+**Parallel AI integration track:** The [CoOperative AI parity contract](COOPERATIVE_AI_PARITY_AND_PERSONAL_NODES.md) defines separate AI-A (live contract audit), AI-B (secure profile linking), AI-C (personal node routing), AI-D (Model Mixer/cost parity), AI-E (Clipper workers), and AI-F (parity checks). They are **not bundled** into YouTube quotas or URL intake. Complete required AI identity and routing prerequisites before launching node-backed Clipper jobs. A bare “continue” advances only the explicitly agreed next review pass; do not silently start both tracks.
 
 **Source-of-truth and conflict handling:** PR #137 already implements only the proposed discovery interface. This document does not claim those changes are live. Before starting any later pass, check current `main`, open PRs, Supabase migrations and deployment state, and adapt rather than rewrite or duplicate existing work. Do not bundle unrelated fixes.
 
