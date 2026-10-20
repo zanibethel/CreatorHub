@@ -1,6 +1,6 @@
 // Pure, testable application-side limits. Only the server can reserve quota.
 // Google's project limit is separate; these are deliberately conservative caps.
-export type YouTubeQuotaBucket = "search.list" | "channels.list";
+export type YouTubeQuotaBucket = "search.list" | "channels.list" | "videos.list" | "playlistItems.list";
 
 export type YouTubeQuotaLimits = {
   accountLimit: number;
@@ -36,15 +36,28 @@ export function youtubeQuotaLimits(
       burstLimit: cappedInt(env.CLIPPER_YOUTUBE_SEARCH_PER_MINUTE, 3, 100),
     };
   }
-  return {
+  if (bucket === "channels.list") return {
     accountLimit: cappedInt(env.CLIPPER_YOUTUBE_CHANNELS_ACCOUNT_DAILY, 50, 10000),
-    projectLimit: cappedInt(env.CLIPPER_YOUTUBE_CHANNELS_PROJECT_DAILY, 9000, 10000),
+    projectLimit: cappedInt(env.CLIPPER_YOUTUBE_CHANNELS_PROJECT_DAILY, 3000, 10000),
     burstLimit: cappedInt(env.CLIPPER_YOUTUBE_CHANNELS_PER_MINUTE, 10, 100),
+  };
+  if (bucket === "videos.list") return {
+    accountLimit: cappedInt(env.CLIPPER_YOUTUBE_VIDEOS_ACCOUNT_DAILY, 50, 10000),
+    projectLimit: cappedInt(env.CLIPPER_YOUTUBE_VIDEOS_PROJECT_DAILY, 3000, 10000),
+    burstLimit: cappedInt(env.CLIPPER_YOUTUBE_VIDEOS_PER_MINUTE, 10, 100),
+  };
+  return {
+    accountLimit: cappedInt(env.CLIPPER_YOUTUBE_PLAYLIST_ACCOUNT_DAILY, 50, 10000),
+    projectLimit: cappedInt(env.CLIPPER_YOUTUBE_PLAYLIST_PROJECT_DAILY, 3000, 10000),
+    burstLimit: cappedInt(env.CLIPPER_YOUTUBE_PLAYLIST_PER_MINUTE, 10, 100),
   };
 }
 
-export function quotaBucket(resource: "search" | "channels"): YouTubeQuotaBucket {
-  return resource === "search" ? "search.list" : "channels.list";
+export function quotaBucket(resource: "search" | "channels" | "videos" | "playlistItems"): YouTubeQuotaBucket {
+  if (resource === "search") return "search.list";
+  if (resource === "channels") return "channels.list";
+  if (resource === "videos") return "videos.list";
+  return "playlistItems.list";
 }
 
 export function pacificQuotaDay(instant: Date): string {

@@ -41,7 +41,7 @@ export class YouTubeDiscoveryError extends Error {
 }
 
 export async function youtubeData(
-  resource: "search" | "channels",
+  resource: "search" | "channels" | "videos" | "playlistItems",
   parameters: Record<string, string>,
   beforeRequest: () => Promise<unknown>,
 ): Promise<{ items?: SearchItem[] }> {
@@ -69,8 +69,8 @@ export async function youtubeData(
 
   if (!response.ok) {
     const message = response.status === 403 || response.status === 429
-      ? "YouTube search is unavailable or its API quota has been reached."
-      : "YouTube could not complete this search.";
+      ? "YouTube metadata lookup is unavailable or its API quota has been reached."
+      : "YouTube could not complete this request.";
     throw new YouTubeDiscoveryError(message, response.status === 403 || response.status === 429 ? 429 : 502);
   }
   return (await response.json()) as { items?: SearchItem[] };
