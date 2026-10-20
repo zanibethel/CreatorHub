@@ -19,6 +19,14 @@ CreatorHub should avoid becoming a pile of disconnected tools. Features should w
 
 ## AI Strategy
 
+### Shared CoOperative live AI experience and personal nodes
+
+The CreatorHub-embedded AI should **mirror the available experience at cooperative.chat** for code-first chat, Model Mixer controls, qualified model selection, personal/owned nodes, governed fallback, job progress, and transparent per-job cost. This is **shared runtime/capability parity**, not a second forked AI stack. CoOperative's current versioned APIs and authorized capability registry are the source of truth; CreatorHub maintains its own creator-workspace UX and action permissions.
+
+When a creator explicitly links their CoOperative profile and authorizes use of a personal or business-owned node, that node should become CreatorHub's preferred capable executor when online, permitted, and sufficiently resourced. User-owned and business-owned nodes are not interchangeable with platform/community resources, and node-only mode must never secretly fall back to cloud or incur charges. Secure account mapping, explicit consent, tenant isolation, capability checks, and per-job spend approval are prerequisites—not inferred from email or a user-supplied node ID.
+
+The currently implemented CreatorHub AI chat/image bridges are starting points, not proof of full live CoOperative feature parity. Work proceeds in **one tested, narrowly scoped, approval-gated PR at a time**. For the security, execution, UI, cost, and acceptance-test contract, see [CoOperative AI parity and personal nodes](COOPERATIVE_AI_PARITY_AND_PERSONAL_NODES.md).
+
 CreatorHub should treat **CoOperative AI as its orchestration and reasoning layer**, rather than binding CreatorHub directly to one model provider. The default policy should be to use **AI resources the creator already owns or has connected** whenever they are available, capable, and permitted for the task.
 
 The purpose of AI inside CreatorHub is to improve a creator's ability to **create, operate, grow, and monetize**. CoOperative's owner/operator dashboard remains focused on improving CoOperative itself: its code, infrastructure, routing, workers, node network, model benchmarking, system health, and platform operations.
