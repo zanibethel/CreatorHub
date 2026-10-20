@@ -38,7 +38,7 @@ test("a missing server key is reported without making a network call", async () 
   delete process.env.YOUTUBE_DATA_API_KEY;
   globalThis.fetch = async () => { throw new Error("fetch should not happen"); };
   try {
-    await assert.rejects(youtubeData("search", { part: "snippet" }),
+    await assert.rejects(youtubeData("search", { part: "snippet" }, async () => { throw Error("quota should not be reserved without a configured key"); }),
       (error) => error instanceof YouTubeDiscoveryError && error.status === 503);
   } finally {
     if (original === undefined) delete process.env.YOUTUBE_DATA_API_KEY;
@@ -59,9 +59,28 @@ test("API key stays in the upstream request while search results remain normaliz
     return new Response(JSON.stringify({ items: [{ id: { channelId: channel }, snippet: { title: "Channel" } }] }), { status: 200 });
   };
   try {
-    const response = await youtubeData("search", { type: "channel", part: "snippet" });
+    const response = await youtubeData("search", { type: "channel", part: "snippet" }, async () => {});
     assert.equal(normalizeYouTubeSearch(response.items ?? [], "channel")[0].title, "Channel");
     assert.equal(JSON.stringify(response).includes("server-only-test-value"), false);
+  } finally {
+    if (original === undefined) delete process.env.YOUTUBE_DATA_API_KEY;
+    else process.env.YOUTUBE_DATA_API_KEY = original;
+    globalThis.fetch = priorFetch;
+  }
+});
+
+test("quota rejection stops the HTTP request before calling Google", async () => {
+  const original = process.env.YOUTUBE_DATA_API_KEY;
+  const priorFetch = globalThis.fetch;
+  process.env.YOUTUBE_DATA_API_KEY = "server-test-key";
+  let called = 0;
+  globalThis.fetch = async () => { called += 1; throw new Error("should not fetch"); };
+  try {
+    await assert.rejects(
+      youtubeData("search", { part: "snippet" }, async () => { throw new YouTubeDiscoveryError("Account limit", 429); }),
+      (error) => error instanceof YouTubeDiscoveryError && error.status === 429,
+    );
+    assert.equal(called, 0);
   } finally {
     if (original === undefined) delete process.env.YOUTUBE_DATA_API_KEY;
     else process.env.YOUTUBE_DATA_API_KEY = original;
