@@ -86,7 +86,7 @@ export async function POST(request: NextRequest) {
     }
 
     if (parsed.kind === "channel" || parsed.kind === "handle") {
-      const params = parsed.kind === "handle"
+      const params: Record<string, string> = parsed.kind === "handle"
         ? { part: "snippet", forHandle: parsed.handle }
         : { part: "snippet", id: parsed.channelId };
       const response = await youtubeData("channels", params, () => reserveYouTubeApiCall(user.id, "channels"));
