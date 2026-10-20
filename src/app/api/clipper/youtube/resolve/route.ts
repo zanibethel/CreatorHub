@@ -113,8 +113,12 @@ export async function POST(request: NextRequest) {
       const videoId = row.contentDetails?.videoId ?? row.snippet?.resourceId?.videoId;
       if (!videoId) return [];
       const snippet = row.snippet;
-      // playlistItems.snippet.channelId refers to the playlist owner, not always the video owner.
-      const channelId = snippet?.videoOwnerChannelId ?? snippet?.channelId;
+      // playlistItems.snippet.channelId belongs to the playlist, not necessarily
+      // to the referenced video. Never misattribute a video to a playlist owner.
+      // Rows without an authoritative videoOwnerChannelId need a later videos.list
+      // lookup, so omit them from this bounded preview rather than guess.
+      const channelId = snippet?.videoOwnerChannelId;
+      if (!channelId) return [];
       const hit = asVideoHit(videoId, { ...snippet, channelId });
       if (!hit || /^(Private video|Deleted video)$/i.test(hit.title)) return [];
       return [hit];
