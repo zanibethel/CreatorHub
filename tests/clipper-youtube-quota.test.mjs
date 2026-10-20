@@ -10,7 +10,7 @@ test("default limits separate user budgets from shared platform caps", () => {
     accountLimit: 5, projectLimit: 90, burstLimit: 3,
   });
   assert.deepEqual(youtubeQuotaLimits("channels.list", {}), {
-    accountLimit: 50, projectLimit: 9000, burstLimit: 10,
+    accountLimit: 50, projectLimit: 3000, burstLimit: 10,
   });
   assert.equal(quotaBucket("search"), "search.list");
   assert.equal(quotaBucket("channels"), "channels.list");
@@ -100,4 +100,16 @@ test("concurrent gate simulation shares one project pool, not one pool per user/
   assert.equal(project, 3);
   assert.equal(accounts.get("account-a"), 2);
   assert.equal(accounts.get("account-b"), 1);
+});
+
+test("second migration exposes only reviewed 1-unit lookup buckets with service-role permissions", () => {
+  const sql = readFileSync(new URL("../supabase/migrations/20261020110000_clipper_youtube_direct_url_metadata_buckets.sql", import.meta.url), "utf8");
+  for (const bucket of ["channels.list", "videos.list", "playlistItems.list"]) {
+    assert.match(sql, new RegExp(bucket.replace(".", "\\.")));
+  }
+  assert.match(sql, /security definer/i);
+  assert.match(sql, /America\\/Los_Angeles/);
+  assert.match(sql, /from public, anon, authenticated/i);
+  assert.match(sql, /to service_role/i);
+  assert.equal((sql.match(/for update;/g) ?? []).length, 3);
 });
