@@ -70,11 +70,12 @@ export function parseYouTubeUrl(source: string): YouTubeUrlSelection {
   if (path.length === 1 && path[0] === "playlist") {
     return { kind: "playlist", playlistId: validatePlaylistId(exactlyOne(url.searchParams, "list")) };
   }
-  if (path.length === 2 && path[0] === "channel") {
+  const channelTab = path.length === 2 && ["videos", "shorts", "live", "featured", "playlists"].includes(path[1]);
+  if (path[0] === "channel" && (path.length === 2 || (path.length === 3 && ["videos", "shorts", "live", "featured", "playlists"].includes(path[2])))) {
     if (!validYouTubeId("channel", path[1])) throw new YouTubeUrlError("Invalid YouTube channel ID.");
     return { kind: "channel", channelId: path[1] };
   }
-  if (path.length === 1 && path[0].startsWith("@")) {
+  if ((path.length === 1 || channelTab) && path[0].startsWith("@")) {
     if (!HANDLE.test(path[0])) throw new YouTubeUrlError("Unsupported YouTube handle.");
     return { kind: "handle", handle: path[0] };
   }
