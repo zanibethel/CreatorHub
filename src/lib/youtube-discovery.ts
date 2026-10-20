@@ -43,6 +43,7 @@ export class YouTubeDiscoveryError extends Error {
 export async function youtubeData(
   resource: "search" | "channels",
   parameters: Record<string, string>,
+  beforeRequest: () => Promise<unknown>,
 ): Promise<{ items?: SearchItem[] }> {
   const key = process.env.YOUTUBE_DATA_API_KEY?.trim();
   if (!key) {
@@ -56,9 +57,12 @@ export async function youtubeData(
   for (const [name, value] of Object.entries(parameters)) url.searchParams.set(name, value);
   url.searchParams.set("key", key);
 
+  // Reserve atomically first; no response cache in this pass.
+  await beforeRequest();
+
   let response: Response;
   try {
-    response = await fetch(url, { next: { revalidate: 300 } });
+    response = await fetch(url, { cache: "no-store" });
   } catch {
     throw new YouTubeDiscoveryError("Could not reach YouTube. Try again shortly.");
   }
