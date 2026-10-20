@@ -25,6 +25,7 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
   const [busy, setBusy] = useState(false);
   const [savingId, setSavingId] = useState("");
   const [message, setMessage] = useState("");
+  const [searchQuota, setSearchQuota] = useState<{ accountUsed: number; accountLimit: number; projectUsed: number; projectLimit: number } | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -33,7 +34,12 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
     setSelectedVideo(null);
     setChannelFilter(null);
     setMessage("");
+    setSearchQuota(null);
     if (!creatorId) return;
+    fetch(`/api/clipper/youtube/quota?creatorId=${encodeURIComponent(creatorId)}`, { cache: "no-store" })
+      .then((response) => response.json())
+      .then((data) => { if (!cancelled && data.search) setSearchQuota(data.search); })
+      .catch(() => {});
     fetch(`/api/clipper/youtube/sources?creatorId=${encodeURIComponent(creatorId)}`, { cache: "no-store" })
       .then(async (response) => {
         const data = await response.json();
@@ -50,7 +56,7 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
     setResults([]);
     setSelectedVideo(null);
     try {
-      const params = new URLSearchParams({ type: searchKind });
+      const params = new URLSearchParams({ type: searchKind, creatorId });
       if (text.trim()) params.set("q", text.trim());
       if (searchKind === "video" && filter) params.set("channelId", filter.id);
       const response = await fetch(`/api/clipper/youtube/search?${params}`, { cache: "no-store" });
@@ -62,6 +68,10 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
       setMessage(error instanceof Error ? error.message : "YouTube search failed.");
     } finally {
       setBusy(false);
+      fetch(`/api/clipper/youtube/quota?creatorId=${encodeURIComponent(creatorId)}`, { cache: "no-store" })
+        .then((response) => response.json())
+        .then((data) => { if (data.search) setSearchQuota(data.search); })
+        .catch(() => {});
     }
   }
 
@@ -150,6 +160,12 @@ export default function YouTubeClipperDiscovery({ creators }: { creators: Creato
             {busy ? "Searching…" : "Search YouTube"}
           </button>
         </form>
+        {searchQuota && (
+          <p style={{ color: colors.muted, fontSize: 12, marginBottom: 3 }} role="status">
+            Your YouTube searches today: {searchQuota.accountUsed} / {searchQuota.accountLimit} ·
+            CreatorHub shared pool: {searchQuota.projectUsed} / {searchQuota.projectLimit} · Resets at midnight Pacific
+          </p>
+        )}
         <p style={{ color: colors.muted, marginBottom: 0, fontSize: 12 }}>
           Powered by YouTube Data API. Browsing public channels does not authorize downloads or publishing.
         </p>
