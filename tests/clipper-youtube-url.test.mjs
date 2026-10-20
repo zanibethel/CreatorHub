@@ -16,6 +16,8 @@ const validCases = [
   ["https://youtube.com/embed/" + videoId, { kind: "video", videoId }],
   ["https://youtube.com/watch?v=" + videoId + "&list=" + playlistId, { kind: "video", videoId }],
   ["https://youtube.com/channel/" + channelId, { kind: "channel", channelId }],
+  ["https://youtube.com/channel/" + channelId + "/videos", { kind: "channel", channelId }],
+  ["https://youtube.com/@GoogleDevelopers/videos", { kind: "handle", handle: "@GoogleDevelopers" }],
   ["https://www.youtube.com/@GoogleDevelopers", { kind: "handle", handle: "@GoogleDevelopers" }],
   ["https://youtube.com/@my.creator-name", { kind: "handle", handle: "@my.creator-name" }],
   ["https://youtube.com/playlist?list=" + playlistId, { kind: "playlist", playlistId }],
