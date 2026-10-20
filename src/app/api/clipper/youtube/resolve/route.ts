@@ -3,6 +3,7 @@ import { createServerSupabaseClient } from "@/lib/supabase-server";
 import { parseYouTubeUrl, YouTubeUrlError } from "@/lib/youtube-url";
 import { quotaPublicFields, reserveYouTubeApiCall, YouTubeQuotaError } from "@/lib/clipper-youtube-quota-server";
 import { youtubeData, validYouTubeId, YouTubeDiscoveryError, type YouTubeHit } from "@/lib/youtube-discovery";
+import { playlistPreview, type PlaylistItem } from "@/lib/youtube-playlist-preview";
 
 export const dynamic = "force-dynamic";
 
@@ -22,7 +23,6 @@ type VideoRow = {
   status?: { embeddable?: boolean; privacyStatus?: string };
 };
 type ChannelRow = { id?: string; snippet?: Snippet };
-type PlaylistRow = { snippet?: Snippet; contentDetails?: { videoId?: string } };
 
 function imageUrl(snippet?: Snippet): string | null {
   const url = snippet?.thumbnails?.medium?.url ?? snippet?.thumbnails?.default?.url ?? null;
@@ -108,20 +108,11 @@ export async function POST(request: NextRequest) {
     const response = await youtubeData("playlistItems", {
       part: "snippet,contentDetails", playlistId: parsed.playlistId, maxResults: "12",
     }, () => reserveYouTubeApiCall(user.id, "playlistItems"));
-    const rows = (response.items as unknown as PlaylistRow[] | undefined) ?? [];
+    const rows = (response.items as unknown as PlaylistItem[] | undefined) ?? [];
     const items = rows.flatMap((row) => {
-      const videoId = row.contentDetails?.videoId ?? row.snippet?.resourceId?.videoId;
-      if (!videoId) return [];
-      const snippet = row.snippet;
-      // playlistItems.snippet.channelId belongs to the playlist, not necessarily
-      // to the referenced video. Never misattribute a video to a playlist owner.
-      // Rows without an authoritative videoOwnerChannelId need a later videos.list
-      // lookup, so omit them from this bounded preview rather than guess.
-      const channelId = snippet?.videoOwnerChannelId;
-      if (!channelId) return [];
-      const hit = asVideoHit(videoId, { ...snippet, channelId });
-      if (!hit || /^(Private video|Deleted video)$/i.test(hit.title)) return [];
-      return [hit];
+      // Playlist ownership differs from video ownership; omit ambiguous rows.
+      const hit = playlistPreview(row);
+      return hit ? [hit] : [];
     });
     return Response.json({ kind: "playlist", playlistId: parsed.playlistId, items }, {
       headers: { "Cache-Control": "private, no-store" },
