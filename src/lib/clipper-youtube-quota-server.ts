@@ -17,7 +17,7 @@ export class YouTubeQuotaError extends YouTubeDiscoveryError {
 
 export async function reserveYouTubeApiCall(
   userId: string,
-  resource: "search" | "channels",
+  resource: "search" | "channels" | "videos" | "playlistItems",
 ): Promise<YouTubeQuotaReservation> {
   const bucket = quotaBucket(resource);
   const limits = youtubeQuotaLimits(bucket);
