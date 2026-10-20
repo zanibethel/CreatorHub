@@ -6,7 +6,9 @@ import { spawn } from "node:child_process";
 import { resolve } from "node:path";
 
 const database = process.env.CLIPPER_TEST_DATABASE_URL;
-if (!database) throw new Error("Set CLIPPER_TEST_DATABASE_URL for an isolated disposable test database.");
+if (!database) {
+  test.skip("PostgreSQL integration checks require the isolated database workflow", () => {});
+} else {
 if (!/^postgres(ql)?:\/\/postgres:postgres@127\.0\.0\.1:5432\/clipper_ci$/.test(database)) {
   throw new Error("Refusing to run Clipper integration tests against any non-CI PostgreSQL database.");
 }
@@ -122,3 +124,5 @@ test("saved channel bookmarks are separated by authenticated user via RLS", asyn
     "'; set app.test_claims = '{\"is_anonymous\":true}'; select count(*) from public.clipper_youtube_channels");
   assert.equal(anon.split("\n").at(-1), "0");
 });
+
+} // End dedicated disposable-database integration suite.
