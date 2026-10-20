@@ -1,4 +1,10 @@
-import { validYouTubeId } from "./youtube-discovery";
+// These are the same canonical ID shapes used in YouTube discovery, kept
+// local so URL parsing remains a standalone pure module for tests.
+const VIDEO_ID = /^[A-Za-z0-9_-]{11}$/;
+const CHANNEL_ID = /^UC[A-Za-z0-9_-]{22}$/;
+function validYouTubeId(kind: "video" | "channel", id: string) {
+  return kind === "video" ? VIDEO_ID.test(id) : CHANNEL_ID.test(id);
+}
 
 export type YouTubeUrlSelection =
   | { kind: "video"; videoId: string }
