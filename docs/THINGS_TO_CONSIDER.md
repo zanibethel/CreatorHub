@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-07
+Last reviewed: 2026-10-23
 
 ## Status key
 
@@ -234,3 +234,67 @@ Run a small shadow benchmark over representative uploaded text, thumbnails, shor
 Do not add embedding or indexing to the initial upload/download MVP. First define index ownership, deletion behavior, encryption, device/cloud placement, and rebuild semantics; then prototype behind an explicit opt-in flag.
 
 Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
+
+---
+
+## 8. Broker protection, event delivery, and virtual-ledger reconciliation
+
+**Status:** Urgent fix recommended — approval required  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-23
+
+**Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
+
+**Possible solution:** Independently check protective-order coverage, broker stream delivery, and fill-to-ledger parity; replay fills idempotently by activity ID and test duplicate, partial, expired-DAY, and missed-event cases.
+
+**Recommendation:** Prioritize a read-only reconciliation and isolated regression tests. Any broker-order action or production execution modification needs separate explicit approval. Keep PAPER only.
+
+## 9. Shared $5,000 challenge execution acceptance
+
+**Status:** Shadow implemented / acceptance pending  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-23
+
+**Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 51,148 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
+
+**Possible solution:** Prove challenge-scoped capital isolation, owner access, immutable proposal lineage, strategy revalidation, and broker reconciliation in isolated tests.
+
+**Recommendation:** No activation or change to risk limits based on research counts.
+
+## 10. Scanner handoff, news evidence, and market-regime studies
+
+**Status:** Evaluate / historical handoff audit  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-23
+
+**Evidence:** `paper_news_signals` remains empty. On Oct 19 EYPT was review-eligible despite an ~80% decline and 13.28% spread; it is now ineligible. Oct 22 T, SSPC, and SOXS were eligible; zero are eligible on Oct 23. Reuters Oct 23 reports telecom shares under pressure after reported SpaceX competition, making T a retrospective catalyst study, not an entry recommendation. 329 mixed-version counterfactual records include 120 stop-before-1R, 42 stop-after-1R, and 67 2R-before-stop outcomes.
+
+**Possible solution:** Audit handoff timestamps, quote freshness, spreads, halt status, catalyst publication, downstream blockers, and later fee-adjusted outcomes by strategy/version. Segregate leveraged inverse ETFs and post-Solana-Alpenglow research.
+
+**Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
+
+## 11. AI Clipper staged acceptance
+
+**Status:** Evaluate / PR stack open  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-23
+
+**Evidence:** PRs #137–#141 implement staged YouTube discovery, URL intake, quota reservations, and disposable PostgreSQL tests; none merged. Real YouTube API/OAuth integration and approved migrations remain unverified.
+
+**Possible solution:** Review dependencies in order; test restricted API keys, verified video-owner metadata, RLS/tenant isolation, quotas, and authorized content processing in nonproduction.
+
+**Recommendation:** Do not merge, deploy, or migrate until independently verified and approved.
+
+## 12. Node runtime and dependency supply-chain exposure
+
+**Status:** Evaluate / read-only audit  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-23
+
+**Evidence:** Node.js released security fixes Oct 21 (22.23.4, 24.22.1, 26.12.1). LiteLLM v1.107.0 distribution was compromised Oct 21; no direct dependency was identified in the previously reviewed manifests, but runtime/transitive exposure has not been verified.
+
+**Possible solution:** Inventory actual CI/production Node patch levels and worker/container dependency digests before any changes.
+
+**Recommendation:** Patch or rotate credentials only after exposure is established and remediation is approved; never assume lack of a direct dependency proves safety.
+
+**References:** https://nodejs.org/en/blog/vulnerability/october-2026-security-releases ; https://docs.litellm.ai/blog/security-incident-oct-21-2026
