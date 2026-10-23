@@ -19,9 +19,9 @@ Last reviewed: 2026-10-23
 
 ## 1. Add verified news/catalyst context to trading research
 
-**Status:** Implemented foundation / validate live evidence  
+**Status:** Implemented foundation / ingestion still unverified  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-07
+**Last reviewed:** 2026-10-23
 
 ### Finding
 Daily market/news intelligence can explain why a symbol or asset class is moving and can help distinguish broad-regime moves from symbol-specific catalysts.
@@ -65,6 +65,9 @@ The capped news-scoring fields and v3 catalyst/acceleration discovery path have 
 OPCH is the first useful audit case. The official $32.05-per-share acquisition announcement explains the roughly 33% move, but the recorded scanner observations began after the gap was already established. This validates the scanner's ability to retain an active mover, not an early-catalyst edge.
 
 Before changing any score weight, verify the ingest job end to end and compare each signal's publication time, first observed time, first scanner time, first review-ready time, and remaining price opportunity.
+
+### 2026-10-23 evidence update
+The dedicated `paper_news_signals` table still has zero rows despite active prospect scans. The October 22 T handoff is a retrospective catalyst-timing test because Reuters reported new telecom competition concerns October 23. First determine whether ingestion is running and whether news can be attached without look-ahead bias.
 
 ### Recommendation
 Do **not** let a newsletter mention create an entry signal or override spread/liquidity/risk gates.
@@ -133,9 +136,9 @@ Reference: https://www.reuters.com/business/wall-st-futures-rise-yields-oil-dip-
 
 ## 4. Crypto volume expansion without clean bot-review qualification
 
-**Status:** Monitor  
+**Status:** Monitor / more counterfactual evidence  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-06
+**Last reviewed:** 2026-10-23
 
 ### Finding
 Research snapshot:
@@ -161,8 +164,11 @@ Bitcoin was rejected near $87,000 for the third time since September 23 and rema
 ### 2026-10-07 evidence update
 Bitcoin fell to roughly $83.4K, ETH to roughly $2.56K, and SOL to roughly $116 in the reviewed morning snapshot. Five same-day rejected/waiting crypto setups completed as counterfactuals: BTC, ETH, and SOL stopped before 1R; DOT and LINK reached at least 1R before later stopping. No new paper order was created.
 
+### 2026-10-23 evidence update
+329 mixed-version counterfactuals: 120 stopped before 1R, 42 stopped after 1R, and 67 reached 2R before stop. Spark rejected LINK/USD for spread/momentum and its stale one-position ledger; Flash rejected SOL/USD on trend/BTC regime. These are research outcomes, not executed profitability.
+
 ### Recommendation
-Collect evidence before changing score weights. The latest outcomes support retaining the existing quote, spread, trend, breakout, fee-coverage, score, and BTC-regime gates.
+Collect fee-adjusted, per-version evidence before changing weights. Retain quote, spread, trend, breakout, fee-coverage, score, and BTC-regime gates.
 
 Reference: https://www.coindesk.com/markets/2026/10/06/bitcoin-keeps-getting-rejected-at-usd87-000-as-stocks-hover-near-records
 
@@ -170,9 +176,9 @@ Reference: https://www.coindesk.com/markets/2026/10/06/bitcoin-keeps-getting-rej
 
 ## 5. Squeeze liquidity gates appear to be protecting against headline-chasing
 
-**Status:** Monitor / stronger validation evidence  
+**Status:** Evaluate historical scanner-to-bot handoff  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-06
+**Last reviewed:** 2026-10-23
 
 ### Finding
 BSBR was the strongest current squeeze candidate in the reviewed snapshot but remained below the watchlist threshold. FNGR showed a notable positive session move while the scanner still rejected it because the observed setup/liquidity quality was poor, including a very wide quoted spread in the snapshot.
@@ -186,8 +192,11 @@ At about 8:57 a.m. Central, FNGR was about $0.2467 and down roughly 8.6% after t
 ### 2026-10-07 evidence update
 OPCH was retained by the squeeze scanner as a watchlist item but was not bot-review eligible. Its acquisition-driven gap is not evidence to weaken squeeze gates: it was already roughly 33% higher when first retained. Very wide-spread, low-dollar-volume names in the same snapshot remained ineligible.
 
+### 2026-10-23 evidence update
+EYPT was review-eligible October 19 during an approximately 80% drop with a 13.28% quoted spread, then became ineligible. October 22 T, SSPC, and SOXS were eligible; October 23 has none. Check first-eligible quote snapshots and downstream decisions; a transient eligible state is not a completed risk-gate bypass.
+
 ### Recommendation
-Preserve spread/liquidity gates. Use future outcomes to test whether thresholds are too strict or appropriately filtering false positives rather than loosening them because an individual rejected symbol later moves.
+Preserve spread/liquidity gates. Audit historical scanner-to-bot handoffs and later outcomes before proposing changes.
 
 ---
 
@@ -261,15 +270,15 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Recommendation:** No activation or change to risk limits based on research counts.
 
-## 10. Scanner handoff, news evidence, and market-regime studies
+## 10. Market-regime and leveraged-instrument event studies
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
 **Last reviewed:** 2026-10-23
 
-**Evidence:** `paper_news_signals` remains empty. On Oct 19 EYPT was review-eligible despite an ~80% decline and 13.28% spread; it is now ineligible. Oct 22 T, SSPC, and SOXS were eligible; zero are eligible on Oct 23. Reuters Oct 23 reports telecom shares under pressure after reported SpaceX competition, making T a retrospective catalyst study, not an entry recommendation. 329 mixed-version counterfactual records include 120 stop-before-1R, 42 stop-after-1R, and 67 2R-before-stop outcomes.
+**Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
-**Possible solution:** Audit handoff timestamps, quote freshness, spreads, halt status, catalyst publication, downstream blockers, and later fee-adjusted outcomes by strategy/version. Segregate leveraged inverse ETFs and post-Solana-Alpenglow research.
+**Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
 
 **Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
 
