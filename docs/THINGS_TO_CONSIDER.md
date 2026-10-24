@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-23
+Last reviewed: 2026-10-24
 
 ## Status key
 
@@ -138,7 +138,7 @@ Reference: https://www.reuters.com/business/wall-st-futures-rise-yields-oil-dip-
 
 **Status:** Monitor / more counterfactual evidence  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-24
 
 ### Finding
 Research snapshot:
@@ -166,6 +166,9 @@ Bitcoin fell to roughly $83.4K, ETH to roughly $2.56K, and SOL to roughly $116 i
 
 ### 2026-10-23 evidence update
 329 mixed-version counterfactuals: 120 stopped before 1R, 42 stopped after 1R, and 67 reached 2R before stop. Spark rejected LINK/USD for spread/momentum and its stale one-position ledger; Flash rejected SOL/USD on trend/BTC regime. These are research outcomes, not executed profitability.
+
+### 2026-10-24 evidence update
+352 mixed-version counterfactual records now include 128 stopped before 1R, 47 stopped after 1R, and 69 reached 2R before stop; 108 have other/pending/ambiguous outcomes. Spark still rejects new SOL research partly because its stale BTC position occupies its one-position limit. Preserve fee- and regime-adjusted research separation.
 
 ### Recommendation
 Collect fee-adjusted, per-version evidence before changing weights. Retain quote, spread, trend, breakout, fee-coverage, score, and BTC-regime gates.
@@ -250,9 +253,11 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Urgent fix recommended — approval required  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-24
 
 **Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
+
+**2026-10-24 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 with **zero open broker orders**; Oct 23 close was $7.67. The four unapplied Spark/Pulse fills and Oct 12 17:55 UTC stream heartbeat persist. A newly reconciled *existing* Oct 15 primary-source catalyst: CCC Intelligent Solutions agreed to a $7.75/share cash acquisition by GTCR/Elliott, expected Q1 2027 subject to approvals. This changes the risk context of the unprotected position; a pending merger is not an executed exit or an active stop. Distinguish NASDAQ:CCC from Crown Castle NYSE:CCI. Source: https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
 
 **Possible solution:** Independently check protective-order coverage, broker stream delivery, and fill-to-ledger parity; replay fills idempotently by activity ID and test duplicate, partial, expired-DAY, and missed-event cases.
 
@@ -262,9 +267,9 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Shadow implemented / acceptance pending  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-24
 
-**Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 51,148 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
+**Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
 
 **Possible solution:** Prove challenge-scoped capital isolation, owner access, immutable proposal lineage, strategy revalidation, and broker reconciliation in isolated tests.
 
@@ -274,9 +279,11 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-24
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
+
+**2026-10-24 evidence:** Oct 23 U.S. close: S&P 500 -0.52%, Nasdaq -0.21%, Dow -1.23%, Brent $116.72 (AP). Weekend Alpaca crypto latest trades near BTC $80,630, ETH $2,364, SOL $101.40, LINK $11.60, DOT $1.07; timestamps differ. Newly identified CCC $7.75 merger agreement is a corporate-action research case for Harbor, **not** Crown Castle/SpaceX (CCI) news. Treat prices as snapshots, not signals. Sources: https://apnews.com/article/7b47ef3b037bfba4e34f685329b9b963 ; https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
 
 **Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
 
