@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-24
+Last reviewed: 2026-10-25
 
 ## Status key
 
@@ -138,7 +138,7 @@ Reference: https://www.reuters.com/business/wall-st-futures-rise-yields-oil-dip-
 
 **Status:** Monitor / more counterfactual evidence  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-24
+**Last reviewed:** 2026-10-25
 
 ### Finding
 Research snapshot:
@@ -177,11 +177,13 @@ Reference: https://www.coindesk.com/markets/2026/10/06/bitcoin-keeps-getting-rej
 
 ---
 
+**2026-10-25 evidence:** 362 counterfactuals: 141 stopped before 1R, 49 after 1R, 69 reached 2R before stopping, and 103 other/pending/ambiguous outcomes. Weekend Flash rejected LINK/USD (score 10) on spread, completed-bar, trend and opportunity gates; Spark rejected BTC/USD (score 65) partly because the unreconciled BTC position still occupies its one-position limit. These are hypothetical/research outcomes, not fills. Segment by strategy version, costs, and regime before changing weights.
+
 ## 5. Squeeze liquidity gates appear to be protecting against headline-chasing
 
 **Status:** Evaluate historical scanner-to-bot handoff  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-25
 
 ### Finding
 BSBR was the strongest current squeeze candidate in the reviewed snapshot but remained below the watchlist threshold. FNGR showed a notable positive session move while the scanner still rejected it because the observed setup/liquidity quality was poor, including a very wide quoted spread in the snapshot.
@@ -202,6 +204,8 @@ EYPT was review-eligible October 19 during an approximately 80% drop with a 13.2
 Preserve spread/liquidity gates. Audit historical scanner-to-bot handoffs and later outcomes before proposing changes.
 
 ---
+
+**2026-10-25 evidence:** Sunday Atlas labeled DIA `qualified` (score 84) while explicitly blocking execution on quote freshness, spread, bearish regime, score below the 85 trade-ready threshold, and allocation checks. No broker order followed. Keep research qualification distinct from executable readiness and verify UI/analytics never collapse those states.
 
 ## 6. Daily intelligence should feed research, not silently rewrite the algorithm
 
@@ -253,7 +257,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Urgent fix recommended — approval required  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-24
+**Last reviewed:** 2026-10-25
 
 **Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
 
@@ -261,17 +265,21 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Possible solution:** Independently check protective-order coverage, broker stream delivery, and fill-to-ledger parity; replay fills idempotently by activity ID and test duplicate, partial, expired-DAY, and missed-event cases.
 
+**2026-10-25 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 average and **zero open orders**; last Friday's mark is $7.67. Four unapplied fills remain (Spark BTC exit and Pulse CIFR buy/two sells). Broker stream heartbeat is still Oct 12 17:55:58 UTC (`stale_heartbeat`, ~12.8 days old); Spark's stale position continues blocking research. Sunday crypto schedulers respond HTTP 200 but that does not prove event delivery. No broker order was modified.
+
 **Recommendation:** Prioritize a read-only reconciliation and isolated regression tests. Any broker-order action or production execution modification needs separate explicit approval. Keep PAPER only.
 
 ## 9. Shared $5,000 challenge execution acceptance
 
 **Status:** Shadow implemented / acceptance pending  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-24
+**Last reviewed:** 2026-10-25
 
 **Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
 
 **Possible solution:** Prove challenge-scoped capital isolation, owner access, immutable proposal lineage, strategy revalidation, and broker reconciliation in isolated tests.
+
+**2026-10-25 evidence:** `shared-paper-v1` preview has 58,118 projected source observations (+3,072 since Oct 24), zero challenge proposal records or authorized orders, and broker execution remains disabled. Research volume does not establish capital-isolation or execution acceptance.
 
 **Recommendation:** No activation or change to risk limits based on research counts.
 
@@ -279,13 +287,15 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-24
+**Last reviewed:** 2026-10-25
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
 **2026-10-24 evidence:** Oct 23 U.S. close: S&P 500 -0.52%, Nasdaq -0.21%, Dow -1.23%, Brent $116.72 (AP). Weekend Alpaca crypto latest trades near BTC $80,630, ETH $2,364, SOL $101.40, LINK $11.60, DOT $1.07; timestamps differ. Newly identified CCC $7.75 merger agreement is a corporate-action research case for Harbor, **not** Crown Castle/SpaceX (CCI) news. Treat prices as snapshots, not signals. Ethereum Foundation confirmed Oct 22 that Glamsterdam's Oct 26 Hoodi *testnet* activation was postponed over EIP-8037 interactions; this is not a mainnet incident or an ETH trade signal. Source: https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay . Sources: https://apnews.com/article/7b47ef3b037bfba4e34f685329b9b963 ; https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
 
 **Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
+
+**2026-10-25 evidence:** CoinDesk reported BTC briefly below $80,000 on Oct 24 amid renewed Middle East risks; Alpaca Oct 25 14:02 UTC BTC last trade was ~$80,254 (not a simultaneous executable quote). Reuters Oct 23 confirmed Brent at $116.72 and technology-sector financing concerns. Use weekend BTC/SOL/ETH risk-off conditions and Friday equity closes for timestamped regime studies only. Source: https://www.coindesk.com/markets/2026/10/24/crypto-under-weekend-pressure-bitcoin-slides-below-usd80-000-on-u-s-middle-east-evacuations ; https://www.reuters.com/world/china/global-markets-global-markets-2026-10-23/
 
 **Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
 
