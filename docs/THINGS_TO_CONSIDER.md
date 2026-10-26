@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-25
+Last reviewed: 2026-10-26
 
 ## Status key
 
@@ -138,7 +138,7 @@ Reference: https://www.reuters.com/business/wall-st-futures-rise-yields-oil-dip-
 
 **Status:** Monitor / more counterfactual evidence  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-25
+**Last reviewed:** 2026-10-26
 
 ### Finding
 Research snapshot:
@@ -178,6 +178,8 @@ Reference: https://www.coindesk.com/markets/2026/10/06/bitcoin-keeps-getting-rej
 ---
 
 **2026-10-25 evidence:** 362 counterfactuals: 141 stopped before 1R, 49 after 1R, 69 reached 2R before stopping, and 103 other/pending/ambiguous outcomes. Weekend Flash rejected LINK/USD (score 10) on spread, completed-bar, trend and opportunity gates; Spark rejected BTC/USD (score 65) partly because the unreconciled BTC position still occupies its one-position limit. These are hypothetical/research outcomes, not fills. Segment by strategy version, costs, and regime before changing weights.
+
+**2026-10-26 evidence:** 372 mixed-version counterfactual records: 149 stopped before 1R, 49 after 1R, 70 reached 2R before stop, and 104 other/pending/ambiguous. Spark rejected DOT/USD with its one-position limit occupied by unreconciled BTC exposure; Flash rejected DOT/USD on spread, insufficient bars, BTC regime, and weak momentum. Evaluate fee-adjusted outcomes by strategy/version; do not change weights.
 
 ## 5. Squeeze liquidity gates appear to be protecting against headline-chasing
 
@@ -257,7 +259,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Urgent fix recommended — approval required  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-25
+**Last reviewed:** 2026-10-26
 
 **Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
 
@@ -269,11 +271,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Recommendation:** Prioritize a read-only reconciliation and isolated regression tests. Any broker-order action or production execution modification needs separate explicit approval. Keep PAPER only.
 
+**2026-10-26 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 average; the broker reports **zero open orders** and $7.6602 current valuation. Four Oct 12–13 fills remain unapplied (Spark BTC sell, Pulse CIFR buy/two sells); broker-stream heartbeat remains Oct 12 17:55:58 UTC with `stale_heartbeat` (~13.8 days). Spark's stale position continues to block research. **Recommendation unchanged:** urgent read-only reconciliation and isolated idempotency/protection tests; broker-order changes require separate approval.
+
 ## 9. Shared $5,000 challenge execution acceptance
 
 **Status:** Shadow implemented / acceptance pending  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-25
+**Last reviewed:** 2026-10-26
 
 **Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
 
@@ -283,11 +287,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Recommendation:** No activation or change to risk limits based on research counts.
 
+**2026-10-26 evidence:** The `shared-paper-v1` preview contains 61,379 source observations (+3,261 since Oct 25), zero challenge proposal records, and broker execution disabled. No capital-isolation acceptance or strategy revalidation was demonstrated. Keep shadow-only.
+
 ## 10. Market-regime and leveraged-instrument event studies
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-25
+**Last reviewed:** 2026-10-26
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
@@ -298,6 +304,8 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **2026-10-25 evidence:** CoinDesk reported BTC briefly below $80,000 on Oct 24 amid renewed Middle East risks; Alpaca Oct 25 14:02 UTC BTC last trade was ~$80,254 (not a simultaneous executable quote). Reuters Oct 23 confirmed Brent at $116.72 and technology-sector financing concerns. Use weekend BTC/SOL/ETH risk-off conditions and Friday equity closes for timestamped regime studies only. Source: https://www.coindesk.com/markets/2026/10/24/crypto-under-weekend-pressure-bitcoin-slides-below-usd80-000-on-u-s-middle-east-evacuations ; https://www.reuters.com/world/china/global-markets-global-markets-2026-10-23/
 
 **Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
+
+**2026-10-26 evidence:** Reuters reports U.S. futures modestly higher as oil eases ahead of the Fed decision and Alphabet/Microsoft/Amazon earnings; AI infrastructure financing remains under scrutiny. CoinDesk reports BTC near $80,000 amid cautious positioning; Alpaca's 13:23 UTC BTC trade was $79,903.80, ETH $2,315.90, SOL $101.20 (timestamps differ). Study QQQ/NVDA/MSFT and crypto regime transitions as timestamped research only. Sources: https://www.reuters.com/world/asia-pacific/global-markets-pix-2026-10-26/ ; https://www.coindesk.com/markets/2026/10/26/bitcoin-holds-near-usd80-000-as-oil-retreats-and-the-fed-decision-looms .
 
 ## 11. AI Clipper staged acceptance
 
