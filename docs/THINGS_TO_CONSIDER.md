@@ -164,54 +164,7 @@ Track subsequent 1h/4h/24h outcomes for combinations of:
 Bitcoin was rejected near $87,000 for the third time since September 23 and remained near $86,000, while ETH and SOL were modestly negative in the reviewed snapshot. ADA showed a stronger multi-session move but was also off its intraday high. This increases breakout/reversal uncertainty rather than supplying a new entry authorization.
 
 ### 2026-10-07 evidence update
-Bitcoin fell to roughly $83.4K, ETH to roughly 
-**Status:** Monitor / more counterfactual evidence  
-**Added:** 2026-10-05  
-**Last reviewed:** 2026-10-26
-
-### Finding
-Research snapshot:
-- ETH showed unusually high relative volume while price remained slightly negative.
-- ADA and RENDER showed positive price action plus elevated relative volume.
-- BTC and SOL did not produce a clean qualifying setup.
-- None of these reached the bot-review threshold in the current scanner state.
-
-### Why it may matter
-High relative volume without directional confirmation is useful evidence for future scoring research but is not enough by itself for an entry.
-
-### Possible solution
-Track subsequent 1h/4h/24h outcomes for combinations of:
-- relative-volume band;
-- price direction;
-- distance from session high;
-- spread;
-- broader BTC regime.
-
-### 2026-10-06 evidence update
-Bitcoin was rejected near $87,000 for the third time since September 23 and remained near $86,000, while ETH and SOL were modestly negative in the reviewed snapshot. ADA showed a stronger multi-session move but was also off its intraday high. This increases breakout/reversal uncertainty rather than supplying a new entry authorization.
-
-### 2026-10-07 evidence update
 Bitcoin fell to roughly $83.4K, ETH to roughly $2.56K, and SOL to roughly $116 in the reviewed morning snapshot. Five same-day rejected/waiting crypto setups completed as counterfactuals: BTC, ETH, and SOL stopped before 1R; DOT and LINK reached at least 1R before later stopping. No new paper order was created.
-
-### 2026-10-23 evidence update
-329 mixed-version counterfactuals: 120 stopped before 1R, 42 stopped after 1R, and 67 reached 2R before stop. Spark rejected LINK/USD for spread/momentum and its stale one-position ledger; Flash rejected SOL/USD on trend/BTC regime. These are research outcomes, not executed profitability.
-
-### 2026-10-24 evidence update
-352 mixed-version counterfactual records now include 128 stopped before 1R, 47 stopped after 1R, and 69 reached 2R before stop; 108 have other/pending/ambiguous outcomes. Spark still rejects new SOL research partly because its stale BTC position occupies its one-position limit. Preserve fee- and regime-adjusted research separation.
-
-### Recommendation
-Collect fee-adjusted, per-version evidence before changing weights. Retain quote, spread, trend, breakout, fee-coverage, score, and BTC-regime gates.
-
-Reference: https://www.coindesk.com/markets/2026/10/06/bitcoin-keeps-getting-rejected-at-usd87-000-as-stocks-hover-near-records
-
----
-
-**2026-10-25 evidence:** 362 counterfactuals: 141 stopped before 1R, 49 after 1R, 69 reached 2R before stopping, and 103 other/pending/ambiguous outcomes. Weekend Flash rejected LINK/USD (score 10) on spread, completed-bar, trend and opportunity gates; Spark rejected BTC/USD (score 65) partly because the unreconciled BTC position still occupies its one-position limit. These are hypothetical/research outcomes, not fills. Segment by strategy version, costs, and regime before changing weights.
-
-**2026-10-26 evidence:** 372 mixed-version counterfactual records: 149 stopped before 1R, 49 after 1R, 70 reached 2R before stop, and 104 other/pending/ambiguous. Spark rejected DOT/USD with its one-position limit occupied by unreconciled BTC exposure; Flash rejected DOT/USD on spread, insufficient bars, BTC regime, and weak momentum. Evaluate fee-adjusted outcomes by strategy/version; do not change weights.
-
-.56K, and SOL to roughly ## 4. Crypto volume expansion without clean bot-review qualification
-16 in the reviewed morning snapshot. Five same-day rejected/waiting crypto setups completed as counterfactuals: BTC, ETH, and SOL stopped before 1R; DOT and LINK reached at least 1R before later stopping. No new paper order was created.
 
 ### 2026-10-23 evidence update
 329 mixed-version counterfactuals: 120 stopped before 1R, 42 stopped after 1R, and 67 reached 2R before stop. Spark rejected LINK/USD for spread/momentum and its stale one-position ledger; Flash rejected SOL/USD on trend/BTC regime. These are research outcomes, not executed profitability.
@@ -354,14 +307,6 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
-**2026-10-24 evidence:** Oct 23 U.S. close: S&P 500 -0.52%, Nasdaq -0.21%, Dow -1.23%, Brent ## 10. Market-regime and leveraged-instrument event studies
-16.72 (AP). Weekend Alpaca crypto latest trades near BTC $80,630, ETH 
-**Status:** Evaluate / historical handoff audit  
-**Added:** 2026-10-23  
-**Last reviewed:** 2026-10-26
-
-**Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
-
 **2026-10-24 evidence:** Oct 23 U.S. close: S&P 500 -0.52%, Nasdaq -0.21%, Dow -1.23%, Brent $116.72 (AP). Weekend Alpaca crypto latest trades near BTC $80,630, ETH $2,364, SOL $101.40, LINK $11.60, DOT $1.07; timestamps differ. Newly identified CCC $7.75 merger agreement is a corporate-action research case for Harbor, **not** Crown Castle/SpaceX (CCI) news. Treat prices as snapshots, not signals. Ethereum Foundation confirmed Oct 22 that Glamsterdam's Oct 26 Hoodi *testnet* activation was postponed over EIP-8037 interactions; this is not a mainnet incident or an ETH trade signal. Source: https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay . Sources: https://apnews.com/article/7b47ef3b037bfba4e34f685329b9b963 ; https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
 
 **Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
@@ -372,57 +317,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-26 evidence:** Reuters reports U.S. futures modestly higher as oil eases ahead of the Fed decision and Alphabet/Microsoft/Amazon earnings; AI infrastructure financing remains under scrutiny. CoinDesk reports BTC near $80,000 amid cautious positioning; Alpaca's 13:23 UTC BTC trade was $79,903.80, ETH $2,315.90, SOL $101.20 (timestamps differ). Study QQQ/NVDA/MSFT and crypto regime transitions as timestamped research only. Sources: https://www.reuters.com/world/asia-pacific/global-markets-pix-2026-10-26/ ; https://www.coindesk.com/markets/2026/10/26/bitcoin-holds-near-usd80-000-as-oil-retreats-and-the-fed-decision-looms .
 
-,364, SOL ## 10. Market-regime and leveraged-instrument event studies
-01.40, LINK ## 10. Market-regime and leveraged-instrument event studies
-1.60, DOT ## 10. Market-regime and leveraged-instrument event studies
-.07; timestamps differ. Newly identified CCC $7.75 merger agreement is a corporate-action research case for Harbor, **not** Crown Castle/SpaceX (CCI) news. Treat prices as snapshots, not signals. Ethereum Foundation confirmed Oct 22 that Glamsterdam's Oct 26 Hoodi *testnet* activation was postponed over EIP-8037 interactions; this is not a mainnet incident or an ETH trade signal. Source: https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay . Sources: https://apnews.com/article/7b47ef3b037bfba4e34f685329b9b963 ; https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
-
-**Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
-
-**2026-10-25 evidence:** CoinDesk reported BTC briefly below $80,000 on Oct 24 amid renewed Middle East risks; Alpaca Oct 25 14:02 UTC BTC last trade was ~$80,254 (not a simultaneous executable quote). Reuters Oct 23 confirmed Brent at ## 10. Market-regime and leveraged-instrument event studies
-16.72 and technology-sector financing concerns. Use weekend BTC/SOL/ETH risk-off conditions and Friday equity closes for timestamped regime studies only. Source: https://www.coindesk.com/markets/2026/10/24/crypto-under-weekend-pressure-bitcoin-slides-below-usd80-000-on-u-s-middle-east-evacuations ; https://www.reuters.com/world/china/global-markets-global-markets-2026-10-23/
-
-**Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
-
-**2026-10-26 evidence:** Reuters reports U.S. futures modestly higher as oil eases ahead of the Fed decision and Alphabet/Microsoft/Amazon earnings; AI infrastructure financing remains under scrutiny. CoinDesk reports BTC near $80,000 amid cautious positioning; Alpaca's 13:23 UTC BTC trade was $79,903.80, ETH 
-**Status:** Evaluate / historical handoff audit  
-**Added:** 2026-10-23  
-**Last reviewed:** 2026-10-26
-
-**Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
-
-**2026-10-24 evidence:** Oct 23 U.S. close: S&P 500 -0.52%, Nasdaq -0.21%, Dow -1.23%, Brent $116.72 (AP). Weekend Alpaca crypto latest trades near BTC $80,630, ETH $2,364, SOL $101.40, LINK $11.60, DOT $1.07; timestamps differ. Newly identified CCC $7.75 merger agreement is a corporate-action research case for Harbor, **not** Crown Castle/SpaceX (CCI) news. Treat prices as snapshots, not signals. Ethereum Foundation confirmed Oct 22 that Glamsterdam's Oct 26 Hoodi *testnet* activation was postponed over EIP-8037 interactions; this is not a mainnet incident or an ETH trade signal. Source: https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay . Sources: https://apnews.com/article/7b47ef3b037bfba4e34f685329b9b963 ; https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
-
-**Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
-
-**2026-10-25 evidence:** CoinDesk reported BTC briefly below $80,000 on Oct 24 amid renewed Middle East risks; Alpaca Oct 25 14:02 UTC BTC last trade was ~$80,254 (not a simultaneous executable quote). Reuters Oct 23 confirmed Brent at $116.72 and technology-sector financing concerns. Use weekend BTC/SOL/ETH risk-off conditions and Friday equity closes for timestamped regime studies only. Source: https://www.coindesk.com/markets/2026/10/24/crypto-under-weekend-pressure-bitcoin-slides-below-usd80-000-on-u-s-middle-east-evacuations ; https://www.reuters.com/world/china/global-markets-global-markets-2026-10-23/
-
-**Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
-
-**2026-10-26 evidence:** Reuters reports U.S. futures modestly higher as oil eases ahead of the Fed decision and Alphabet/Microsoft/Amazon earnings; AI infrastructure financing remains under scrutiny. CoinDesk reports BTC near $80,000 amid cautious positioning; Alpaca's 13:23 UTC BTC trade was $79,903.80, ETH $2,315.90, SOL $101.20 (timestamps differ). Study QQQ/NVDA/MSFT and crypto regime transitions as timestamped research only. Sources: https://www.reuters.com/world/asia-pacific/global-markets-pix-2026-10-26/ ; https://www.coindesk.com/markets/2026/10/26/bitcoin-holds-near-usd80-000-as-oil-retreats-and-the-fed-decision-looms .
-
-,315.90, SOL ## 10. Market-regime and leveraged-instrument event studies
-01.20 (timestamps differ). Study QQQ/NVDA/MSFT and crypto regime transitions as timestamped research only. Sources: https://www.reuters.com/world/asia-pacific/global-markets-pix-2026-10-26/ ; https://www.coindesk.com/markets/2026/10/26/bitcoin-holds-near-usd80-000-as-oil-retreats-and-the-fed-decision-looms .
-
-**2026-10-27 evidence:** Reuters reports Oct 26 S&P 500 +0.70%, Nasdaq +0.83% after AI-related sentiment rebounded; Oct 27 markets remain earnings-sensitive. Alpaca BTC latest trade ~$79,942, ETH ~
-**Status:** Evaluate / historical handoff audit  
-**Added:** 2026-10-23  
-**Last reviewed:** 2026-10-26
-
-**Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
-
-**2026-10-24 evidence:** Oct 23 U.S. close: S&P 500 -0.52%, Nasdaq -0.21%, Dow -1.23%, Brent $116.72 (AP). Weekend Alpaca crypto latest trades near BTC $80,630, ETH $2,364, SOL $101.40, LINK $11.60, DOT $1.07; timestamps differ. Newly identified CCC $7.75 merger agreement is a corporate-action research case for Harbor, **not** Crown Castle/SpaceX (CCI) news. Treat prices as snapshots, not signals. Ethereum Foundation confirmed Oct 22 that Glamsterdam's Oct 26 Hoodi *testnet* activation was postponed over EIP-8037 interactions; this is not a mainnet incident or an ETH trade signal. Source: https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay . Sources: https://apnews.com/article/7b47ef3b037bfba4e34f685329b9b963 ; https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
-
-**Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
-
-**2026-10-25 evidence:** CoinDesk reported BTC briefly below $80,000 on Oct 24 amid renewed Middle East risks; Alpaca Oct 25 14:02 UTC BTC last trade was ~$80,254 (not a simultaneous executable quote). Reuters Oct 23 confirmed Brent at $116.72 and technology-sector financing concerns. Use weekend BTC/SOL/ETH risk-off conditions and Friday equity closes for timestamped regime studies only. Source: https://www.coindesk.com/markets/2026/10/24/crypto-under-weekend-pressure-bitcoin-slides-below-usd80-000-on-u-s-middle-east-evacuations ; https://www.reuters.com/world/china/global-markets-global-markets-2026-10-23/
-
-**Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
-
-**2026-10-26 evidence:** Reuters reports U.S. futures modestly higher as oil eases ahead of the Fed decision and Alphabet/Microsoft/Amazon earnings; AI infrastructure financing remains under scrutiny. CoinDesk reports BTC near $80,000 amid cautious positioning; Alpaca's 13:23 UTC BTC trade was $79,903.80, ETH $2,315.90, SOL $101.20 (timestamps differ). Study QQQ/NVDA/MSFT and crypto regime transitions as timestamped research only. Sources: https://www.reuters.com/world/asia-pacific/global-markets-pix-2026-10-26/ ; https://www.coindesk.com/markets/2026/10/26/bitcoin-holds-near-usd80-000-as-oil-retreats-and-the-fed-decision-looms .
-
-,318, SOL ~## 10. Market-regime and leveraged-instrument event studies
-00 (venue timestamps differ). SOFI earnings and JBLU results explain two current scanner moves; record first eligible times and compare to independently timestamped releases, not hindsight-selected entries. Sources: https://www.reuters.com/business/us-stock-futures-edge-up-oil-falls-heading-into-earnings-barrage-2026-10-26/ ; https://www.coindesk.com/tech/2026/10/27/live-updates-bitcoin-holds-below-usd80-000-as-ai-buildout-draws-more-capital .
+**2026-10-27 evidence:** Reuters reports Oct 26 S&P 500 +0.70% and Nasdaq +0.83% after AI-linked sentiment rebounded; Oct 27 remains earnings-sensitive. Alpaca latest BTC trade was near USD 79,942, ETH near USD 2,318 and SOL near USD 100 (venue timestamps differ). SOFI and JBLU earnings provide timestamped catalyst cases for comparing scanner eligibility and downstream strategy checks. Research only; no scoring or execution changes. Sources: https://www.reuters.com/business/us-stock-futures-edge-up-oil-falls-heading-into-earnings-barrage-2026-10-26/ ; https://www.coindesk.com/tech/2026/10/27/live-updates-bitcoin-holds-below-usd80-000-as-ai-buildout-draws-more-capital .
 
 ## 11. AI Clipper staged acceptance
 
