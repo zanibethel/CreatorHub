@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-28
+Last reviewed: 2026-10-29
 
 ## Status key
 
@@ -21,7 +21,7 @@ Last reviewed: 2026-10-28
 
 **Status:** Implemented foundation / ingestion still unverified  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-28
+**Last reviewed:** 2026-10-29
 
 ### Finding
 Daily market/news intelligence can explain why a symbol or asset class is moving and can help distinguish broad-regime moves from symbol-specific catalysts.
@@ -75,6 +75,8 @@ Do **not** let a newsletter mention create an entry signal or override spread/li
 ---
 
 **2026-10-28 evidence:** `paper_news_signals` remains at zero rows despite 8 premarket scanner review-eligible prospects. STLA's Oct 28 Q3 results are independently confirmed, but Fuse rejected it on volatility and isolated capital/risk limits. Compare release/first-observed/first-review-ready timestamps and later executable opportunity without look-ahead. Source: https://www.stellantis.com/en/news/press-releases/2026/october/third-quarter-2026-financial-results . No news-derived orders or score changes.
+
+**2026-10-29 evidence:** `paper_news_signals` remains empty despite primary-source Oct 28 CMG and Oct 29 NCLH earnings. NCLH's 06:30 ET release beat guidance and raised FY adjusted EPS outlook; CMG reported +2.1% comparable sales but lower adjusted EPS. Treat these as verified research/catalyst-timing cases, not automatic score boosts or order authorization. Sources: https://www.globenewswire.com/news-release/2026/10/29/3391046/24500/en/norwegian-cruise-line-holdings-reports-third-quarter-2026-financial-results.html ; https://ir.chipotle.com/2026-10-28-CHIPOTLE-ANNOUNCES-THIRD-QUARTER-2026-RESULTS .
 
 ## 2. Prospect Scanner five-minute cadence
 
@@ -265,7 +267,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Urgent fix recommended — approval required  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-28
+**Last reviewed:** 2026-10-29
 
 **Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
 
@@ -281,11 +283,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-28 evidence:** Alpaca PAPER still holds 2 CCC shares (avg $7.65, current mark $7.70) with **zero open broker orders**; recorded ~$7.1625 stop is inactive. Four unapplied broker fills remain (Spark BTC sell, Pulse CIFR buy and two sells), and broker stream heartbeat is still Oct 12 17:55:58 UTC (~15.8 days stale). Spark's virtual BTC position persists although the broker holds none. **Urgent status unchanged**: read-only broker/ledger parity and isolated idempotent recovery tests first; no broker-order action without separate approval.
 
+**2026-10-29 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 average and zero open broker orders; stored stop ~$7.1625 remains inactive. Same four Spark BTC/Pulse CIFR fills are unapplied, stream heartbeat remains Oct 12 17:55:58 UTC (~16.8 days), and Spark's virtual BTC position persists. NCLH has a *prepared* Harbor order (no broker ID, expires Oct 29 20:00 UTC) and a triggered **counterfactual**, but no broker NCLH order/position; do not conflate prepared, hypothetical and executed states. Urgent read-only parity and isolated tests; broker action needs separate approval.
+
 ## 9. Shared $5,000 challenge execution acceptance
 
 **Status:** Shadow implemented / acceptance pending  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-28
+**Last reviewed:** 2026-10-29
 
 **Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
 
@@ -299,11 +303,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-28 evidence:** Preview now contains 70,420 source observations (+4,481 vs Oct 27), with zero challenge-authorized orders and broker execution disabled. Research volume does not prove capital isolation, strategy revalidation or execution acceptance. Keep shadow-only.
 
+**2026-10-29 evidence:** `shared-paper-v1` preview has 75,224 projected observations (+4,804 since Oct 28), zero strategy-revalidated observations, zero proposal records and zero authorized orders; broker execution remains disabled. Research growth does not establish execution acceptance.
+
 ## 10. Market-regime and leveraged-instrument event studies
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-28
+**Last reviewed:** 2026-10-29
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
@@ -318,6 +324,8 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **2026-10-26 evidence:** Reuters reports U.S. futures modestly higher as oil eases ahead of the Fed decision and Alphabet/Microsoft/Amazon earnings; AI infrastructure financing remains under scrutiny. CoinDesk reports BTC near $80,000 amid cautious positioning; Alpaca's 13:23 UTC BTC trade was $79,903.80, ETH $2,315.90, SOL $101.20 (timestamps differ). Study QQQ/NVDA/MSFT and crypto regime transitions as timestamped research only. Sources: https://www.reuters.com/world/asia-pacific/global-markets-pix-2026-10-26/ ; https://www.coindesk.com/markets/2026/10/26/bitcoin-holds-near-usd80-000-as-oil-retreats-and-the-fed-decision-looms .
 
 **2026-10-28 evidence:** Reuters Oct 28 reports an AI-led Asian semiconductor rally after SK hynix earnings, while oil remains elevated ahead of the Fed decision; CoinDesk Oct 28 reports BTC near $81K before the Fed. STLA's Oct 28 primary-source Q3 release is a catalyst-timing case. Four of today's eight scanner-eligible prospects are verified daily-reset leveraged ETFs (SNXX/MUU/KORU/SOXL); separate their outcomes and instrument-risk classification from ordinary equity momentum. Sources: https://www.reuters.com/world/china/global-markets-global-markets-2026-10-28/ ; https://www.coindesk.com/markets/2026/10/28/bitcoin-nears-usd81-000-ahead-of-fed-decision-as-zec-jumps-8 ; https://www.stellantis.com/en/news/press-releases/2026/october/third-quarter-2026-financial-results . No gate changes.
+
+**2026-10-29 evidence:** Five stored bot-review-eligible prospects: NCLH 94, PURR 93, HYPE/USD 87, SNDG 82 and CMG 81; SNDG's source is stale since Oct 28. NCLH earnings were confirmed at 06:30 ET (Q3 adjusted EPS $1.12, raised FY guidance); CMG's Oct 28 release confirmed +2.1% comparable sales and weaker EPS. Pulse marked NCLH/PURR/CMG watch-only; Harbor rejected NCLH for broad regime/ownership constraints after preparing an unsubmitted order; HYPE/USD was unqualified in Spark/Flash-style downstream evaluations (crypto-swing insufficient hourly history). Distinguish NASDAQ:PURR equity from HYPE/USD token, and measure spread, timestamp, catalyst and counterfactual outcome without changing gates. CoinDesk Oct 29 reports BTC near $80K amid Fed/AI earnings risk-off. Sources: https://www.globenewswire.com/news-release/2026/10/29/3391046/24500/en/norwegian-cruise-line-holdings-reports-third-quarter-2026-financial-results.html ; https://ir.chipotle.com/2026-10-28-CHIPOTLE-ANNOUNCES-THIRD-QUARTER-2026-RESULTS ; https://www.coindesk.com/markets/2026/10/29/bitcoin-drops-to-usd80-000-on-fed-dissent-samsung-alphabet-earnings-ai-tokens-slump .
 
 ## 11. AI Clipper staged acceptance
 
@@ -335,7 +343,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Evaluate / read-only audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-23
+**Last reviewed:** 2026-10-29
 
 **Evidence:** Node.js released security fixes Oct 21 (22.23.4, 24.22.1, 26.12.1). LiteLLM v1.107.0 distribution was compromised Oct 21; no direct dependency was identified in the previously reviewed manifests, but runtime/transitive exposure has not been verified.
 
@@ -344,3 +352,5 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **Recommendation:** Patch or rotate credentials only after exposure is established and remediation is approved; never assume lack of a direct dependency proves safety.
 
 **References:** https://nodejs.org/en/blog/vulnerability/october-2026-security-releases ; https://docs.litellm.ai/blog/security-incident-oct-21-2026
+
+**2026-10-29 evidence:** CreatorHub pins Next.js 16.2.11. Next.js announced a Nov 3 security release for seven medium vulnerabilities; affected version ranges are not yet published. Prepare read-only dependency/runtime inventory and isolated test plan, then seek approval for a verified patch and deployment. Source: https://nextjs.org/blog/upcoming-nextjs-security-release-november-2026 .
