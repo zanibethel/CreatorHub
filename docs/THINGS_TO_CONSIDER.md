@@ -291,6 +291,8 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-30 evidence:** Alpaca PAPER still holds **2 CCC shares** (avg $7.65; mark ~$7.675) and **zero open orders**; recorded stop remains inactive. Same **four unapplied fills** (Spark BTC exit and Pulse CIFR buy/two sells), with broker stream heartbeat unchanged at Oct 12 17:55:58 UTC (~17.8 days stale). Today's Flash BTC rejection still reports another bot holds BTC despite broker inventory showing only CCC. **Urgent status unchanged.** Audit broker/order/ledger parity and cross-bot ownership separately; isolated idempotency tests only, no order actions without approval.
 
+**2026-10-30 lifecycle follow-up:** The unsubmitted Harbor NCLH prepared order is now **expired** (no broker ID); its counterfactual remains `triggered` with MFE **+0.478R** and MAE **-0.262R**, not a broker fill. A separate Pulse NCLH hypothetical ended **one-R-then-session-end** (MFE +1.646R). Total counterfactuals **497**: 192 stop-before-1R, 67 stop-after-1R, 100 two-R-before-stop, 138 other/ambiguous/pending. These are different strategy-version observations, not realized P/L; preserve immutable decision lineage and do not count either as an executed trade.
+
 ## 9. Shared $5,000 challenge execution acceptance
 
 **Status:** Shadow implemented / acceptance pending  
