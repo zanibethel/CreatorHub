@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-30
+Last reviewed: 2026-10-31
 
 ## Status key
 
@@ -21,7 +21,7 @@ Last reviewed: 2026-10-30
 
 **Status:** Implemented foundation / ingestion still unverified  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-30
+**Last reviewed:** 2026-10-31
 
 ### Finding
 Daily market/news intelligence can explain why a symbol or asset class is moving and can help distinguish broad-regime moves from symbol-specific catalysts.
@@ -79,6 +79,8 @@ Do **not** let a newsletter mention create an entry signal or override spread/li
 **2026-10-29 evidence:** `paper_news_signals` remains empty despite primary-source Oct 28 CMG and Oct 29 NCLH earnings. NCLH's 06:30 ET release beat guidance and raised FY adjusted EPS outlook; CMG reported +2.1% comparable sales but lower adjusted EPS. Treat these as verified research/catalyst-timing cases, not automatic score boosts or order authorization. Sources: https://www.globenewswire.com/news-release/2026/10/29/3391046/24500/en/norwegian-cruise-line-holdings-reports-third-quarter-2026-financial-results.html ; https://ir.chipotle.com/2026-10-28-CHIPOTLE-ANNOUNCES-THIRD-QUARTER-2026-RESULTS .
 
 **2026-10-30 evidence:** `paper_news_signals` still has **zero** verified rows despite the major Binance exchange-security catalyst and chip-sector earnings. Research may attach timestamped external context with source provenance, but no news signal may authorize a PAPER order or override spread, liquidity, account, or risk gates. Test the existing ingestion path before proposing scoring changes.
+
+**2026-10-31 evidence:** Connected `paper_news_signals` still has **0 verified rows** despite independently reported Binance market stress and Friday's semiconductor selloff. No news item was inserted as an execution signal. Continue timestamped research-only event studies and independent source validation; do not treat headlines as broker-order authority.
 
 ## 2. Prospect Scanner five-minute cadence
 
@@ -271,7 +273,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Urgent fix recommended — approval required  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-30
+**Last reviewed:** 2026-10-31
 
 **Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
 
@@ -293,11 +295,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-30 lifecycle follow-up:** The unsubmitted Harbor NCLH prepared order is now **expired** (no broker ID); its counterfactual remains `triggered` with MFE **+0.478R** and MAE **-0.262R**, not a broker fill. A separate Pulse NCLH hypothetical ended **one-R-then-session-end** (MFE +1.646R). Total counterfactuals **497**: 192 stop-before-1R, 67 stop-after-1R, 100 two-R-before-stop, 138 other/ambiguous/pending. These are different strategy-version observations, not realized P/L; preserve immutable decision lineage and do not count either as an executed trade.
 
+**2026-10-31 evidence:** Alpaca PAPER still holds **2 CCC at $7.65 with zero open orders** while the database records a non-broker protective stop; four October 12–13 broker fills (Spark BTC exit, Pulse CIFR entry/two exits) remain unapplied. Trade-stream heartbeat last Oct 12, still `stale_heartbeat`; Spark's stale BTC virtual position persists. Additional lifecycle audit: Pulse `VXX` (Oct 30) and `SMR` (Oct 29) remain database-`prepared` after their `expires_at`, without broker IDs; distinguish retained historical rows from currently actionable reservations. Read-only broker/order/ledger parity and isolated expiry/idempotent-replay tests first; no broker actions.
+
 ## 9. Shared $5,000 challenge execution acceptance
 
 **Status:** Shadow implemented / acceptance pending  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-30
+**Last reviewed:** 2026-10-31
 
 **Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
 
@@ -315,11 +319,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-30 evidence:** Preview contains **79,839** source observations (+4,615 vs Oct 29), zero challenge-authorized broker orders, execution disabled; no independent strategy-revalidated acceptance established. Keep shadow-only; volume is not proof of risk isolation or readiness.
 
+**2026-10-31 evidence:** `shared-paper-v1` remains **preview / paper-only / execution disabled**. Source observations rose to **83,480** (+3,641 vs Oct 30); 0 challenge-authorized proposal records. **515** total counterfactuals are hypothetical across strategy versions, not broker fills. Keep challenge in shadow mode until independent revalidation and capital-isolation acceptance.
+
 ## 10. Market-regime and leveraged-instrument event studies
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-30
+**Last reviewed:** 2026-10-31
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
@@ -339,6 +345,8 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-30 evidence:** Three stored bot-review-eligible prospects: **MSTZ 93** and **SQQQ 91** (inverse leveraged products), plus **NCLH 80** whose source is stale from Oct 29 and whose recorded spread is **9.86%**. Eligibility alone is not a fresh, executable quote. Atlas labeled **GMAB 85** “trade-ready” in a journal, but explicitly blocked it for no funded pool, untradable watchlist state, oversized stop and allocation checks; do not conflate journal qualification with executable readiness. Reuters Oct 30 reports Intel's earnings-triggered semiconductor selloff and broader AI-capex risk-off; separate inverse ETF behavior, quote freshness and strategy-version outcomes. Sources: https://www.reuters.com/business/intel-warning-sparks-chip-rout-pc-weakness-clouds-turnaround-2026-10-30/ ; https://www.reuters.com/legal/transactional/global-markets-global-markets-2026-10-30/ . No scanner or risk-policy change.
 
+**2026-10-31 evidence:** Saturday stock scanner shows **0 bot-review-eligible prospects** (5,721 stored); most recent equity quotes originate Friday, so rescans are not fresh tradable stock signals. Friday's Reuters close: Nasdaq -2.86%, S&P 500 -1.82%, semiconductor index -7.2%; Binance's Oct 29 hot-wallet incident remains a crypto-liquidity stressor. Flash journal scored AVAX/USD 80/`qualified` but still warned of spread above entry limit and projected opportunity 1.64% below its 5% goal: qualification is not execution permission. Research market-regime/counterfactual behavior without modifying gates. Sources: https://www.reuters.com/business/nasdaq-futures-tumble-amazon-intel-results-deepen-ai-spending-woes-2026-10-30/ ; https://www.binance.com/en/support/announcement/detail/d3306d9dca5243548c813b605e1d1751 .
+
 ## 11. AI Clipper staged acceptance
 
 **Status:** Evaluate / PR stack open  
@@ -355,7 +363,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Evaluate / read-only audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-10-30
+**Last reviewed:** 2026-10-31
 
 **Evidence:** Node.js released security fixes Oct 21 (22.23.4, 24.22.1, 26.12.1). LiteLLM v1.107.0 distribution was compromised Oct 21; no direct dependency was identified in the previously reviewed manifests, but runtime/transitive exposure has not been verified.
 
@@ -368,3 +376,6 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **2026-10-29 evidence:** CreatorHub pins Next.js 16.2.11. Next.js announced a Nov 3 security release for seven medium vulnerabilities; affected version ranges are not yet published. Prepare read-only dependency/runtime inventory and isolated test plan, then seek approval for a verified patch and deployment. Source: https://nextjs.org/blog/upcoming-nextjs-security-release-november-2026 .
 
 **2026-10-30 evidence:** Binance's preliminary laptop/service-container compromise illustrates why broker API credentials and bot-worker sessions must be scoped, revocable and independently reconciled. No CreatorHub compromise or Binance dependency is established. Keep read-only credential/stream-health review and existing Next.js Nov 3 patch plan; changes to credential policies or deployments require approval. Source: https://www.binance.com/en/square/post/10-30-2026-binance-stated-that-the-security-incident-affected-approximately-6-3-billion-with-about-3-billion-frozen-382718598048399 .
+
+**2026-10-31 evidence:** Epoch AI's Oct 29 Firefox patch-gap research shows public security-fix signals can be exploited before updates ship; Mozilla Firefox 159.0 patched a related flaw Oct 27. No CreatorHub exploit or browser/runtime exposure was established. Add read-only patch-gap and browser-version checks to the existing Node/Next.js Nov 3 security-inventory plan; request approval for any patch/deployment or credential-policy changes. Source: https://epoch.ai/publications/open-weight-models-patch-gap .
+
