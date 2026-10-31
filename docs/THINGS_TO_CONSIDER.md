@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-10-07
+Last reviewed: 2026-10-31
 
 ## Status key
 
@@ -19,9 +19,9 @@ Last reviewed: 2026-10-07
 
 ## 1. Add verified news/catalyst context to trading research
 
-**Status:** Implemented foundation / validate live evidence  
+**Status:** Implemented foundation / ingestion still unverified  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-07
+**Last reviewed:** 2026-10-31
 
 ### Finding
 Daily market/news intelligence can explain why a symbol or asset class is moving and can help distinguish broad-regime moves from symbol-specific catalysts.
@@ -66,10 +66,21 @@ OPCH is the first useful audit case. The official $32.05-per-share acquisition a
 
 Before changing any score weight, verify the ingest job end to end and compare each signal's publication time, first observed time, first scanner time, first review-ready time, and remaining price opportunity.
 
+### 2026-10-23 evidence update
+The dedicated `paper_news_signals` table still has zero rows despite active prospect scans. The October 22 T handoff is a retrospective catalyst-timing test because Reuters reported new telecom competition concerns October 23. First determine whether ingestion is running and whether news can be attached without look-ahead bias.
+
 ### Recommendation
 Do **not** let a newsletter mention create an entry signal or override spread/liquidity/risk gates.
 
 ---
+
+**2026-10-28 evidence:** `paper_news_signals` remains at zero rows despite 8 premarket scanner review-eligible prospects. STLA's Oct 28 Q3 results are independently confirmed, but Fuse rejected it on volatility and isolated capital/risk limits. Compare release/first-observed/first-review-ready timestamps and later executable opportunity without look-ahead. Source: https://www.stellantis.com/en/news/press-releases/2026/october/third-quarter-2026-financial-results . No news-derived orders or score changes.
+
+**2026-10-29 evidence:** `paper_news_signals` remains empty despite primary-source Oct 28 CMG and Oct 29 NCLH earnings. NCLH's 06:30 ET release beat guidance and raised FY adjusted EPS outlook; CMG reported +2.1% comparable sales but lower adjusted EPS. Treat these as verified research/catalyst-timing cases, not automatic score boosts or order authorization. Sources: https://www.globenewswire.com/news-release/2026/10/29/3391046/24500/en/norwegian-cruise-line-holdings-reports-third-quarter-2026-financial-results.html ; https://ir.chipotle.com/2026-10-28-CHIPOTLE-ANNOUNCES-THIRD-QUARTER-2026-RESULTS .
+
+**2026-10-30 evidence:** `paper_news_signals` still has **zero** verified rows despite the major Binance exchange-security catalyst and chip-sector earnings. Research may attach timestamped external context with source provenance, but no news signal may authorize a PAPER order or override spread, liquidity, account, or risk gates. Test the existing ingestion path before proposing scoring changes.
+
+**2026-10-31 evidence:** Connected `paper_news_signals` still has **0 verified rows** despite independently reported Binance market stress and Friday's semiconductor selloff. No news item was inserted as an execution signal. Continue timestamped research-only event studies and independent source validation; do not treat headlines as broker-order authority.
 
 ## 2. Prospect Scanner five-minute cadence
 
@@ -133,9 +144,9 @@ Reference: https://www.reuters.com/business/wall-st-futures-rise-yields-oil-dip-
 
 ## 4. Crypto volume expansion without clean bot-review qualification
 
-**Status:** Monitor  
+**Status:** Monitor / more counterfactual evidence  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-06
+**Last reviewed:** 2026-10-28
 
 ### Finding
 Research snapshot:
@@ -161,18 +172,32 @@ Bitcoin was rejected near $87,000 for the third time since September 23 and rema
 ### 2026-10-07 evidence update
 Bitcoin fell to roughly $83.4K, ETH to roughly $2.56K, and SOL to roughly $116 in the reviewed morning snapshot. Five same-day rejected/waiting crypto setups completed as counterfactuals: BTC, ETH, and SOL stopped before 1R; DOT and LINK reached at least 1R before later stopping. No new paper order was created.
 
+### 2026-10-23 evidence update
+329 mixed-version counterfactuals: 120 stopped before 1R, 42 stopped after 1R, and 67 reached 2R before stop. Spark rejected LINK/USD for spread/momentum and its stale one-position ledger; Flash rejected SOL/USD on trend/BTC regime. These are research outcomes, not executed profitability.
+
+### 2026-10-24 evidence update
+352 mixed-version counterfactual records now include 128 stopped before 1R, 47 stopped after 1R, and 69 reached 2R before stop; 108 have other/pending/ambiguous outcomes. Spark still rejects new SOL research partly because its stale BTC position occupies its one-position limit. Preserve fee- and regime-adjusted research separation.
+
 ### Recommendation
-Collect evidence before changing score weights. The latest outcomes support retaining the existing quote, spread, trend, breakout, fee-coverage, score, and BTC-regime gates.
+Collect fee-adjusted, per-version evidence before changing weights. Retain quote, spread, trend, breakout, fee-coverage, score, and BTC-regime gates.
 
 Reference: https://www.coindesk.com/markets/2026/10/06/bitcoin-keeps-getting-rejected-at-usd87-000-as-stocks-hover-near-records
 
 ---
 
+**2026-10-25 evidence:** 362 counterfactuals: 141 stopped before 1R, 49 after 1R, 69 reached 2R before stopping, and 103 other/pending/ambiguous outcomes. Weekend Flash rejected LINK/USD (score 10) on spread, completed-bar, trend and opportunity gates; Spark rejected BTC/USD (score 65) partly because the unreconciled BTC position still occupies its one-position limit. These are hypothetical/research outcomes, not fills. Segment by strategy version, costs, and regime before changing weights.
+
+**2026-10-26 evidence:** 372 mixed-version counterfactual records: 149 stopped before 1R, 49 after 1R, 70 reached 2R before stop, and 104 other/pending/ambiguous. Spark rejected DOT/USD with its one-position limit occupied by unreconciled BTC exposure; Flash rejected DOT/USD on spread, insufficient bars, BTC regime, and weak momentum. Evaluate fee-adjusted outcomes by strategy/version; do not change weights.
+
+**2026-10-28 evidence:** 443 mixed-version counterfactuals: 171 stopped before 1R, 57 stopped after 1R, 89 reached 2R before stop, and 126 other/pending/ambiguous. Research-only, not realized profit; compare fee-adjusted, out-of-sample outcomes by version, asset class and regime before considering any scoring change.
+
+**2026-10-30 evidence:** Binance disclosed an estimated **$6.3B** theft with preliminary DevOps-laptop/service-container compromise; investigation ongoing and some assets frozen. CoinDesk reports BTC briefly near **$76,400**, ~$1.57B futures liquidations and broad deleveraging. Alpaca's venue-specific ~13:37 UTC BTC trade was **$77,013.54** (ETH ~$2,225.50, SOL ~$95.40); timestamps vary and are not executable quotes. Flash remains unqualified on BTC due to a recorded shared-position blocker, although Alpaca shows only CCC; HYPE/USD is watch-only score 60. Measure risk-off behavior and stale cross-bot ownership independently; do not relax crypto gates. Sources: https://www.binance.com/en/square/post/10-30-2026-binance-stated-that-the-security-incident-affected-approximately-6-3-billion-with-about-3-billion-frozen-382718598048399 ; https://www.coindesk.com/markets/2026/10/30/crypto-liquidations-jump-to-usd1-57-billion-as-binance-hack-sends-bitcoin-ether-lower .
+
 ## 5. Squeeze liquidity gates appear to be protecting against headline-chasing
 
-**Status:** Monitor / stronger validation evidence  
+**Status:** Evaluate historical scanner-to-bot handoff  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-10-06
+**Last reviewed:** 2026-10-28
 
 ### Finding
 BSBR was the strongest current squeeze candidate in the reviewed snapshot but remained below the watchlist threshold. FNGR showed a notable positive session move while the scanner still rejected it because the observed setup/liquidity quality was poor, including a very wide quoted spread in the snapshot.
@@ -186,10 +211,17 @@ At about 8:57 a.m. Central, FNGR was about $0.2467 and down roughly 8.6% after t
 ### 2026-10-07 evidence update
 OPCH was retained by the squeeze scanner as a watchlist item but was not bot-review eligible. Its acquisition-driven gap is not evidence to weaken squeeze gates: it was already roughly 33% higher when first retained. Very wide-spread, low-dollar-volume names in the same snapshot remained ineligible.
 
+### 2026-10-23 evidence update
+EYPT was review-eligible October 19 during an approximately 80% drop with a 13.28% quoted spread, then became ineligible. October 22 T, SSPC, and SOXS were eligible; October 23 has none. Check first-eligible quote snapshots and downstream decisions; a transient eligible state is not a completed risk-gate bypass.
+
 ### Recommendation
-Preserve spread/liquidity gates. Use future outcomes to test whether thresholds are too strict or appropriately filtering false positives rather than loosening them because an individual rejected symbol later moves.
+Preserve spread/liquidity gates. Audit historical scanner-to-bot handoffs and later outcomes before proposing changes.
 
 ---
+
+**2026-10-25 evidence:** Sunday Atlas labeled DIA `qualified` (score 84) while explicitly blocking execution on quote freshness, spread, bearish regime, score below the 85 trade-ready threshold, and allocation checks. No broker order followed. Keep research qualification distinct from executable readiness and verify UI/analytics never collapse those states.
+
+**2026-10-28 evidence:** Eight premarket review-eligible prospects: SNXX 100, STLA 100, MUU 93, KORU 91, SKHY 89, SNDG 86, WEN 84, SOXL 81. SNXX (2x SNDK), MUU (2x MU), KORU (3x Korea) and SOXL (3x semiconductor) are daily-reset leveraged ETFs and should be evaluated separately from ordinary equities; SKHY is the underlying SK hynix ADR, **not** its leveraged ETF SKHL. SKHY's observed 2.01% spread and Atlas's unqualified score 34 reinforce downstream checks. STLA's verified Q3 release did not bypass Fuse's volatility/cash gates. Sources: https://www.nasdaq.com/press-release/tradrs-snxx-surges-650-million-under-month-setting-industry-growth-record-2026-02-24 ; https://www.direxion.com/product/daily-mu-bull-and-bear-leveraged-single-stock-etfs ; https://www.direxion.com/product/daily-msci-south-korea-bull-3x-etf ; https://www.direxion.com/product/daily-semiconductor-bull-bear-3x-etfs ; https://www.direxion.com/press-release/direxion-launches-skhl-2x-daily-exposure-to-sk-hynix . Research-only; no new broker order.
 
 ## 6. Daily intelligence should feed research, not silently rewrite the algorithm
 
@@ -234,3 +266,118 @@ Run a small shadow benchmark over representative uploaded text, thumbnails, shor
 Do not add embedding or indexing to the initial upload/download MVP. First define index ownership, deletion behavior, encryption, device/cloud placement, and rebuild semantics; then prototype behind an explicit opt-in flag.
 
 Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
+
+---
+
+## 8. Broker protection, event delivery, and virtual-ledger reconciliation
+
+**Status:** Urgent fix recommended — approval required  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-31
+
+**Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
+
+**2026-10-24 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 with **zero open broker orders**; Oct 23 close was $7.67. The four unapplied Spark/Pulse fills and Oct 12 17:55 UTC stream heartbeat persist. A newly reconciled *existing* Oct 15 primary-source catalyst: CCC Intelligent Solutions agreed to a $7.75/share cash acquisition by GTCR/Elliott, expected Q1 2027 subject to approvals. This changes the risk context of the unprotected position; a pending merger is not an executed exit or an active stop. Distinguish NASDAQ:CCC from Crown Castle NYSE:CCI. Source: https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
+
+**Possible solution:** Independently check protective-order coverage, broker stream delivery, and fill-to-ledger parity; replay fills idempotently by activity ID and test duplicate, partial, expired-DAY, and missed-event cases.
+
+**2026-10-25 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 average and **zero open orders**; last Friday's mark is $7.67. Four unapplied fills remain (Spark BTC exit and Pulse CIFR buy/two sells). Broker stream heartbeat is still Oct 12 17:55:58 UTC (`stale_heartbeat`, ~12.8 days old); Spark's stale position continues blocking research. Sunday crypto schedulers respond HTTP 200 but that does not prove event delivery. No broker order was modified.
+
+**Recommendation:** Prioritize a read-only reconciliation and isolated regression tests. Any broker-order action or production execution modification needs separate explicit approval. Keep PAPER only.
+
+**2026-10-26 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 average; the broker reports **zero open orders** and $7.6602 current valuation. Four Oct 12–13 fills remain unapplied (Spark BTC sell, Pulse CIFR buy/two sells); broker-stream heartbeat remains Oct 12 17:55:58 UTC with `stale_heartbeat` (~13.8 days). Spark's stale position continues to block research. **Recommendation unchanged:** urgent read-only reconciliation and isolated idempotency/protection tests; broker-order changes require separate approval.
+
+**2026-10-28 evidence:** Alpaca PAPER still holds 2 CCC shares (avg $7.65, current mark $7.70) with **zero open broker orders**; recorded ~$7.1625 stop is inactive. Four unapplied broker fills remain (Spark BTC sell, Pulse CIFR buy and two sells), and broker stream heartbeat is still Oct 12 17:55:58 UTC (~15.8 days stale). Spark's virtual BTC position persists although the broker holds none. **Urgent status unchanged**: read-only broker/ledger parity and isolated idempotent recovery tests first; no broker-order action without separate approval.
+
+**2026-10-29 evidence:** Alpaca PAPER still holds 2 CCC shares at $7.65 average and zero open broker orders; stored stop ~$7.1625 remains inactive. Same four Spark BTC/Pulse CIFR fills are unapplied, stream heartbeat remains Oct 12 17:55:58 UTC (~16.8 days), and Spark's virtual BTC position persists. NCLH has a *prepared* Harbor order (no broker ID, expires Oct 29 20:00 UTC) and a triggered **counterfactual**, but no broker NCLH order/position; do not conflate prepared, hypothetical and executed states. Urgent read-only parity and isolated tests; broker action needs separate approval.
+
+**2026-10-30 evidence:** Alpaca PAPER still holds **2 CCC shares** (avg $7.65; mark ~$7.675) and **zero open orders**; recorded stop remains inactive. Same **four unapplied fills** (Spark BTC exit and Pulse CIFR buy/two sells), with broker stream heartbeat unchanged at Oct 12 17:55:58 UTC (~17.8 days stale). Today's Flash BTC rejection still reports another bot holds BTC despite broker inventory showing only CCC. **Urgent status unchanged.** Audit broker/order/ledger parity and cross-bot ownership separately; isolated idempotency tests only, no order actions without approval.
+
+**2026-10-30 lifecycle follow-up:** The unsubmitted Harbor NCLH prepared order is now **expired** (no broker ID); its counterfactual remains `triggered` with MFE **+0.478R** and MAE **-0.262R**, not a broker fill. A separate Pulse NCLH hypothetical ended **one-R-then-session-end** (MFE +1.646R). Total counterfactuals **497**: 192 stop-before-1R, 67 stop-after-1R, 100 two-R-before-stop, 138 other/ambiguous/pending. These are different strategy-version observations, not realized P/L; preserve immutable decision lineage and do not count either as an executed trade.
+
+**2026-10-31 evidence:** Alpaca PAPER still holds **2 CCC at $7.65 with zero open orders** while the database records a non-broker protective stop; four October 12–13 broker fills (Spark BTC exit, Pulse CIFR entry/two exits) remain unapplied. Trade-stream heartbeat last Oct 12, still `stale_heartbeat`; Spark's stale BTC virtual position persists. Additional lifecycle audit: Pulse `VXX` (Oct 30) and `SMR` (Oct 29) remain database-`prepared` after their `expires_at`, without broker IDs; distinguish retained historical rows from currently actionable reservations. Read-only broker/order/ledger parity and isolated expiry/idempotent-replay tests first; no broker actions.
+
+## 9. Shared $5,000 challenge execution acceptance
+
+**Status:** Shadow implemented / acceptance pending  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-31
+
+**Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
+
+**Possible solution:** Prove challenge-scoped capital isolation, owner access, immutable proposal lineage, strategy revalidation, and broker reconciliation in isolated tests.
+
+**2026-10-25 evidence:** `shared-paper-v1` preview has 58,118 projected source observations (+3,072 since Oct 24), zero challenge proposal records or authorized orders, and broker execution remains disabled. Research volume does not establish capital-isolation or execution acceptance.
+
+**Recommendation:** No activation or change to risk limits based on research counts.
+
+**2026-10-26 evidence:** The `shared-paper-v1` preview contains 61,379 source observations (+3,261 since Oct 25), zero challenge proposal records, and broker execution disabled. No capital-isolation acceptance or strategy revalidation was demonstrated. Keep shadow-only.
+
+**2026-10-28 evidence:** Preview now contains 70,420 source observations (+4,481 vs Oct 27), with zero challenge-authorized orders and broker execution disabled. Research volume does not prove capital isolation, strategy revalidation or execution acceptance. Keep shadow-only.
+
+**2026-10-29 evidence:** `shared-paper-v1` preview has 75,224 projected observations (+4,804 since Oct 28), zero strategy-revalidated observations, zero proposal records and zero authorized orders; broker execution remains disabled. Research growth does not establish execution acceptance.
+
+**2026-10-30 evidence:** Preview contains **79,839** source observations (+4,615 vs Oct 29), zero challenge-authorized broker orders, execution disabled; no independent strategy-revalidated acceptance established. Keep shadow-only; volume is not proof of risk isolation or readiness.
+
+**2026-10-31 evidence:** `shared-paper-v1` remains **preview / paper-only / execution disabled**. Source observations rose to **83,480** (+3,641 vs Oct 30); 0 challenge-authorized proposal records. **515** total counterfactuals are hypothetical across strategy versions, not broker fills. Keep challenge in shadow mode until independent revalidation and capital-isolation acceptance.
+
+## 10. Market-regime and leveraged-instrument event studies
+
+**Status:** Evaluate / historical handoff audit  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-31
+
+**Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
+
+**2026-10-24 evidence:** Oct 23 U.S. close: S&P 500 -0.52%, Nasdaq -0.21%, Dow -1.23%, Brent $116.72 (AP). Weekend Alpaca crypto latest trades near BTC $80,630, ETH $2,364, SOL $101.40, LINK $11.60, DOT $1.07; timestamps differ. Newly identified CCC $7.75 merger agreement is a corporate-action research case for Harbor, **not** Crown Castle/SpaceX (CCI) news. Treat prices as snapshots, not signals. Ethereum Foundation confirmed Oct 22 that Glamsterdam's Oct 26 Hoodi *testnet* activation was postponed over EIP-8037 interactions; this is not a mainnet incident or an ETH trade signal. Source: https://blog.ethereum.org/2026/10/22/glamsterdam-hoodi-delay . Sources: https://apnews.com/article/7b47ef3b037bfba4e34f685329b9b963 ; https://www.cccis.com/news-and-insights/posts/ccc-intelligent-solutions-signs-definitive-agreement-to-be-acquired-by-gtcr-and-elliott
+
+**Possible solution:** Run event studies for T's telecom catalyst, inverse semiconductor ETF behavior, and SOL after Alpenglow. Segment outcomes by market regime, instrument structure, strategy version, liquidity, and fees; use the existing scanner handoff and verified-news entries for gating and provenance.
+
+**2026-10-25 evidence:** CoinDesk reported BTC briefly below $80,000 on Oct 24 amid renewed Middle East risks; Alpaca Oct 25 14:02 UTC BTC last trade was ~$80,254 (not a simultaneous executable quote). Reuters Oct 23 confirmed Brent at $116.72 and technology-sector financing concerns. Use weekend BTC/SOL/ETH risk-off conditions and Friday equity closes for timestamped regime studies only. Source: https://www.coindesk.com/markets/2026/10/24/crypto-under-weekend-pressure-bitcoin-slides-below-usd80-000-on-u-s-middle-east-evacuations ; https://www.reuters.com/world/china/global-markets-global-markets-2026-10-23/
+
+**Recommendation:** Preserve liquidity, BTC-regime, fee, and risk gates; never authorize orders from news or scanner score alone.
+
+**2026-10-26 evidence:** Reuters reports U.S. futures modestly higher as oil eases ahead of the Fed decision and Alphabet/Microsoft/Amazon earnings; AI infrastructure financing remains under scrutiny. CoinDesk reports BTC near $80,000 amid cautious positioning; Alpaca's 13:23 UTC BTC trade was $79,903.80, ETH $2,315.90, SOL $101.20 (timestamps differ). Study QQQ/NVDA/MSFT and crypto regime transitions as timestamped research only. Sources: https://www.reuters.com/world/asia-pacific/global-markets-pix-2026-10-26/ ; https://www.coindesk.com/markets/2026/10/26/bitcoin-holds-near-usd80-000-as-oil-retreats-and-the-fed-decision-looms .
+
+**2026-10-28 evidence:** Reuters Oct 28 reports an AI-led Asian semiconductor rally after SK hynix earnings, while oil remains elevated ahead of the Fed decision; CoinDesk Oct 28 reports BTC near $81K before the Fed. STLA's Oct 28 primary-source Q3 release is a catalyst-timing case. Four of today's eight scanner-eligible prospects are verified daily-reset leveraged ETFs (SNXX/MUU/KORU/SOXL); separate their outcomes and instrument-risk classification from ordinary equity momentum. Sources: https://www.reuters.com/world/china/global-markets-global-markets-2026-10-28/ ; https://www.coindesk.com/markets/2026/10/28/bitcoin-nears-usd81-000-ahead-of-fed-decision-as-zec-jumps-8 ; https://www.stellantis.com/en/news/press-releases/2026/october/third-quarter-2026-financial-results . No gate changes.
+
+**2026-10-29 evidence:** Five stored bot-review-eligible prospects: NCLH 94, PURR 93, HYPE/USD 87, SNDG 82 and CMG 81; SNDG's source is stale since Oct 28. NCLH earnings were confirmed at 06:30 ET (Q3 adjusted EPS $1.12, raised FY guidance); CMG's Oct 28 release confirmed +2.1% comparable sales and weaker EPS. Pulse marked NCLH/PURR/CMG watch-only; Harbor rejected NCLH for broad regime/ownership constraints after preparing an unsubmitted order; HYPE/USD was unqualified in the crypto-swing and weekend-crypto-day downstream evaluations (crypto-swing reported insufficient completed hourly history). Distinguish NASDAQ:PURR equity from HYPE/USD token, and measure spread, timestamp, catalyst and counterfactual outcome without changing gates. CoinDesk Oct 29 reports BTC near $80K amid Fed/AI earnings risk-off. Sources: https://www.globenewswire.com/news-release/2026/10/29/3391046/24500/en/norwegian-cruise-line-holdings-reports-third-quarter-2026-financial-results.html ; https://ir.chipotle.com/2026-10-28-CHIPOTLE-ANNOUNCES-THIRD-QUARTER-2026-RESULTS ; https://www.coindesk.com/markets/2026/10/29/bitcoin-drops-to-usd80-000-on-fed-dissent-samsung-alphabet-earnings-ai-tokens-slump .
+
+**2026-10-30 evidence:** Three stored bot-review-eligible prospects: **MSTZ 93** and **SQQQ 91** (inverse leveraged products), plus **NCLH 80** whose source is stale from Oct 29 and whose recorded spread is **9.86%**. Eligibility alone is not a fresh, executable quote. Atlas labeled **GMAB 85** “trade-ready” in a journal, but explicitly blocked it for no funded pool, untradable watchlist state, oversized stop and allocation checks; do not conflate journal qualification with executable readiness. Reuters Oct 30 reports Intel's earnings-triggered semiconductor selloff and broader AI-capex risk-off; separate inverse ETF behavior, quote freshness and strategy-version outcomes. Sources: https://www.reuters.com/business/intel-warning-sparks-chip-rout-pc-weakness-clouds-turnaround-2026-10-30/ ; https://www.reuters.com/legal/transactional/global-markets-global-markets-2026-10-30/ . No scanner or risk-policy change.
+
+**2026-10-31 evidence:** Saturday stock scanner shows **0 bot-review-eligible prospects** (5,721 stored); most recent equity quotes originate Friday, so rescans are not fresh tradable stock signals. Friday's Reuters close: Nasdaq -2.86%, S&P 500 -1.82%, semiconductor index -7.2%; Binance's Oct 29 hot-wallet incident remains a crypto-liquidity stressor. Flash journal scored AVAX/USD 80/`qualified` but still warned of spread above entry limit and projected opportunity 1.64% below its 5% goal: qualification is not execution permission. Research market-regime/counterfactual behavior without modifying gates. Sources: https://www.reuters.com/business/nasdaq-futures-tumble-amazon-intel-results-deepen-ai-spending-woes-2026-10-30/ ; https://www.binance.com/en/support/announcement/detail/d3306d9dca5243548c813b605e1d1751 .
+
+## 11. AI Clipper staged acceptance
+
+**Status:** Evaluate / PR stack open  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-23
+
+**Evidence:** PRs #137–#141 implement staged YouTube discovery, URL intake, quota reservations, and disposable PostgreSQL tests; none merged. Real YouTube API/OAuth integration and approved migrations remain unverified.
+
+**Possible solution:** Review dependencies in order; test restricted API keys, verified video-owner metadata, RLS/tenant isolation, quotas, and authorized content processing in nonproduction.
+
+**Recommendation:** Do not merge, deploy, or migrate until independently verified and approved.
+
+## 12. Node runtime and dependency supply-chain exposure
+
+**Status:** Evaluate / read-only audit  
+**Added:** 2026-10-23  
+**Last reviewed:** 2026-10-31
+
+**Evidence:** Node.js released security fixes Oct 21 (22.23.4, 24.22.1, 26.12.1). LiteLLM v1.107.0 distribution was compromised Oct 21; no direct dependency was identified in the previously reviewed manifests, but runtime/transitive exposure has not been verified.
+
+**Possible solution:** Inventory actual CI/production Node patch levels and worker/container dependency digests before any changes.
+
+**Recommendation:** Patch or rotate credentials only after exposure is established and remediation is approved; never assume lack of a direct dependency proves safety.
+
+**References:** https://nodejs.org/en/blog/vulnerability/october-2026-security-releases ; https://docs.litellm.ai/blog/security-incident-oct-21-2026
+
+**2026-10-29 evidence:** CreatorHub pins Next.js 16.2.11. Next.js announced a Nov 3 security release for seven medium vulnerabilities; affected version ranges are not yet published. Prepare read-only dependency/runtime inventory and isolated test plan, then seek approval for a verified patch and deployment. Source: https://nextjs.org/blog/upcoming-nextjs-security-release-november-2026 .
+
+**2026-10-30 evidence:** Binance's preliminary laptop/service-container compromise illustrates why broker API credentials and bot-worker sessions must be scoped, revocable and independently reconciled. No CreatorHub compromise or Binance dependency is established. Keep read-only credential/stream-health review and existing Next.js Nov 3 patch plan; changes to credential policies or deployments require approval. Source: https://www.binance.com/en/square/post/10-30-2026-binance-stated-that-the-security-incident-affected-approximately-6-3-billion-with-about-3-billion-frozen-382718598048399 .
+
+**2026-10-31 evidence:** Epoch AI's Oct 29 Firefox patch-gap research shows public security-fix signals can be exploited before updates ship; Mozilla Firefox 159.0 patched a related flaw Oct 27. No CreatorHub exploit or browser/runtime exposure was established. Add read-only patch-gap and browser-version checks to the existing Node/Next.js Nov 3 security-inventory plan; request approval for any patch/deployment or credential-policy changes. Source: https://epoch.ai/publications/open-weight-models-patch-gap .
+
+**2026-10-31 runtime verification:** Vercel `creatorhub` reports Node **24.x**; repository `package.json` has no `engines.node` and pins Next.js 16.2.11. Vercel's Oct 29 Node 26 LTS GA does not prove this existing project upgraded; audit effective runtime/engine constraints and test compatibility alongside Nov 3 Next.js advisories before any approved deployment. Source: https://vercel.com/changelog/node-js-26-lts-is-now-generally-available-on-vercel .
+
