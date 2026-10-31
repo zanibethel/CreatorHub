@@ -379,3 +379,5 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-10-31 evidence:** Epoch AI's Oct 29 Firefox patch-gap research shows public security-fix signals can be exploited before updates ship; Mozilla Firefox 159.0 patched a related flaw Oct 27. No CreatorHub exploit or browser/runtime exposure was established. Add read-only patch-gap and browser-version checks to the existing Node/Next.js Nov 3 security-inventory plan; request approval for any patch/deployment or credential-policy changes. Source: https://epoch.ai/publications/open-weight-models-patch-gap .
 
+**2026-10-31 runtime verification:** Vercel `creatorhub` reports Node **24.x**; repository `package.json` has no `engines.node` and pins Next.js 16.2.11. Vercel's Oct 29 Node 26 LTS GA does not prove this existing project upgraded; audit effective runtime/engine constraints and test compatibility alongside Nov 3 Next.js advisories before any approved deployment. Source: https://vercel.com/changelog/node-js-26-lts-is-now-generally-available-on-vercel .
+
