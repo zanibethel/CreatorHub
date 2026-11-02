@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-01
+Last reviewed: 2026-11-02
 
 ## Status key
 
@@ -21,7 +21,7 @@ Last reviewed: 2026-11-01
 
 **Status:** Implemented foundation / ingestion still unverified  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-11-01
+**Last reviewed:** 2026-11-02
 
 ### Finding
 Daily market/news intelligence can explain why a symbol or asset class is moving and can help distinguish broad-regime moves from symbol-specific catalysts.
@@ -83,6 +83,8 @@ Do **not** let a newsletter mention create an entry signal or override spread/li
 **2026-10-31 evidence:** Connected `paper_news_signals` still has **0 verified rows** despite independently reported Binance market stress and Friday's semiconductor selloff. No news item was inserted as an execution signal. Continue timestamped research-only event studies and independent source validation; do not treat headlines as broker-order authority.
 
 **2026-11-01 evidence:** `paper_news_signals` still has **zero verified rows**. Reuters reports Binance resumed BTC/ETH and selected stablecoin withdrawals on Nov 1 after saying it replaced about 95% of stolen tokens; phased restoration is not proof that crypto market/liquidity conditions normalized. Preserve source/timestamp/regime as research context only. No news-driven scoring or orders. Source: https://www.reuters.com/legal/government/binance-resumes-bitcoin-withdrawals-after-covering-bulk-stolen-63-billion-2026-11-01/ .
+
+**2026-11-02 evidence:** `paper_news_signals` remains **0** despite primary-source corporate catalysts now available for RIVN (Oct 29 SEC-filed Q3 results) and JBLU (Q3 results). EVGO's +51.98% scanner move has **no verified Nov 2 catalyst** in the sources reviewed. Preserve time-stamped source attribution as *research context*; do not infer causal attribution, award score points, or authorize orders. Sources: https://www.sec.gov/Archives/edgar/data/1874178/000187417826000065/ex-9913q26rivianearningspr.htm ; https://www.ir.jetblue.com/news/news-details/2026/JetBlue-Announces-Third-Quarter-2026-Results/default.aspx .
 
 ## 2. Prospect Scanner five-minute cadence
 
@@ -275,7 +277,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Urgent fix recommended — approval required  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-11-01
+**Last reviewed:** 2026-11-02
 
 **Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
 
@@ -301,11 +303,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-11-01 evidence:** Alpaca PAPER still holds **2 CCC shares at $7.65** and **zero open orders**; the database's ~$7.1625 stop is not broker-side protection. Four Oct 12–13 fills remain unapplied (Spark BTC exit; Pulse CIFR entry and two exits), and the trade-stream heartbeat remains Oct 12 17:55:58 UTC (`stale_heartbeat`). Spark's virtual BTC position still conflicts with broker inventory. Expired `prepared` VXX/SMR/SNXX/MUU instructions remain stored with no broker IDs; verify time and capital gates independently. **Status: Urgent fix recommended, unchanged.** Read-only parity and isolated idempotent replay/protection/expiry tests; broker orders require separate approval.
 
+**2026-11-02 evidence:** Alpaca PAPER still holds **2 CCC at $7.65**, with **zero open orders**; the ~$7.162513 database stop is not broker protection. The same four Oct 12–13 Spark BTC/Pulse CIFR fills remain unapplied; stream heartbeat remains Oct 12 17:55:58 UTC, and Spark's BTC virtual position conflicts with broker inventory. Harbor created a **new RKT `prepared` order Nov 2 14:50 UTC**, expiring 21:00 UTC, with **no broker order ID**; old Pulse VXX/SMR remain `prepared` after expiry. Verify ownership, expiry and capital reservations independently. **Urgent status unchanged:** read-only parity and isolated tests only; any broker order or production execution change requires approval.
+
 ## 9. Shared $5,000 challenge execution acceptance
 
 **Status:** Shadow implemented / acceptance pending  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-11-01
+**Last reviewed:** 2026-11-02
 
 **Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
 
@@ -327,11 +331,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-11-01 evidence:** `shared-paper-v1` remains shadow-only with broker execution disabled. Source observations increased to **86,744** (+3,264), but challenge strategy-revalidated observations and authorized proposals both remain **0**. Counterfactual records total **523**: 200 stop-before-1R, 69 stop-after-1R, 104 two-R-before-stop, 150 other/pending/ambiguous. These are not fills or validated profit. **Recommendation unchanged:** keep challenge preview-only pending independently verified execution acceptance.
 
+**2026-11-02 evidence:** `shared-paper-v1` remains **preview**, broker execution disabled; source observations rose to **90,087** (+3,343 since Nov 1), but **0 strategy-revalidated** and **0 broker-authorized** observations. Counterfactual records **538** (+15): 207 stop-before-1R, 73 stop-after-1R, 107 two-R-before-stop and 151 other/pending/ambiguous. These are hypothetical, not fills or realized profit. **Recommendation unchanged:** no activation until independent challenge-scoped capital and execution acceptance.
+
 ## 10. Market-regime and leveraged-instrument event studies
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-11-01
+**Last reviewed:** 2026-11-02
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
@@ -354,6 +360,8 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **2026-10-31 evidence:** Saturday stock scanner shows **0 bot-review-eligible prospects** (5,721 stored); most recent equity quotes originate Friday, so rescans are not fresh tradable stock signals. Friday's Reuters close: Nasdaq -2.86%, S&P 500 -1.82%, semiconductor index -7.2%; Binance's Oct 29 hot-wallet incident remains a crypto-liquidity stressor. Flash journal scored AVAX/USD 80/`qualified` but still warned of spread above entry limit and projected opportunity 1.64% below its 5% goal: qualification is not execution permission. Research market-regime/counterfactual behavior without modifying gates. Sources: https://www.reuters.com/business/nasdaq-futures-tumble-amazon-intel-results-deepen-ai-spending-woes-2026-10-30/ ; https://www.binance.com/en/support/announcement/detail/d3306d9dca5243548c813b605e1d1751 .
 
 **2026-11-01 market evidence:** Sunday stock scanner retains **0 bot-review-eligible** of 5,740 stored prospects; U.S. equities are closed and Friday observations are not executable quotes. Reuters Oct 30 reports Nasdaq -2.86%, S&P 500 -1.82%, semiconductor index -7.2%; next week's earnings/jobs data could change regime. Reuters Nov 1 reports phased Binance withdrawals restored after the Oct 29 breach, but market-normalization evidence is incomplete. Weekend crypto journal scored **BCH/USD 80/`qualified`** while separately warning spread too wide, momentum below threshold, excessive chase distance and projected opportunity only 1.93% versus 5% goal. This is a qualification-vs-execution-gates **audit case**, not permission to buy. No weights/risk/exec changes. Sources: https://www.reuters.com/business/nasdaq-futures-tumble-amazon-intel-results-deepen-ai-spending-woes-2026-10-30/ ; https://www.reuters.com/legal/government/binance-resumes-bitcoin-withdrawals-after-covering-bulk-stolen-63-billion-2026-11-01/ .
+
+**2026-11-02 market/scanner evidence:** Six current scanner `bot_review_eligible` stock prospects (15:05 UTC): **RIVN 91**, **EVGO 89** (+51.98%, spread 0.522%), **SPCX 86**, **JBLU 85**, **RKT 84**, **ACH 80** (**20.625% quoted spread**). Eligibility is not execution approval; ACH's spread is especially unsuitable for a naive momentum inference. RIVN's Oct 29 SEC-filed Q3 results confirm revenue +38% and improved guidance; JBLU's recent official Q3 release confirms revenue +21.1%; neither proves today's price move was caused by earnings. No verified same-day EVGO catalyst was found. Reuters Nov 2 reports oil easing and AI/tech stabilization; Reuters/CoinDesk report continuing Binance withdrawals and BTC near $78–79K. Evaluate catalyst timestamps, quote freshness, spreads, downstream bot decisions and counterfactual outcomes separately. **No scanner/risk/exec changes.** Sources: https://www.sec.gov/Archives/edgar/data/1874178/000187417826000065/ex-9913q26rivianearningspr.htm ; https://www.ir.jetblue.com/news/news-details/2026/JetBlue-Announces-Third-Quarter-2026-Results/default.aspx ; https://www.reuters.com/business/media-telecom/wall-street-futures-rise-ai-stocks-catch-their-breath-midterms-focus-2026-11-02/ ; https://www.reuters.com/business/finance/binance-sees-outflows-stabilising-exchange-returns-online-after-63-billion-heist-2026-11-02/ .
 
 ## 11. AI Clipper staged acceptance
 
