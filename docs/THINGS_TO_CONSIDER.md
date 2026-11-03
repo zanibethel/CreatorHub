@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-02
+Last reviewed: 2026-11-03
 
 ## Status key
 
@@ -21,7 +21,7 @@ Last reviewed: 2026-11-02
 
 **Status:** Implemented foundation / ingestion still unverified  
 **Added:** 2026-10-05  
-**Last reviewed:** 2026-11-02
+**Last reviewed:** 2026-11-03
 
 ### Finding
 Daily market/news intelligence can explain why a symbol or asset class is moving and can help distinguish broad-regime moves from symbol-specific catalysts.
@@ -85,6 +85,8 @@ Do **not** let a newsletter mention create an entry signal or override spread/li
 **2026-11-01 evidence:** `paper_news_signals` still has **zero verified rows**. Reuters reports Binance resumed BTC/ETH and selected stablecoin withdrawals on Nov 1 after saying it replaced about 95% of stolen tokens; phased restoration is not proof that crypto market/liquidity conditions normalized. Preserve source/timestamp/regime as research context only. No news-driven scoring or orders. Source: https://www.reuters.com/legal/government/binance-resumes-bitcoin-withdrawals-after-covering-bulk-stolen-63-billion-2026-11-01/ .
 
 **2026-11-02 evidence:** `paper_news_signals` remains **0** despite primary-source corporate catalysts now available for RIVN (Oct 29 SEC-filed Q3 results) and JBLU (Q3 results). EVGO's +51.98% scanner move has **no verified Nov 2 catalyst** in the sources reviewed. Preserve time-stamped source attribution as *research context*; do not infer causal attribution, award score points, or authorize orders. Sources: https://www.sec.gov/Archives/edgar/data/1874178/000187417826000065/ex-9913q26rivianearningspr.htm ; https://www.ir.jetblue.com/news/news-details/2026/JetBlue-Announces-Third-Quarter-2026-Results/default.aspx .
+
+**2026-11-03 evidence:** `paper_news_signals` still has **0 records/verified signals**. Cipher Digital's Nov 2 official Q3 update confirms its first HPC lease revenue and extended Barber Lake lease; Grab's Nov 2/3 Q3 release confirms 27% revenue growth and raised 2026 guidance. These are verified company events for current **CIFR/GRAB** scanner candidates, not proof of price-move causation. Keep source timestamps separate from scanner observation and do not alter news score or authorize orders. Sources: https://ciphermining.gcs-web.com/news-releases/news-release-details/cipher-digital-provides-third-quarter-2026-business-update ; https://investors.grab.com/news-and-events/default.aspx .
 
 ## 2. Prospect Scanner five-minute cadence
 
@@ -277,7 +279,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Urgent fix recommended — approval required  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-11-02
+**Last reviewed:** 2026-11-03
 
 **Evidence:** Alpaca PAPER holds 2 CCC shares at $7.65 average with no open broker orders; the database retains an intended $7.162513 stop. Four broker fills are unapplied: Spark BTC exit (Oct 12) and Pulse CIFR buy plus two sells (Oct 13). Broker stream heartbeat is Oct 12 17:55:58 UTC, although scheduled jobs continue returning HTTP 200. Spark's stale BTC ledger also blocks its one-position strategy.
 
@@ -305,11 +307,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-11-02 evidence:** Alpaca PAPER still holds **2 CCC at $7.65**, with **zero open orders**; the ~$7.162513 database stop is not broker protection. The same four Oct 12–13 Spark BTC/Pulse CIFR fills remain unapplied; stream heartbeat remains Oct 12 17:55:58 UTC, and Spark's BTC virtual position conflicts with broker inventory. Harbor created a **new RKT `prepared` order Nov 2 14:50 UTC**, expiring 21:00 UTC, with **no broker order ID**; old Pulse VXX/SMR remain `prepared` after expiry. Verify ownership, expiry and capital reservations independently. RKT's separate counterfactual has a hypothetical trigger and +0.303R MFE so far, **not** a broker fill. **Urgent status unchanged:** read-only parity and isolated tests only; any broker order or production execution change requires approval.
 
+**2026-11-03 evidence:** Alpaca PAPER still holds **2 CCC at $7.65** with **zero open orders**; database stop ~$7.162513 is not active protection. Same **4 unapplied fills** (Spark BTC sell Oct 12; Pulse CIFR buy/two sells Oct 13); trade-stream heartbeat still **Oct 12 17:55:58 UTC** with `stale_heartbeat` despite successful scheduled HTTP jobs. Nov 2 Harbor RKT instruction is now `expired` with no broker ID; older Pulse VXX/SMR and other instructions remain `prepared` past expiry. **Urgent status unchanged:** read-only broker/ledger parity and isolated idempotent event, expiry, reservation and protective-order tests; any broker action needs separate approval.
+
 ## 9. Shared $5,000 challenge execution acceptance
 
 **Status:** Shadow implemented / acceptance pending  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-11-02
+**Last reviewed:** 2026-11-03
 
 **Evidence:** `shared-paper-v1` remains preview, broker execution disabled; 55,046 projected source observations, zero challenge-specific strategy revalidations, proposal records, or authorized broker orders.
 
@@ -333,11 +337,13 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-11-02 evidence:** `shared-paper-v1` remains **preview**, broker execution disabled; source observations rose to **90,087** (+3,343 since Nov 1), but **0 strategy-revalidated** and **0 broker-authorized** observations. Counterfactual records **538** (+15): 207 stop-before-1R, 73 stop-after-1R, 107 two-R-before-stop and 151 other/pending/ambiguous. These are hypothetical, not fills or realized profit. **Recommendation unchanged:** no activation until independent challenge-scoped capital and execution acceptance.
 
+**2026-11-03 evidence:** `shared-paper-v1` remains **preview / paper-only / execution disabled**. Projected research observations **94,338** (+4,251 vs Nov 2), counterfactuals **569** (+31): 217 stop-before-1R, 76 stop-after-1R, 115 two-R-before-stop, 161 other/pending/ambiguous. **Zero strategy-revalidated observations and zero broker-authorized proposals.** Volume and counterfactuals are not fills/profit. **Recommendation unchanged:** independent capital-isolation/revalidation acceptance before activation.
+
 ## 10. Market-regime and leveraged-instrument event studies
 
 **Status:** Evaluate / historical handoff audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-11-02
+**Last reviewed:** 2026-11-03
 
 **Evidence:** Reuters Oct 23 reports renewed AI-sector selling, higher oil, and telecom competition concerns. T and leveraged inverse SOXS were among October 22 review-eligible prospects; both are ineligible on October 23. Solana's Alpenglow activation was confirmed October 21.
 
@@ -363,6 +369,8 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-11-02 market/scanner evidence:** Six current scanner `bot_review_eligible` stock prospects (15:05 UTC): **RIVN 91**, **EVGO 89** (+51.98%, spread 0.522%), **SPCX 86**, **JBLU 85**, **RKT 84**, **ACH 80** (**20.625% quoted spread**). Eligibility is not execution approval; ACH's spread is especially unsuitable for a naive momentum inference. RIVN's Oct 29 SEC-filed Q3 results confirm revenue +38% and improved guidance; JBLU's recent official Q3 release confirms revenue +21.1%; neither proves today's price move was caused by earnings. No verified same-day EVGO catalyst was found. Reuters Nov 2 reports oil easing and AI/tech stabilization; Reuters/CoinDesk report continuing Binance withdrawals and BTC near $78–79K. Evaluate catalyst timestamps, quote freshness, spreads, downstream bot decisions and counterfactual outcomes separately. Pulse marked RIVN/SPCX/RKT `watch` with 5-minute history, volatility or breakout warnings; Atlas rejected SPCX (`unqualified`) for no funded pool, not persisted-watchlist tradable, bearish regime, stop and allocation blockers. The persisted watchlist's inverse allocation remains **0%** and a monitoring universe is not an entry signal. **No scanner/risk/exec changes.** Sources: https://www.sec.gov/Archives/edgar/data/1874178/000187417826000065/ex-9913q26rivianearningspr.htm ; https://www.ir.jetblue.com/news/news-details/2026/JetBlue-Announces-Third-Quarter-2026-Results/default.aspx ; https://www.reuters.com/business/media-telecom/wall-street-futures-rise-ai-stocks-catch-their-breath-midterms-focus-2026-11-02/ ; https://www.reuters.com/business/finance/binance-sees-outflows-stabilising-exchange-returns-online-after-63-billion-heist-2026-11-02/ .
 
+**2026-11-03 evidence:** **10/5,915** stored stock prospects are bot-review-eligible at ~14:40 UTC (vs 6/5,804 Nov 2): CIFR 96, SNXX 95, GRAB 95, KORU 91, IREN 90, SNDG 90, MUU 84, SOXL 83, ORCL 82, RXRX 80. Four are daily-reset leveraged ETFs (SNXX/KORU/MUU/SOXL); volume ratios for candidates are low (0.07–0.37). Pulse marked evaluated candidates `watch` due to incomplete five-minute bars and/or breakout/volatility checks; Atlas `GRAB` journal `qualified` 77 nevertheless **blocked** for unfunded pool, untradable persisted watchlist, bearish long-only regime, below-85 score, >8% stop and allocation. CIFR and GRAB have independently verified recent company releases, but scanner moves cannot be causally assigned from headlines. Reuters Nov 3 reports AI-capex funding concerns and midterm uncertainty; CoinDesk Nov 3 describes BTC near $77K above its 200-day average but elevated event volatility. **Recommendation:** time-aligned, cost-adjusted shadow event study only; no scanner weights, leverage allocation, gates or orders. Sources: https://www.reuters.com/markets/wealth/global-markets-risks-analysis-pix-graphics-2026-11-03/ ; https://www.coindesk.com/daybook-us/2026/11/03/bitcoin-is-breaking-a-midterm-election-pattern-going-back-to-2014 ; https://ciphermining.gcs-web.com/news-releases/news-release-details/cipher-digital-provides-third-quarter-2026-business-update .
+
 ## 11. AI Clipper staged acceptance
 
 **Status:** Evaluate / PR stack open  
@@ -379,7 +387,7 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **Status:** Evaluate / read-only audit  
 **Added:** 2026-10-23  
-**Last reviewed:** 2026-11-01
+**Last reviewed:** 2026-11-03
 
 **Evidence:** Node.js released security fixes Oct 21 (22.23.4, 24.22.1, 26.12.1). LiteLLM v1.107.0 distribution was compromised Oct 21; no direct dependency was identified in the previously reviewed manifests, but runtime/transitive exposure has not been verified.
 
@@ -398,4 +406,6 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **2026-10-31 runtime verification:** Vercel `creatorhub` reports Node **24.x**; repository `package.json` has no `engines.node` and pins Next.js 16.2.11. Vercel's Oct 29 Node 26 LTS GA does not prove this existing project upgraded; audit effective runtime/engine constraints and test compatibility alongside Nov 3 Next.js advisories before any approved deployment. Source: https://vercel.com/changelog/node-js-26-lts-is-now-generally-available-on-vercel .
 
 **2026-11-01 security evidence:** Wiz's Oct 30 investigation reports nine October AI developer-platform breaches targeting environment variables and AI provider keys; observed stolen Bedrock credentials were abused at high volume. Cisco Talos' Oct 31 VOLTA research adds credential/session/crypto-wallet theft and AI victim profiling. No CreatorHub exposure to those vendors is established. **Possible solution:** read-only audit of broker/API credentials, Vercel/CI secrets, connected creator OAuth tokens, anomaly alerts and revocation paths; do not change auth, risk or security policy without approval. Sources: https://www.wiz.io/blog/black-october-for-ai-developer-platforms ; https://blog.talosintelligence.com/category/threat-spotlight/ .
+
+**2026-11-03 evidence:** Vercel announced automatic malware blocklist checks before/during new dependency installs, including cached-lockfile paths, on Nov 2; this does not establish current CreatorHub dependency safety. Research on coding-agent pretraining poisoning shows that clean downstream tuning alone need not remove triggered unsafe tool behavior. **Possible solution:** read-only lockfile/build provenance and broker/creator-token permission inventory, plus independent tool-call authorization regression cases. **Recommendation:** no dependency, security-policy or deployment changes without approval. Sources: https://vercel.com/changelog/blocking-malicious-npm-packages-before-and-during-installation ; https://arxiv.org/abs/2610.37741 .
 
