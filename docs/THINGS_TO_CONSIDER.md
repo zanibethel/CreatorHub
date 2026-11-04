@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-03
+Last reviewed: 2026-11-04
 
 ## Status key
 
@@ -409,3 +409,6 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 **2026-11-03 evidence:** Vercel announced automatic malware blocklist checks before/during new dependency installs, including cached-lockfile paths, on Nov 2; this does not establish current CreatorHub dependency safety. Research on coding-agent pretraining poisoning shows that clean downstream tuning alone need not remove triggered unsafe tool behavior. **Possible solution:** read-only lockfile/build provenance and broker/creator-token permission inventory, plus independent tool-call authorization regression cases. **Recommendation:** no dependency, security-policy or deployment changes without approval. Sources: https://vercel.com/changelog/blocking-malicious-npm-packages-before-and-during-installation ; https://arxiv.org/abs/2610.37741 .
 
+
+
+**2026-11-04 research and market update (existing items 1, 4, 6, 10, 12):** Connected PAPER research now has **99,230** source observations (+4,892), **597** counterfactuals (+28), **6,039** stored prospects (+124), and **2** bot-review-eligible prospects (SNDG 90, SOXL 87; latest source timestamps Nov 3, not fresh executable Nov 4 quotes). **Four broker fills remain ledger-unapplied**; Alpaca PAPER holds 2 CCC shares, with **zero open broker orders**. Challenge-authorized observations remain **0**. Reuters Nov 4 reports BTC around $78,354 and ETH $2,323 after midterm-driven volatility; Reuters reports AMD data-center Q3 revenue +97% to $8.55B and strong AI outlook. These are macro/sector research context, **not** validated symbol catalysts or execution permissions. **Status:** Urgent broker integrity unchanged; Evaluate market-regime counterfactuals. **Possible solution:** read-only broker/ledger parity, idempotent fill replay and stop-expiry tests; time-aligned, fee/spread-adjusted research on AI-infrastructure and crypto regimes. **Recommendation:** no orders, leverage/weight changes or bypass of liquidity/risk gates. Sources: https://www.reuters.com/business/finance/crypto-dips-democrat-midterm-wins-binance-hack-dent-optimism-2026-11-04/ ; https://www.reuters.com/business/amd-shares-jump-ai-driven-data-center-strength-fuels-growth-outlook-2026-11-04/ ; connected Supabase and Alpaca PAPER read-only snapshots.
