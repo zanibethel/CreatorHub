@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-04
+Last reviewed: 2026-11-05
 
 ## Status key
 
@@ -412,3 +412,6 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 
 **2026-11-04 research and market update (existing items 1, 4, 6, 10, 12):** Connected PAPER research now has **99,230** source observations (+4,892), **597** counterfactuals (+28), **6,039** stored prospects (+124), and **2** bot-review-eligible prospects (SNDG 90, SOXL 87; latest source timestamps Nov 3, not fresh executable Nov 4 quotes). **Four broker fills remain ledger-unapplied**; Alpaca PAPER holds 2 CCC shares, with **zero open broker orders**. Challenge-authorized observations remain **0**. Reuters Nov 4 reports BTC around $78,354 and ETH $2,323 after midterm-driven volatility; Reuters reports AMD data-center Q3 revenue +97% to $8.55B and strong AI outlook. These are macro/sector research context, **not** validated symbol catalysts or execution permissions. **Status:** Urgent broker integrity unchanged; Evaluate market-regime counterfactuals. **Possible solution:** read-only broker/ledger parity, idempotent fill replay and stop-expiry tests; time-aligned, fee/spread-adjusted research on AI-infrastructure and crypto regimes. **Recommendation:** no orders, leverage/weight changes or bypass of liquidity/risk gates. Sources: https://www.reuters.com/business/finance/crypto-dips-democrat-midterm-wins-binance-hack-dent-optimism-2026-11-04/ ; https://www.reuters.com/business/amd-shares-jump-ai-driven-data-center-strength-fuels-growth-outlook-2026-11-04/ ; connected Supabase and Alpaca PAPER read-only snapshots.
+
+
+**2026-11-05 broker/research and market-regime review (existing items 1, 4–6 and broker-integrity item):** Connected database shows **103,755 challenge observations (+4,525), 638 counterfactuals (+41), 6,189 stored prospects (+150), four unapplied broker fills (unchanged), zero persisted verified news signals**. Broker trade stream still `stale_heartbeat` (last Oct 12); sole review-eligible CONL score 86 has **Nov 4** underlying source timestamp, not a verified fresh Nov 5 quote. Reuters Nov 5 reports renewed chip/data-center selling after US midterms, contrasting with prior-session broader rally; Bitcoin near $80K in contemporaneous market reporting. **Status:** Urgent broker-integrity unchanged; Evaluate market regime (not an order signal). **Possible solution:** independent PAPER broker/ledger parity and stop-expiry checks, timestamp-aligned sector/crypto counterfactuals with spread/fee treatment. **Recommendation:** no orders, scanner weights, leverage, risk-gate or execution changes; do not promote CONL or any news-mentioned symbol. Sources: https://www.reuters.com/business/sp-500-futures-steady-after-midterm-rally-nasdaq-lags-chip-weakness-2026-11-05/ ; connected Supabase read-only snapshot.
