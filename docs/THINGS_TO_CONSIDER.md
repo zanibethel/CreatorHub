@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-05
+Last reviewed: 2026-11-06
 
 ## Status key
 
@@ -415,3 +415,6 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 
 
 **2026-11-05 broker/research and market-regime review (existing items 1, 4–6 and broker-integrity item):** Connected database shows **103,755 challenge observations (+4,525), 638 counterfactuals (+41), 6,189 stored prospects (+150), four unapplied broker fills (unchanged), zero persisted verified news signals**. Broker trade stream still `stale_heartbeat` (last Oct 12); sole review-eligible CONL score 86 has **Nov 4** underlying source timestamp, not a verified fresh Nov 5 quote. Reuters Nov 5 reports renewed chip/data-center selling after US midterms, contrasting with prior-session broader rally; Bitcoin near $80K in contemporaneous market reporting. **Status:** Urgent broker-integrity unchanged; Evaluate market regime (not an order signal). **Possible solution:** independent PAPER broker/ledger parity and stop-expiry checks, timestamp-aligned sector/crypto counterfactuals with spread/fee treatment. **Recommendation:** no orders, scanner weights, leverage, risk-gate or execution changes; do not promote CONL or any news-mentioned symbol. Sources: https://www.reuters.com/business/sp-500-futures-steady-after-midterm-rally-nasdaq-lags-chip-weakness-2026-11-05/ ; connected Supabase read-only snapshot.
+
+
+**2026-11-06 broker and market-regime review (existing news, broker-integrity, challenge and market items):** Connected database has **108,129 challenge observations (+4,374), 671 counterfactuals (+33), 6,306 prospects (+117), zero verified-news rows and four unapplied broker fills (unchanged)**. PAPER trade-stream heartbeat remains **Oct 12 17:55 UTC**; current broker position/order status was not independently rechecked today. Reuters Nov 6 reports Nasdaq's **5.5% Nov 5 decline** and worldwide semiconductor/AI-financing volatility; crypto also weakened with technology, but no independently verified executable crypto quote or bot signal was obtained. **Status:** Broker-integrity Urgent unchanged; market-regime Evaluate. **Possible solution:** read-only broker/ledger parity and fill-replay/stop lifecycle tests; time-align prospect, fills, news, spreads and strategy versions in shadow counterfactuals. **Recommendation:** no news-based promotions, orders, scanner weights, risk or execution changes. Sources: https://www.reuters.com/business/take-five/global-markets-themes-graphic-2026-11-06/ ; https://www.reuters.com/world/asia-pacific/analysts-investors-react-ai-market-rout-2026-11-06/ ; connected CreatorHub database.
