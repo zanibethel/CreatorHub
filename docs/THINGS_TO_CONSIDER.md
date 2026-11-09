@@ -4,7 +4,17 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-08
+Last reviewed: 2026-11-09
+
+## November 9, 2026 — Broker integrity and AI/crypto risk regime (existing considerations)
+
+**Status:** Recommend (read-only broker reconciliation); Evaluate (market research only)  
+**Last reviewed:** 2026-11-09
+
+**Evidence:** Connected database: 118,022 challenge source observations (+3,053 since Nov 8), 721 counterfactuals (+11), 6,397 prospects (+33), 4 broker fills without `ledger_applied_at`, and 0 verified-news signals. Alpaca stream health last heartbeat remains 2026-10-12 17:55:58 UTC despite stored `connected=true`. Reuters Nov 9 reports AI-equity instability and Nvidia-specific volatility (https://www.reuters.com/business/wall-st-futures-rise-after-rough-week-nvidia-unsettles-investors-2026-11-09/). Crypto weakness is market-regime context, not a bot signal.
+
+**Possible solution / recommendation:** First read-only broker/ledger parity and current protective-order verification, then isolated idempotent fill-replay/stream-expiry tests under separate approval. Compare AI infrastructure, crypto, and leveraged ETF outcomes with original scanner timestamps, liquidity/spreads, fees, and strategy versions. Never authorize an order or relax risk gates from news.
+
 
 ## Status key
 
