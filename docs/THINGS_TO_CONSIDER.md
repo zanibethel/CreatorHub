@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-09
+Last reviewed: 2026-11-10
 
 ## November 9, 2026 — Broker integrity and AI/crypto risk regime (existing considerations)
 
@@ -14,6 +14,16 @@ Last reviewed: 2026-11-09
 **Evidence:** Connected database: 118,022 challenge source observations (+3,053 since Nov 8), 721 counterfactuals (+11), 6,397 prospects (+33), 4 broker fills without `ledger_applied_at`, and 0 verified-news signals. Alpaca stream health last heartbeat remains 2026-10-12 17:55:58 UTC despite stored `connected=true`. Reuters Nov 9 reports AI-equity instability and Nvidia-specific volatility (https://www.reuters.com/business/wall-st-futures-rise-after-rough-week-nvidia-unsettles-investors-2026-11-09/). Crypto weakness is market-regime context, not a bot signal.
 
 **Possible solution / recommendation:** First read-only broker/ledger parity and current protective-order verification, then isolated idempotent fill-replay/stream-expiry tests under separate approval. Compare AI infrastructure, crypto, and leveraged ETF outcomes with original scanner timestamps, liquidity/spreads, fees, and strategy versions. Never authorize an order or relax risk gates from news.
+
+
+## November 10, 2026 — Broker integrity and inflation-driven market regime
+
+**Status:** Recommend (broker reconciliation, approval gated); Evaluate (market research only)  
+**Last reviewed:** 2026-11-10
+
+**Evidence:** Connected database: **122,835** research observations (+4,813), **775** counterfactuals (+54), **6,489** prospects (+92), **3** bot-review-eligible (TQQQ, SNDG, INTW), **4** fills without ledger application, **0** verified-news signals. Trade-stream last heartbeat remains 2026-10-12 17:55:58 UTC. Direct Alpaca PAPER read confirms **2 CCC shares** and **zero open orders** as of review; database stop does not provide broker protection. Reuters Nov 9 reported broad equity rebound despite Nvidia weakness (https://www.reuters.com/business/wall-st-futures-rise-after-rough-week-nvidia-unsettles-investors-2026-11-09/); Nov 10 CPI and Bitcoin decline provide a distinct macro research regime, not an order signal.
+
+**Possible solution / recommendation:** Read-only broker/ledger parity and CCC protective-order review first; then separately approved idempotent fill replay, stream recovery and protective-order lifecycle tests. Preserve timestamps, liquidity, spreads, fees, strategy versions and outcomes for CPI/AI/crypto comparisons; no news-derived promotion, risk relaxation, or execution authorization.
 
 
 ## Status key
