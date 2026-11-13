@@ -4,7 +4,17 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-12
+Last reviewed: 2026-11-13
+
+
+## November 13, 2026 — Broker protection and market stress (existing considerations)
+
+**Status:** Recommend (broker integrity read-only audit); Evaluate (market regime research only)  
+**Last reviewed:** 2026-11-13
+
+**Evidence:** Connected data: **135,140** source observations, **862** counterfactuals, **6,686** prospects, **0** bot-review-eligible, **0** persisted news signals, and **4** fills without ledger application. Trade-stream heartbeat remains 2026-10-12 17:55 UTC, monitor state `stale_heartbeat`. Direct PAPER broker check shows **CCC 2 shares and zero open orders**. Nov 13 market reporting: Bitcoin below $70K with forced long liquidations (https://www.theblock.co/news/markets/2026-11-13-bitcoin-tumbles-below-69000-439643); Reuters reports Cerebras premarket rebound (https://www.reuters.com/technology/cerebras-shares-surge-profit-surprise-forecast-raise-ease-ai-spending-worries-2026-11-13/).
+
+**Possible solution / recommendation:** Prioritize read-only broker/ledger parity and protective-order lifecycle tests; any broker order requires separate authorization. Preserve news as timestamped research context and compare with existing PAPER outcomes, spreads, fees, and strategy versions. Do not alter scanner weights, risk gates or execution from news.
 
 ## November 9, 2026 — Broker integrity and AI/crypto risk regime (existing considerations)
 
