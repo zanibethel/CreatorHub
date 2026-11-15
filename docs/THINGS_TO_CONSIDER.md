@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-14
+Last reviewed: 2026-11-15
 
 
 ## November 13, 2026 — Broker protection and market stress (existing considerations)
@@ -466,3 +466,11 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **Evidence:** Connected CreatorHub DB: **138,964** research observations (+3,824), **880** counterfactuals (+18), **6,717** stored prospects (+31), **1** bot-review-eligible (not an order), **0** persisted verified-news signals, **4** ledger-unapplied broker fills. Alpaca PAPER directly shows **2 CCC shares**, $7.65 average entry, and **zero open orders**; broker trade-stream heartbeat still Oct 12 17:55 UTC (`stale_heartbeat`). Reuters Nov 13 reports AI/neocloud selloff amid Nvidia leadership and financing uncertainty; CoinDesk Nov 13 reports BTC below $70K (https://www.reuters.com/business/neoclouds-ai-stocks-slide-again-nvidia-turmoil-rattles-sector-2026-11-13/ ; https://tldr.tech/ai/archives).
 
 **Possible solution / recommendation:** Read-only broker/ledger parity, protective-order review, idempotent fill replay tests; time-aligned AI/crypto regime counterfactuals with spreads, fees and original strategy versions. No orders, news-based symbol promotion, risk/weight/execution changes or gate bypass.
+
+## 2026-11-15 — Existing PAPER broker integrity and market-regime considerations
+
+**Status:** Broker reconciliation Urgent / unchanged; news and counterfactual research Evaluate. **Last reviewed:** 2026-11-15.
+
+**Evidence:** Connected DB: **142,068** source observations (+3,104), **890** counterfactuals (+10), **6,732** prospects (+15), **1** bot-review-eligible, **0** persisted news signals, **4** unapplied broker fills. Trade-stream last heartbeat **2026-10-12 17:55:58 UTC**. Direct Alpaca PAPER: **2 CCC shares, $7.65 average entry, zero open orders**. Reuters Nov 13 reports AI/neocloud selling amid Nvidia leadership/financing uncertainty; CoinDesk Nov 13 reports BTC below $70K amid dollar strength and liquidations (https://www.reuters.com/business/neoclouds-ai-stocks-slide-again-nvidia-turmoil-rattles-sector-2026-11-13/ ; https://www.coindesk.com/markets/2026/11/13/bitcoin-hits-12-week-low-as-dollar-rallies-on-interest-rate-outlook-liquidations-top-usd1-6-billion).
+
+**Possible solution / recommendation:** Read-only broker/ledger position, fill and protective-order parity; separately approved isolated replay/stream-recovery tests. Preserve timestamped AI/crypto stress context for existing PAPER counterfactuals with spreads, liquidity, fees and strategy versions. No news-based symbol promotion, orders, scanner weights, risk or execution changes.
