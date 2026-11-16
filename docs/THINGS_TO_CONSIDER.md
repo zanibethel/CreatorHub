@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-15
+Last reviewed: 2026-11-16
 
 
 ## November 13, 2026 — Broker protection and market stress (existing considerations)
@@ -474,3 +474,11 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **Evidence:** Connected DB: **142,068** source observations (+3,104), **890** counterfactuals (+10), **6,732** prospects (+15), **1** bot-review-eligible, **0** persisted news signals, **4** unapplied broker fills. Trade-stream last heartbeat **2026-10-12 17:55:58 UTC**. Direct Alpaca PAPER: **2 CCC shares, $7.65 average entry, zero open orders**. Reuters Nov 13 reports AI/neocloud selling amid Nvidia leadership/financing uncertainty; CoinDesk Nov 13 reports BTC below $70K amid dollar strength and liquidations (https://www.reuters.com/business/neoclouds-ai-stocks-slide-again-nvidia-turmoil-rattles-sector-2026-11-13/ ; https://www.coindesk.com/markets/2026/11/13/bitcoin-hits-12-week-low-as-dollar-rallies-on-interest-rate-outlook-liquidations-top-usd1-6-billion).
 
 **Possible solution / recommendation:** Read-only broker/ledger position, fill and protective-order parity; separately approved isolated replay/stream-recovery tests. Preserve timestamped AI/crypto stress context for existing PAPER counterfactuals with spreads, liquidity, fees and strategy versions. No news-based symbol promotion, orders, scanner weights, risk or execution changes.
+
+## 2026-11-16 — Existing PAPER broker integrity and crypto/AI stress research
+
+**Status:** Broker protection Urgent / unchanged; market-regime counterfactual research Evaluate. **Last reviewed:** 2026-11-16.
+
+**Evidence:** Direct Alpaca PAPER read: **2 CCC shares**, average entry $7.65, latest returned price $7.695, **zero open broker orders**; broker-side stop remains unverified. Last reviewed database snapshot (Nov 15) showed **4 unapplied fills**, 142,068 observations, 890 counterfactuals, 6,732 prospects; these counts were **not re-queried today**. CoinDesk Nov 16 reports BTC near $64.3K after a $62.1K Sunday low and about $2B weekend liquidations; AI/crypto correlations remain an evaluation topic (https://www.coindesk.com/markets/2026/11/16/bitcoin-slips-to-usd64-000-after-usd2-billion-weekend-flush).
+
+**Possible solution / recommendation:** Read-only broker/ledger parity and protective-order verification, then separately approved isolated idempotent replay/reconnect tests. Compare timestamp-aligned PAPER outcomes with spreads, liquidity, fees and strategy versions. No news-based order, scanner-weight, risk or execution change.
