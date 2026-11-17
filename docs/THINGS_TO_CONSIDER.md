@@ -4,7 +4,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-16
+Last reviewed: 2026-11-17
 
 
 ## November 13, 2026 — Broker protection and market stress (existing considerations)
@@ -482,3 +482,11 @@ Reference: https://developers.googleblog.com/en/introducing-embeddinggemma-2/
 **Evidence:** Direct Alpaca PAPER read: **2 CCC shares**, average entry $7.65, latest returned price $7.695, **zero open broker orders**; broker-side stop remains unverified. Last reviewed database snapshot (Nov 15) showed **4 unapplied fills**, 142,068 observations, 890 counterfactuals, 6,732 prospects; these counts were **not re-queried today**. CoinDesk Nov 16 reports BTC near $64.3K after a $62.1K Sunday low and about $2B weekend liquidations; AI/crypto correlations remain an evaluation topic (https://www.coindesk.com/markets/2026/11/16/bitcoin-slips-to-usd64-000-after-usd2-billion-weekend-flush).
 
 **Possible solution / recommendation:** Read-only broker/ledger parity and protective-order verification, then separately approved isolated idempotent replay/reconnect tests. Compare timestamp-aligned PAPER outcomes with spreads, liquidity, fees and strategy versions. No news-based order, scanner-weight, risk or execution change.
+
+## 2026-11-17 — Existing broker integrity and market research considerations
+
+**Status:** Broker protection Urgent / unchanged; market research Evaluate; observation growth requires ingestion-quality validation. **Last reviewed:** 2026-11-17.
+
+**Evidence:** Direct Alpaca PAPER: **2 CCC shares**, average entry **$7.65**, latest returned price **$7.69**, **0 open broker orders**. Connected DB: **4 unapplied fills**, **483,847 observations**, **914 counterfactuals**, **6,803 prospects**, **4 bot-review-eligible**, **0 verified-news signals**. The observation count is sharply higher than Nov 15's 142,068; only 12,188 observations were scanned in the last 24h, so reconcile backfill/retention/counting before interpreting the increase as new research throughput. Reuters Nov 17 reports tighter AI-chip export restrictions and semiconductor selling; CoinDesk Nov 17 reports BTC near $64.2K and Monday's $7.9M net ETF inflow ending a seven-day outflow streak (https://www.reuters.com/commentary/reuters-open-interest/global-markets-view-usa-2026-11-17/ ; https://www.coindesk.com/markets/2026/11/17/bitcoin-remains-penned-in-near-usd64-000-even-as-etf-outflow-streak-ends).
+
+**Possible solution / recommendation:** Read-only broker/ledger and protective-order parity, then separately approved isolated replay/reconnect tests. Audit observation backfill by scan date/source/version. Compare existing PAPER strategies against timestamp-aligned AI-chip export and crypto liquidity stress with spreads, fees, liquidity and original strategy versions. No newsletter-based symbol promotion, orders, risk, scanner weights or execution changes.
