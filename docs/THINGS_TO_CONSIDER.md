@@ -4,7 +4,17 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-17
+Last reviewed: 2026-11-19
+
+
+## November 19, 2026 — Broker integrity and Fed/AI market stress (existing considerations)
+
+**Status:** Recommend (read-only broker reconciliation, approval gated); Evaluate (research-only market regime)  
+**Last reviewed:** 2026-11-19
+
+**Evidence:** Direct Alpaca PAPER read: **CCC 2 shares, $7.65 average entry, $7.69 returned price, zero open orders**. Connected CreatorHub: **500,696 observations** (9,952 with scan timestamps in last 24 hours), **954 counterfactuals**, **6,840 stored prospects**, **0 bot-review-eligible**, **0 persisted news signals**, and **4 unapplied fills**. CoinDesk November 19 reports Bitcoin around $63,700, with Fed tightening expectations and ETF outflows (https://www.coindesk.com/markets/2026/11/19/bitcoin-holds-above-usd63-750-but-fed-rate-hike-threats-loom-large). Reuters reports a cybersecurity rally following Palo Alto's forecast (https://www.reuters.com/legal/litigation/palo-altos-raised-sales-forecast-powers-cybersecurity-stock-rally-2026-11-19/).
+
+**Possible solution / recommendation:** Reconcile broker positions, fills and orders read-only; test replay, reconnect and protective-order lifecycle in isolation. Audit observation backfills before inferring throughput gains. Compare the Fed/crypto and AI/security catalysts against immutable scanner decisions, spreads, fees, liquidity and counterfactuals. News cannot authorize an order or relax gates; broker actions and strategy changes require separate approval.
 
 
 ## November 13, 2026 — Broker protection and market stress (existing considerations)
