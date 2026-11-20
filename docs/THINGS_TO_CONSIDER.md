@@ -1,10 +1,19 @@
 # Things to Consider — CreatorHub
 
+## November 20, 2026 — Broker parity and AI/crypto stress (existing considerations)
+
+**Status:** PAPER broker protection **Urgent / unchanged**; market research **Evaluate**; ingestion-quality audit **Evaluate**. **Last reviewed:** 2026-11-20.
+
+**Evidence:** Direct Alpaca PAPER: **2 CCC shares**, $7.65 average entry, $7.67 returned price, **0 open orders**. Database: **4 unapplied fills**, trade-stream heartbeat Oct 12 (stale), **508,651 observations (+7,955), 978 counterfactuals (+24), 6,865 prospects (+25), 2 stored bot-review-eligible (SQQQ, SOXS; last scan Nov 19 20:25 CT), 0 persisted news signals**. Since Nov 14, 69 crypto and 16 stock counterfactuals have completed; no profitability claim without cost/outcome stratification. Reuters Nov 20 reports AI equity selloff and Anthropic post-IPO weakness; CoinDesk Nov 20 reports BTC near $61.7K, ETF outflows and liquidations (https://www.reuters.com/legal/transactional/wall-st-futures-slip-anthropic-debut-fails-reassure-ai-investors-2026-11-20/ ; https://www.coindesk.com/markets/2026/11/20/bitcoin-drops-for-third-straight-day-as-asian-tech-shares-slide).
+
+**Possible solution / recommendation:** Read-only broker/ledger/order reconciliation first, then separately approved idempotent fill replay, stream recovery and protective-order lifecycle tests. Audit observation backfill/deduplication and compare timestamp-aligned original PAPER decisions and counterfactual outcomes against AI/crypto stress with spreads, liquidity, fees and versioned rules. Do not promote SQQQ/SOXS from stale review flags or news; no orders, scanner weights, risk gates or execution changes.
+
+
 Living backlog of external findings, possible upgrades, trading-research observations, and solution ideas that may improve CreatorHub.
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-19
+Last reviewed: 2026-11-20
 
 
 ## November 19, 2026 — Broker integrity and Fed/AI market stress (existing considerations)
