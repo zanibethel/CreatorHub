@@ -1,5 +1,14 @@
 # Things to Consider — CreatorHub
 
+## November 21, 2026 — Existing PAPER broker integrity and volatility research
+
+**Status:** Broker protection Urgent / unchanged; research data quality and market-regime comparisons Evaluate. **Last reviewed:** 2026-11-21.
+
+**Evidence:** Direct Alpaca PAPER: **2 CCC shares**, $7.65 average entry, $7.66 returned price, **0 open orders**. Connected database: **4/25 fills unapplied**, 518,011 observations (+9,360), 999 counterfactuals (+21), 6,883 prospects (+18), one bot-review-eligible SSPC (score 81, stored spread 0.103466%), and zero news signals. Reuters Nov 20 reports Nasdaq -5.28%, S&P -3.70%; CoinDesk Nov 21 reports BTC briefly below $57K (https://www.reuters.com/legal/transactional/wall-st-futures-slip-anthropic-debut-fails-reassure-ai-investors-2026-11-20/ ; https://www.coindesk.com/markets/2026/11/21/bitcoin-tanks-below-usd57-000-for-the-first-time-in-two-years-and-its-not-alone).
+
+**Possible solution / recommendation:** Read-only broker/ledger/order parity, then separately approved isolated replay/stop-lifecycle tests. Audit observation backfill and counterfactual provenance; compare existing PAPER strategy outcomes under AI/crypto stress using original timestamps, spreads, liquidity, fees and strategy versions. SSPC classification is not an order signal; no symbol promotion, risk, scoring or execution changes.
+
+
 ## November 20, 2026 — Broker parity and AI/crypto stress (existing considerations)
 
 **Status:** PAPER broker protection **Urgent / unchanged**; market research **Evaluate**; ingestion-quality audit **Evaluate**. **Last reviewed:** 2026-11-20.
@@ -13,7 +22,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-20
+Last reviewed: 2026-11-21
 
 
 ## November 19, 2026 — Broker integrity and Fed/AI market stress (existing considerations)
