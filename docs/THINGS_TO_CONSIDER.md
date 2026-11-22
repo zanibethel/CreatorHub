@@ -1,5 +1,14 @@
 # Things to Consider — CreatorHub
 
+## November 22, 2026 — Existing PAPER integrity and market-stress research
+
+**Status:** Broker-side protection Urgent / unchanged; research quality and volatility comparisons Evaluate. **Last reviewed:** 2026-11-22.
+
+**Evidence:** Direct Alpaca PAPER returned **2 CCC shares**, $7.65 average entry, $7.66 returned valuation and **0 open orders**. Connected DB: **4/25 unapplied fills**, 523,523 observations (+5,512), 1,009 counterfactuals (+10), 6,890 prospects (+7), 0 bot-review-eligible and 0 news signals. Reuters Nov 21 reports BTC briefly reached $55,251.60 before rebounding near $60K, following Friday's Nasdaq 5.3% fall (https://www.reuters.com/business/bitcoin-falls-357-56814-2026-11-21/ ; https://www.reuters.com/business/view-nasdaq-plunges-5-day-after-anthropic-debut-investors-still-believe-ai-2026-11-20/). These are research catalysts, not entry signals.
+
+**Possible solution / recommendation:** Reconcile broker positions/orders/fills read-only; seek separate approval for isolated replay, reconnect and protective-order lifecycle tests. Audit backfills and duplicate observation provenance; compare existing PAPER counterfactuals to timestamp-aligned AI/crypto selloff and rebound with spreads, fees, liquidity and original strategy versions. No order, symbol promotion, scanner weight, risk or execution changes.
+
+
 ## November 21, 2026 — Existing PAPER broker integrity and volatility research
 
 **Status:** Broker protection Urgent / unchanged; research data quality and market-regime comparisons Evaluate. **Last reviewed:** 2026-11-21.
