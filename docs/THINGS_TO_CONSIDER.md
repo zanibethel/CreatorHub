@@ -1,5 +1,14 @@
 # Things to Consider — CreatorHub
 
+## November 23, 2026 — Existing broker integrity, research provenance, and AI/crypto rebound considerations
+
+**Status:** PAPER broker integrity Urgent / unchanged; scanner provenance and regime counterfactuals Evaluate. **Last reviewed:** 2026-11-23.
+
+**Evidence:** Direct Alpaca PAPER: **2 CCC shares at $7.65 average entry, zero open orders**; application broker fill ledger still has **4 unapplied fills** and trade-stream last heartbeat **2026-10-12 17:55 UTC**. Connected research: **528,045 prospect observations (+4,522 versus Nov 22), 173,106 challenge source observations (different table), 1,026 counterfactuals (+17), 6,908 prospects (+18), 13 stored bot-review eligible, 0 persisted news signals**. Eligible includes FFAI with **30.8% stored spread**: eligibility is not executable liquidity validation. Reuters Nov 23 reports sharp AI-stock rebound, and CoinDesk Nov 23 reports BTC near $61.5K after a $55.1K weekend low, with November ETF outflows; both are research context, not order signals. Sources: connected Supabase and direct Alpaca reads; https://www.reuters.com/commentary/reuters-open-interest/global-markets-view-usa-2026-11-23/ ; https://www.coindesk.com/markets/2026/11/23/bitcoin-rebounds-from-2-year-low-as-wall-street-futures-recover .
+
+**Possible solution / recommendation:** Read-only reconcile broker orders/positions/fills and protective-order state, then separately approved isolated idempotent replay/reconnect tests. Validate prospect freshness and spread/liquidity gates, audit backfill/duplicate provenance, and compare original strategy-version outcomes across selloff/rebound net of fees and slippage. No orders, news-based symbol promotion, scanner weights, risk limits or execution change.
+
+
 ## November 22, 2026 — Existing PAPER integrity and market-stress research
 
 **Status:** Broker-side protection Urgent / unchanged; research quality and volatility comparisons Evaluate. **Last reviewed:** 2026-11-22.
@@ -31,7 +40,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-21
+Last reviewed: 2026-11-23
 
 
 ## November 19, 2026 — Broker integrity and Fed/AI market stress (existing considerations)
