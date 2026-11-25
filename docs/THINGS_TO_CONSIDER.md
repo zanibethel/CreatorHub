@@ -2,7 +2,7 @@
 
 ## November 23, 2026 — Existing broker integrity, research provenance, and AI/crypto rebound considerations
 
-**Status:** PAPER broker integrity Urgent / unchanged; scanner provenance and regime counterfactuals Evaluate. **Last reviewed:** 2026-11-24.
+**Status:** PAPER broker integrity Urgent / unchanged; scanner provenance and regime counterfactuals Evaluate. **Last reviewed:** 2026-11-25.
 
 **Evidence:** Direct Alpaca PAPER: **2 CCC shares at $7.65 average entry, zero open orders**; application broker fill ledger still has **4 unapplied fills** and trade-stream last heartbeat **2026-10-12 17:55 UTC**. Connected research: **528,045 prospect observations (+4,522 versus Nov 22), 173,106 challenge source observations (different table), 1,026 counterfactuals (+17), 6,908 prospects (+18), 13 stored bot-review eligible, 0 persisted news signals**. Eligible includes FFAI with **30.8% stored spread**: eligibility is not executable liquidity validation. Reuters Nov 23 reports sharp AI-stock rebound, and CoinDesk Nov 23 reports BTC near $61.5K after a $55.1K weekend low, with November ETF outflows; both are research context, not order signals. Sources: connected Supabase and direct Alpaca reads; https://www.reuters.com/commentary/reuters-open-interest/global-markets-view-usa-2026-11-23/ ; https://www.coindesk.com/markets/2026/11/23/bitcoin-rebounds-from-2-year-low-as-wall-street-futures-recover .
 
@@ -10,6 +10,8 @@
 
 
 **2026-11-24 evidence (last reviewed):** PAPER broker reconciliation remains urgent: 4/25 fills lack ledger application; direct broker parity check confirms protection issue persists. Research: 538645 observations, 1053 counterfactuals, 6933 prospects, 0 news signals. Five stored eligible prospects; FFAI now ineligible (score 20, spread 12.76%), so current flag cleared but historical gate discrepancy remains Evaluate. One eligible row is from prior session; inverse candidates conflict with Default Diverse watchlist's zero inverse allocation, not proof of execution bypass. Nov 20 onward crypto counterfactuals: 29 two-R-before-stop, 17 stop-before-one-R, 2 stop-after-one-R, 2 unclassified; stock: 1 two-R-before-stop, 9 stop-before-one-R, 2 stop-after-one-R, 2 ambiguous same-bar, 1 session-end, 21 unclassified. Not net returns. Reuters Nov 24 https://www.reuters.com/world/china/global-markets-global-markets-2026-11-24/ and CoinDesk https://www.coindesk.com/markets/2026/11/24/bitcoin-hands-back-monday-s-nvidia-driven-gains-liquidations-triple document fading rebound. Preserve timestamped decisions, fee/slippage and correlation checks; audit freshness and inverse allocation gates before any proposed change. No orders or risk changes.
+
+**2026-11-25 evidence (last reviewed):** Broker protection Urgent unchanged: direct PAPER position remains two shares, zero open orders; 4/25 fills unapplied, stream heartbeat Oct 12. Research Evaluate: 548,168 observations, 1,072 counterfactuals, 6,951 prospects, zero news signals. Eight stored eligible, six inverse instruments; Default Diverse allocation remains zero; one prior-session candidate. FFAI remains ineligible; historical gate discrepancy open. Nov 20 onward crypto: 29 two-R-before-stop, 28 stop-before-one-R, 3 stop-after-one-R (60 total); stocks: 6 two-R-before-stop, 11 stop-before-one-R, 2 stop-after-one-R, 2 ambiguous, 2 never triggered, 2 session-end, 19 unclassified (44 total). Not realized or net returns; favorable crypto fraction weakened as sample grew. Reuters Nov 25 https://www.reuters.com/business/nasdaq-futures-slide-over-2-fresh-us-tariff-concerns-inflation-data-focus-2026-11-25/ and CoinDesk https://www.coindesk.com/markets/2026/11/25/bitcoin-hasn-t-paid-its-holders-for-the-risk-it-carries-and-now-gold-is-doing-the-same provide regime context only. Reconcile fills and test freshness/allocation gates; compare fee-adjusted, timestamped, nonoverlapping outcomes. No orders or risk changes.
 
 ## November 22, 2026 — Existing PAPER integrity and market-stress research
 
@@ -42,7 +44,7 @@ Living backlog of external findings, possible upgrades, trading-research observa
 
 These are **not approved implementation tasks**. Re-validate every item against current code, current data, and current market/provider conditions before implementation. New market/news signals may inform research but must not directly bypass trading risk gates.
 
-Last reviewed: 2026-11-23
+Last reviewed: 2026-11-25
 
 
 ## November 19, 2026 — Broker integrity and Fed/AI market stress (existing considerations)
